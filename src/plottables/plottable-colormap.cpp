@@ -161,7 +161,7 @@ double QCPColorMapData::data(double key, double value)
 }
 
 /* undocumented getter */
-double QCPColorMapData::cell(int keyIndex, int valueIndex)
+double QCPColorMapData::cell(int keyIndex, int valueIndex) const
 {
     if (keyIndex >= 0 && keyIndex < mKeySize && valueIndex >= 0 && valueIndex < mValueSize)
         return mData[valueIndex * mKeySize + keyIndex];
@@ -857,18 +857,12 @@ void QCPColorMap::setColorScale(QCPColorScale* colorScale)
 {
     if (mColorScale) // unconnect signals from old color scale
     {
-        disconnect(this, SIGNAL(dataRangeChanged(QCPRange)), mColorScale.data(),
-                   SLOT(setDataRange(QCPRange)));
-        disconnect(this, SIGNAL(dataScaleTypeChanged(QCPAxis::ScaleType)), mColorScale.data(),
-                   SLOT(setDataScaleType(QCPAxis::ScaleType)));
-        disconnect(this, SIGNAL(gradientChanged(QCPColorGradient)), mColorScale.data(),
-                   SLOT(setGradient(QCPColorGradient)));
-        disconnect(mColorScale.data(), SIGNAL(dataRangeChanged(QCPRange)), this,
-                   SLOT(setDataRange(QCPRange)));
-        disconnect(mColorScale.data(), SIGNAL(gradientChanged(QCPColorGradient)), this,
-                   SLOT(setGradient(QCPColorGradient)));
-        disconnect(mColorScale.data(), SIGNAL(dataScaleTypeChanged(QCPAxis::ScaleType)), this,
-                   SLOT(setDataScaleType(QCPAxis::ScaleType)));
+        disconnect(this, &QCPColorMap::dataRangeChanged, mColorScale.data(), &QCPColorScale::setDataRange);
+        disconnect(this, &QCPColorMap::dataScaleTypeChanged, mColorScale.data(), &QCPColorScale::setDataScaleType);
+        disconnect(this, &QCPColorMap::gradientChanged, mColorScale.data(), &QCPColorScale::setGradient);
+        disconnect(mColorScale.data(), &QCPColorScale::dataRangeChanged, this, &QCPColorMap::setDataRange);
+        disconnect(mColorScale.data(), &QCPColorScale::gradientChanged, this, &QCPColorMap::setGradient);
+        disconnect(mColorScale.data(), &QCPColorScale::dataScaleTypeChanged, this, &QCPColorMap::setDataScaleType);
     }
     mColorScale = colorScale;
     if (mColorScale) // connect signals to new color scale
@@ -876,18 +870,12 @@ void QCPColorMap::setColorScale(QCPColorScale* colorScale)
         setGradient(mColorScale.data()->gradient());
         setDataRange(mColorScale.data()->dataRange());
         setDataScaleType(mColorScale.data()->dataScaleType());
-        connect(this, SIGNAL(dataRangeChanged(QCPRange)), mColorScale.data(),
-                SLOT(setDataRange(QCPRange)));
-        connect(this, SIGNAL(dataScaleTypeChanged(QCPAxis::ScaleType)), mColorScale.data(),
-                SLOT(setDataScaleType(QCPAxis::ScaleType)));
-        connect(this, SIGNAL(gradientChanged(QCPColorGradient)), mColorScale.data(),
-                SLOT(setGradient(QCPColorGradient)));
-        connect(mColorScale.data(), SIGNAL(dataRangeChanged(QCPRange)), this,
-                SLOT(setDataRange(QCPRange)));
-        connect(mColorScale.data(), SIGNAL(gradientChanged(QCPColorGradient)), this,
-                SLOT(setGradient(QCPColorGradient)));
-        connect(mColorScale.data(), SIGNAL(dataScaleTypeChanged(QCPAxis::ScaleType)), this,
-                SLOT(setDataScaleType(QCPAxis::ScaleType)));
+        connect(this, &QCPColorMap::dataRangeChanged, mColorScale.data(), &QCPColorScale::setDataRange);
+        connect(this, &QCPColorMap::dataScaleTypeChanged, mColorScale.data(), &QCPColorScale::setDataScaleType);
+        connect(this, &QCPColorMap::gradientChanged, mColorScale.data(), &QCPColorScale::setGradient);
+        connect(mColorScale.data(), &QCPColorScale::dataRangeChanged, this, &QCPColorMap::setDataRange);
+        connect(mColorScale.data(), &QCPColorScale::gradientChanged, this, &QCPColorMap::setGradient);
+        connect(mColorScale.data(), &QCPColorScale::dataScaleTypeChanged, this, &QCPColorMap::setDataScaleType);
     }
 }
 
