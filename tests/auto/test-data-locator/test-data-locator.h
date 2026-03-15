@@ -14,6 +14,7 @@ private slots:
     void locateOnColorMap();
     void locateOnEmptyPlottable();
     void locateWithNullPlottable();
+    void locateOnMultiGraphSelectsClosestComponent();
 
 private:
     QCustomPlot* mPlot;

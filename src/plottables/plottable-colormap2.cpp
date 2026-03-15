@@ -15,6 +15,7 @@ QCPColorMap2::QCPColorMap2(QCPAxis* keyAxis, QCPAxis* valueAxis)
     , mPipeline(parentPlot() ? parentPlot()->pipelineScheduler() : nullptr, this)
 {
     mGradient.loadPreset(QCPColorGradient::gpCold);
+    mGradient.setNanHandling(QCPColorGradient::nhTransparent);
 
     mPipeline.setTransform(TransformKind::ViewportDependent,
         [&gapThreshold = mGapThreshold](
@@ -115,16 +116,19 @@ void QCPColorMap2::setColorScale(QCPColorScale* colorScale)
         disconnect(this, &QCPColorMap2::gradientChanged, mColorScale, &QCPColorScale::setGradient);
         disconnect(mColorScale, &QCPColorScale::dataRangeChanged, this, &QCPColorMap2::setDataRange);
         disconnect(mColorScale, &QCPColorScale::gradientChanged, this, &QCPColorMap2::setGradient);
+        disconnect(mColorScale, &QCPColorScale::dataScaleTypeChanged, this, &QCPColorMap2::setDataScaleType);
     }
     mColorScale = colorScale;
     if (mColorScale)
     {
         setGradient(mColorScale->gradient());
         setDataRange(mColorScale->dataRange());
+        setDataScaleType(mColorScale->dataScaleType());
         connect(this, &QCPColorMap2::dataRangeChanged, mColorScale, &QCPColorScale::setDataRange);
         connect(this, &QCPColorMap2::gradientChanged, mColorScale, &QCPColorScale::setGradient);
         connect(mColorScale, &QCPColorScale::dataRangeChanged, this, &QCPColorMap2::setDataRange);
         connect(mColorScale, &QCPColorScale::gradientChanged, this, &QCPColorMap2::setGradient);
+        connect(mColorScale, &QCPColorScale::dataScaleTypeChanged, this, &QCPColorMap2::setDataScaleType);
     }
 }
 
@@ -135,6 +139,17 @@ void QCPColorMap2::setDataRange(const QCPRange& range)
         mDataRange = range;
         mMapImageInvalidated = true;
         Q_EMIT dataRangeChanged(mDataRange);
+        if (mParentPlot)
+            mParentPlot->replot();
+    }
+}
+
+void QCPColorMap2::setDataScaleType(QCPAxis::ScaleType type)
+{
+    if (mDataScaleType != type)
+    {
+        mDataScaleType = type;
+        mMapImageInvalidated = true;
         if (mParentPlot)
             mParentPlot->replot();
     }
@@ -192,7 +207,8 @@ void QCPColorMap2::updateMapImage()
             rowData[x] = data->cell(x, y);
 
         QRgb* pixels = reinterpret_cast<QRgb*>(argbImage.scanLine(valueSize - 1 - y));
-        mGradient.colorize(rowData.data(), mDataRange, pixels, keySize);
+        mGradient.colorize(rowData.data(), mDataRange, pixels, keySize,
+                           1, mDataScaleType == QCPAxis::stLogarithmic);
     }
 
     mMapImage = argbImage.convertToFormat(QImage::Format_RGBA8888_Premultiplied);

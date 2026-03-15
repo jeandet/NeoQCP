@@ -24,6 +24,7 @@
 ****************************************************************************/
 
 #include "plottable-colormap.h"
+#include <cmath>
 
 #include "../axis/axis.h"
 #include "../core.h"
@@ -420,10 +421,13 @@ void QCPColorMapData::recalculateDataBounds()
         const int dataCount = mValueSize * mKeySize;
         for (int i = 0; i < dataCount; ++i)
         {
-            if (mData[i] > maxHeight)
-                maxHeight = mData[i];
-            if (mData[i] < minHeight)
-                minHeight = mData[i];
+            const double v = mData[i];
+            if (std::isnan(v))
+                continue;
+            if (v > maxHeight)
+                maxHeight = v;
+            if (v < minHeight)
+                minHeight = v;
         }
         mDataBounds.lower = minHeight;
         mDataBounds.upper = maxHeight;

@@ -1,5 +1,6 @@
 #pragma once
 #include "plottable.h"
+#include <axis/axis.h>
 #include <datasource/async-pipeline.h>
 #include <datasource/soa-datasource-2d.h>
 #include <colorgradient.h>
@@ -59,6 +60,8 @@ public:
     QCPColorGradient gradient() const { return mGradient; }
     QCPColorScale* colorScale() const { return mColorScale; }
     QCPRange dataRange() const { return mDataRange; }
+    QCPAxis::ScaleType dataScaleType() const { return mDataScaleType; }
+    void setDataScaleType(QCPAxis::ScaleType type);
 
     void setColorScale(QCPColorScale* colorScale);
     void rescaleDataRange(bool recalc = false);
@@ -91,6 +94,7 @@ private:
     QCPColorGradient mGradient;
     QCPColorScale* mColorScale = nullptr;
     QCPRange mDataRange;
+    QCPAxis::ScaleType mDataScaleType = QCPAxis::stLinear;
 
     QImage mMapImage;
     bool mMapImageInvalidated = true;

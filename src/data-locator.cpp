@@ -184,12 +184,13 @@ bool QCPDataLocator::locateMultiGraph(const QPointF& pixelPos)
         return false;
 
     int index = map["dataIndex"].toInt();
+    int component = map.value("componentIndex", 0).toInt();
     auto* src = mg->dataSource();
     if (!src || index < 0 || index >= mg->dataCount())
         return false;
 
     mKey = mg->dataMainKey(index);
-    mValue = mg->dataMainValue(index);
+    mValue = src->valueAt(component, index);
     mDataIndex = index;
     mHitPlottable = mPlottable;
     mValid = true;

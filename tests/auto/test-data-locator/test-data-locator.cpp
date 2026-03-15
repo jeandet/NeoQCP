@@ -1,5 +1,6 @@
 #include "test-data-locator.h"
 #include "data-locator.h"
+#include <plottables/plottable-multigraph.h>
 
 void TestDataLocator::init()
 {
@@ -124,4 +125,34 @@ void TestDataLocator::locateWithNullPlottable()
 
     QVERIFY(!found);
     QVERIFY(!locator.isValid());
+}
+
+void TestDataLocator::locateOnMultiGraphSelectsClosestComponent()
+{
+    // Bug: locateMultiGraph always returned component 0's value regardless
+    // of which component was closest to the cursor position.
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    mPlot->xAxis->setRange(0, 4);
+    mPlot->yAxis->setRange(-50, 50);
+
+    // Component 0 at y=10, component 1 at y=-30
+    std::vector<double> keys = {1.0, 2.0, 3.0};
+    std::vector<std::vector<double>> values = {
+        {10.0, 10.0, 10.0},   // component 0
+        {-30.0, -30.0, -30.0} // component 1
+    };
+    mg->setData(std::move(keys), std::move(values));
+    mPlot->replot();
+
+    // Locate near component 1 (y=-30) at x=2
+    QPointF pixelNearComp1 = mg->coordsToPixels(2.0, -30.0);
+
+    QCPDataLocator locator;
+    locator.setPlottable(mg);
+    bool found = locator.locate(pixelNearComp1);
+
+    QVERIFY(found);
+    QVERIFY(locator.isValid());
+    // Must return component 1's value (-30), not component 0's (10)
+    QCOMPARE(locator.value(), -30.0);
 }
