@@ -76,7 +76,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
 signals:
     void selectionChanged(bool selected);
@@ -92,14 +92,14 @@ protected:
     bool mSelectable, mSelected;
 
     // reimplemented virtual methods:
-    virtual QCP::Interaction selectionCategory() const Q_DECL_OVERRIDE;
-    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
-    virtual QRect clipRect() const Q_DECL_OVERRIDE;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE = 0;
+    virtual QCP::Interaction selectionCategory() const override;
+    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
+    virtual QRect clipRect() const override;
+    virtual void draw(QCPPainter* painter) override = 0;
     // events:
     virtual void selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                             bool* selectionStateChanged) Q_DECL_OVERRIDE;
-    virtual void deselectEvent(bool* selectionStateChanged) Q_DECL_OVERRIDE;
+                             bool* selectionStateChanged) override;
+    virtual void deselectEvent(bool* selectionStateChanged) override;
 
 private:
     Q_DISABLE_COPY(QCPAbstractLegendItem)
@@ -122,8 +122,8 @@ protected:
     QCPAbstractPlottable* mPlottable;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual QSize minimumOuterSizeHint() const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual QSize minimumOuterSizeHint() const override;
 
     // non-virtual methods:
     QPen getIconBorderPen() const;
@@ -172,7 +172,7 @@ public:
     Q_DECLARE_FLAGS(SelectableParts, SelectablePart)
 
     explicit QCPLegend();
-    virtual ~QCPLegend() Q_DECL_OVERRIDE;
+    virtual ~QCPLegend() override;
 
     // getters:
     QPen borderPen() const { return mBorderPen; }
@@ -222,7 +222,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     // non-virtual methods:
     QCPAbstractLegendItem* item(int index) const;
@@ -255,14 +255,14 @@ protected:
     QColor mSelectedTextColor;
 
     // reimplemented virtual methods:
-    virtual void parentPlotInitialized(QCustomPlot* parentPlot) Q_DECL_OVERRIDE;
-    virtual QCP::Interaction selectionCategory() const Q_DECL_OVERRIDE;
-    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
+    virtual void parentPlotInitialized(QCustomPlot* parentPlot) override;
+    virtual QCP::Interaction selectionCategory() const override;
+    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
+    virtual void draw(QCPPainter* painter) override;
     // events:
     virtual void selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                             bool* selectionStateChanged) Q_DECL_OVERRIDE;
-    virtual void deselectEvent(bool* selectionStateChanged) Q_DECL_OVERRIDE;
+                             bool* selectionStateChanged) override;
+    virtual void deselectEvent(bool* selectionStateChanged) override;
 
     // non-virtual methods:
     QPen getBorderPen() const;
