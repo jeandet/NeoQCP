@@ -55,12 +55,12 @@ protected:
     int mSubTickCount;
 
     // reimplemented virtual methods:
-    virtual double getTickStep(const QCPRange& range) Q_DECL_OVERRIDE;
-    virtual int getSubTickCount(double tickStep) Q_DECL_OVERRIDE;
+    virtual double getTickStep(const QCPRange& range) override;
+    virtual int getSubTickCount(double tickStep) override;
     virtual QString getTickLabel(double tick, const QLocale& locale, QChar formatChar,
-                                 int precision) Q_DECL_OVERRIDE;
+                                 int precision) override;
     virtual QVector<double> createTickVector(double tickStep,
-                                             const QCPRange& range) Q_DECL_OVERRIDE;
+                                             const QCPRange& range) override;
 };
 
 #endif // QCP_AXISTICKERTEXT_H

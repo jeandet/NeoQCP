@@ -1368,7 +1368,7 @@ void QCPPolarAxisRadial::wheelEvent(QWheelEvent* event)
     // const double factor = qPow(mRangeZoomFactor, wheelSteps);
     // scaleRange(factor, pixelToCoord(orientation() == Qt::Horizontal ? event->pos().x() :
     // event->pos().y()));
-    mParentPlot->replot();
+    mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 
 void QCPPolarAxisRadial::updateGeometry(const QPointF& center, double radius)

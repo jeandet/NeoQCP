@@ -45,8 +45,8 @@ template <class DataType>
 class QCPDataContainer // no QCP_LIB_DECL, template class ends up in header (cpp included below)
 {
 public:
-    typedef typename QVector<DataType>::const_iterator const_iterator;
-    typedef typename QVector<DataType>::iterator iterator;
+    using const_iterator = typename QVector<DataType>::const_iterator;
+    using iterator = typename QVector<DataType>::iterator;
 
     QCPDataContainer();
 

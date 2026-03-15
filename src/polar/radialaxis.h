@@ -234,7 +234,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = 0) const Q_DECL_OVERRIDE;
+                              QVariant* details = 0) const override;
 
     // non-property methods:
     void moveRange(double diff);
@@ -305,18 +305,18 @@ protected:
     QCPLabelPainterPrivate mLabelPainter;
 
     // reimplemented virtual methods:
-    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual QCP::Interaction selectionCategory() const Q_DECL_OVERRIDE;
+    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
+    virtual void draw(QCPPainter* painter) override;
+    virtual QCP::Interaction selectionCategory() const override;
     // events:
     virtual void selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                             bool* selectionStateChanged) Q_DECL_OVERRIDE;
-    virtual void deselectEvent(bool* selectionStateChanged) Q_DECL_OVERRIDE;
+                             bool* selectionStateChanged) override;
+    virtual void deselectEvent(bool* selectionStateChanged) override;
     // mouse events:
-    virtual void mousePressEvent(QMouseEvent* event, const QVariant& details) Q_DECL_OVERRIDE;
-    virtual void mouseMoveEvent(QMouseEvent* event, const QPointF& startPos) Q_DECL_OVERRIDE;
-    virtual void mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos) Q_DECL_OVERRIDE;
-    virtual void wheelEvent(QWheelEvent* event) Q_DECL_OVERRIDE;
+    virtual void mousePressEvent(QMouseEvent* event, const QVariant& details) override;
+    virtual void mouseMoveEvent(QMouseEvent* event, const QPointF& startPos) override;
+    virtual void mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos) override;
+    virtual void wheelEvent(QWheelEvent* event) override;
 
     // non-virtual methods:
     void updateGeometry(const QPointF& center, double radius);

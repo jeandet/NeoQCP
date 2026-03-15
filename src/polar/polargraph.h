@@ -57,8 +57,8 @@ protected:
     QCPPolarGraph* mPolarGraph;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual QSize minimumOuterSizeHint() const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual QSize minimumOuterSizeHint() const override;
 
     // non-virtual methods:
     QPen getIconBorderPen() const;

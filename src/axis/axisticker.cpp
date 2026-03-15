@@ -379,7 +379,7 @@ QVector<QString> QCPAxisTicker::createLabelVector(const QVector<double>& ticks,
 {
     QVector<QString> result;
     result.reserve(ticks.size());
-    foreach (double tickCoord, ticks)
+    for (double tickCoord : ticks)
         result.append(getTickLabel(tickCoord, locale, formatChar, precision));
     return result;
 }

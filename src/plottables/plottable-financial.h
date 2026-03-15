@@ -74,7 +74,7 @@ Q_DECLARE_TYPEINFO(QCPFinancialData, Q_PRIMITIVE_TYPE);
 
   \see QCPFinancialData, QCPFinancial::setData
 */
-typedef QCPDataContainer<QCPFinancialData> QCPFinancialDataContainer;
+using QCPFinancialDataContainer = QCPDataContainer<QCPFinancialData>;
 
 class QCP_LIB_DECL QCPFinancial : public QCPAbstractPlottable1D<QCPFinancialData>
 {
@@ -121,7 +121,7 @@ public:
     Q_ENUMS(ChartStyle)
 
     explicit QCPFinancial(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPFinancial() Q_DECL_OVERRIDE;
+    virtual ~QCPFinancial() override;
 
     // getters:
     QSharedPointer<QCPFinancialDataContainer> data() const { return mDataContainer; }
@@ -164,13 +164,13 @@ public:
 
     // reimplemented virtual methods:
     virtual QCPDataSelection selectTestRect(const QRectF& rect,
-                                            bool onlySelectable) const Q_DECL_OVERRIDE;
+                                            bool onlySelectable) const override;
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
     virtual QCPRange getKeyRange(bool& foundRange,
-                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const Q_DECL_OVERRIDE;
+                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const override;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
-                                   const QCPRange& inKeyRange = QCPRange()) const Q_DECL_OVERRIDE;
+                                   const QCPRange& inKeyRange = QCPRange()) const override;
 
     // static methods:
     static QCPFinancialDataContainer timeSeriesToOhlc(const QVector<double>& time,
@@ -187,8 +187,8 @@ protected:
     QPen mPenPositive, mPenNegative;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
 
     // non-virtual methods:
     void drawOhlcPlot(QCPPainter* painter, const QCPFinancialDataContainer::const_iterator& begin,

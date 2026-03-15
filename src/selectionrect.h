@@ -38,7 +38,7 @@ class QCP_LIB_DECL QCPSelectionRect : public QCPLayerable
 
 public:
     explicit QCPSelectionRect(QCustomPlot* parentPlot);
-    virtual ~QCPSelectionRect() Q_DECL_OVERRIDE;
+    virtual ~QCPSelectionRect() override;
 
     // getters:
     QRect rect() const { return mRect; }
@@ -79,8 +79,8 @@ protected:
     virtual void keyPressEvent(QKeyEvent* event);
 
     // reimplemented virtual methods
-    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
+    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
+    virtual void draw(QCPPainter* painter) override;
 
     friend class QCustomPlot;
 };

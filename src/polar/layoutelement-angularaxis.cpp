@@ -1763,7 +1763,7 @@ void QCPPolarAxisAngular::wheelEvent(QWheelEvent* event)
         }
     }
     if (doReplot)
-        mParentPlot->replot();
+        mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 
 bool QCPPolarAxisAngular::registerPolarGraph(QCPPolarGraph* graph)

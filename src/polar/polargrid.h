@@ -104,8 +104,8 @@ protected:
     QPointer<QCPPolarAxisRadial> mRadialAxis;
 
     // reimplemented virtual methods:
-    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
+    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
+    virtual void draw(QCPPainter* painter) override;
 
     // non-virtual methods:
     void drawRadialGrid(QCPPainter* painter, const QPointF& center, const QVector<double>& coords,

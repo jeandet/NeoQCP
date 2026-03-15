@@ -161,7 +161,7 @@ QCPBars* QCPBarsGroup::bars(int index) const
 void QCPBarsGroup::clear()
 {
     const QList<QCPBars*> oldBars = mBars;
-    foreach (QCPBars* bars, oldBars)
+    for (QCPBars* bars : oldBars)
         bars->setBarsGroup(nullptr); // removes itself from mBars via removeBars
 }
 
@@ -265,7 +265,7 @@ double QCPBarsGroup::keyPixelOffset(const QCPBars* bars, double keyCoord)
 {
     // find list of all base bars in case some mBars are stacked:
     QList<const QCPBars*> baseBars;
-    foreach (const QCPBars* b, mBars)
+    for (const QCPBars* b : mBars)
     {
         while (b->barBelow())
             b = b->barBelow();

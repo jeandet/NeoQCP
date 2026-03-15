@@ -208,7 +208,7 @@ void QCPSelectionDecoratorBracket::drawDecoration(QCPPainter* painter, QCPDataSe
 
     if (QCPPlottableInterface1D* interface1d = mPlottable->interface1D())
     {
-        foreach (const QCPDataRange& dataRange, selection.dataRanges())
+        for (const QCPDataRange& dataRange : selection.dataRanges())
         {
             // determine position and (if tangent mode is enabled) angle of brackets:
             int openBracketDir

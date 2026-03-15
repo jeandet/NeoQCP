@@ -389,7 +389,7 @@ QCPDataSelection& QCPDataSelection::operator-=(const QCPDataRange& other)
 int QCPDataSelection::dataPointCount() const
 {
     int result = 0;
-    foreach (QCPDataRange dataRange, mDataRanges)
+    for (QCPDataRange dataRange : mDataRanges)
         result += dataRange.length();
     return result;
 }
@@ -578,7 +578,7 @@ bool QCPDataSelection::contains(const QCPDataSelection& other) const
 QCPDataSelection QCPDataSelection::intersection(const QCPDataRange& other) const
 {
     QCPDataSelection result;
-    foreach (QCPDataRange dataRange, mDataRanges)
+    for (QCPDataRange dataRange : mDataRanges)
         result.addDataRange(dataRange.intersection(other), false);
     result.simplify();
     return result;
