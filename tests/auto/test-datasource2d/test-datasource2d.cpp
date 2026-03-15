@@ -4,6 +4,7 @@
 #include <datasource/soa-datasource-2d.h>
 #include <datasource/resample.h>
 #include <QtTest/QtTest>
+#include <cmath>
 #include <span>
 
 void TestDataSource2D::init()
@@ -514,6 +515,13 @@ void TestDataSource2D::colormap2DataScaleTypeSync()
 
     cs->setDataScaleType(QCPAxis::stLogarithmic);
     QCOMPARE(cm->dataScaleType(), QCPAxis::stLogarithmic);
+
+    // Reverse direction: colormap -> color scale
+    cm->setDataScaleType(QCPAxis::stLinear);
+    QCOMPARE(cs->dataScaleType(), QCPAxis::stLinear);
+
+    cm->setDataScaleType(QCPAxis::stLogarithmic);
+    QCOMPARE(cs->dataScaleType(), QCPAxis::stLogarithmic);
 }
 
 void TestDataSource2D::colormap2Creation()

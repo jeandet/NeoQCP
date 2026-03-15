@@ -429,8 +429,15 @@ void QCPColorMapData::recalculateDataBounds()
             if (v < minHeight)
                 minHeight = v;
         }
-        mDataBounds.lower = minHeight;
-        mDataBounds.upper = maxHeight;
+        if (minHeight <= maxHeight)
+        {
+            mDataBounds.lower = minHeight;
+            mDataBounds.upper = maxHeight;
+        }
+        else
+        {
+            mDataBounds = QCPRange(0, 0);
+        }
     }
 }
 

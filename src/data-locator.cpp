@@ -186,7 +186,8 @@ bool QCPDataLocator::locateMultiGraph(const QPointF& pixelPos)
     int index = map["dataIndex"].toInt();
     int component = map.value("componentIndex", 0).toInt();
     auto* src = mg->dataSource();
-    if (!src || index < 0 || index >= mg->dataCount())
+    if (!src || index < 0 || index >= mg->dataCount()
+        || component < 0 || component >= src->columnCount())
         return false;
 
     mKey = mg->dataMainKey(index);

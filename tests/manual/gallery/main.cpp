@@ -3,6 +3,7 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QTimer>
+#include <cmath>
 #include <numbers>
 #include "../../../src/qcp.h"
 

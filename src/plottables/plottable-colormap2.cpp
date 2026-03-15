@@ -101,10 +101,12 @@ void QCPColorMap2::setGradient(const QCPColorGradient& gradient)
     if (mGradient != gradient)
     {
         mGradient = gradient;
+        if (mGradient.nanHandling() == QCPColorGradient::nhNone)
+            mGradient.setNanHandling(QCPColorGradient::nhTransparent);
         mMapImageInvalidated = true;
         Q_EMIT gradientChanged(mGradient);
         if (mParentPlot)
-            mParentPlot->replot();
+            mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
 
@@ -114,6 +116,7 @@ void QCPColorMap2::setColorScale(QCPColorScale* colorScale)
     {
         disconnect(this, &QCPColorMap2::dataRangeChanged, mColorScale, &QCPColorScale::setDataRange);
         disconnect(this, &QCPColorMap2::gradientChanged, mColorScale, &QCPColorScale::setGradient);
+        disconnect(this, &QCPColorMap2::dataScaleTypeChanged, mColorScale, &QCPColorScale::setDataScaleType);
         disconnect(mColorScale, &QCPColorScale::dataRangeChanged, this, &QCPColorMap2::setDataRange);
         disconnect(mColorScale, &QCPColorScale::gradientChanged, this, &QCPColorMap2::setGradient);
         disconnect(mColorScale, &QCPColorScale::dataScaleTypeChanged, this, &QCPColorMap2::setDataScaleType);
@@ -122,10 +125,11 @@ void QCPColorMap2::setColorScale(QCPColorScale* colorScale)
     if (mColorScale)
     {
         setGradient(mColorScale->gradient());
-        setDataRange(mColorScale->dataRange());
         setDataScaleType(mColorScale->dataScaleType());
+        setDataRange(mColorScale->dataRange());
         connect(this, &QCPColorMap2::dataRangeChanged, mColorScale, &QCPColorScale::setDataRange);
         connect(this, &QCPColorMap2::gradientChanged, mColorScale, &QCPColorScale::setGradient);
+        connect(this, &QCPColorMap2::dataScaleTypeChanged, mColorScale, &QCPColorScale::setDataScaleType);
         connect(mColorScale, &QCPColorScale::dataRangeChanged, this, &QCPColorMap2::setDataRange);
         connect(mColorScale, &QCPColorScale::gradientChanged, this, &QCPColorMap2::setGradient);
         connect(mColorScale, &QCPColorScale::dataScaleTypeChanged, this, &QCPColorMap2::setDataScaleType);
@@ -134,13 +138,17 @@ void QCPColorMap2::setColorScale(QCPColorScale* colorScale)
 
 void QCPColorMap2::setDataRange(const QCPRange& range)
 {
-    if (mDataRange.lower != range.lower || mDataRange.upper != range.upper)
+    if (!QCPRange::validRange(range))
+        return;
+    QCPRange newRange = (mDataScaleType == QCPAxis::stLogarithmic)
+        ? range.sanitizedForLogScale() : range.sanitizedForLinScale();
+    if (mDataRange.lower != newRange.lower || mDataRange.upper != newRange.upper)
     {
-        mDataRange = range;
+        mDataRange = newRange;
         mMapImageInvalidated = true;
         Q_EMIT dataRangeChanged(mDataRange);
         if (mParentPlot)
-            mParentPlot->replot();
+            mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
 
@@ -150,8 +158,18 @@ void QCPColorMap2::setDataScaleType(QCPAxis::ScaleType type)
     {
         mDataScaleType = type;
         mMapImageInvalidated = true;
+        if (type == QCPAxis::stLogarithmic && QCPRange::validRange(mDataRange))
+        {
+            QCPRange sanitized = mDataRange.sanitizedForLogScale();
+            if (mDataRange.lower != sanitized.lower || mDataRange.upper != sanitized.upper)
+            {
+                mDataRange = sanitized;
+                Q_EMIT dataRangeChanged(mDataRange);
+            }
+        }
+        Q_EMIT dataScaleTypeChanged(mDataScaleType);
         if (mParentPlot)
-            mParentPlot->replot();
+            mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
 
