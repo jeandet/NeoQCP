@@ -5,9 +5,8 @@
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
 
-    auto plotBuilder = [this](bool openGL=false, std::size_t points= 10'000'000){
+    auto plotBuilder = [this](std::size_t points= 10'000'000){
         auto plot = new QCustomPlot(this);
-        plot->setOpenGl(openGL, 4);
 
         plot->addGraph();
 
@@ -19,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
         plot->xAxis->rescale();
         plot->yAxis->rescale();
         plot->plotLayout()->insertRow(0);
-        plot->plotLayout()->addElement(0,0, new  QCPTextElement(plot,openGL?"With OpenGL":"Without OpenGL"));
+        plot->plotLayout()->addElement(0,0, new QCPTextElement(plot, "Plot"));
         plot->replot();
         return plot;
     };
@@ -27,8 +26,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     mLayout = new QVBoxLayout(centralWidget());
     mLayout->setContentsMargins(0, 0, 0, 0);
     mLayout->setSpacing(0);
-    mLayout->addWidget(plotBuilder(true, 10'000'000));
-    mLayout->addWidget(plotBuilder(false, 10'000'000));
+    mLayout->addWidget(plotBuilder(10'000'000));
+    mLayout->addWidget(plotBuilder(10'000'000));
 
 }
 

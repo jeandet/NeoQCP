@@ -10,7 +10,21 @@ test_srcs = [
     'test-qcpaxisrect/test-qcpaxisrect.cpp',
     'test-colormap/test-colormap.cpp',
     'test-datacontainer/test-datacontainer.cpp',
-    'test-qcplegend/test-qcplegend.cpp'
+    'test-qcplegend/test-qcplegend.cpp',
+    'test-line-extruder/test-line-extruder.cpp',
+    'test-datasource/test-datasource.cpp',
+    'test-datasource2d/test-datasource2d.cpp',
+    'test-theme/test-theme.cpp',
+    'test-paintbuffer/test-paintbuffer.cpp',
+    'test-multi-datasource/test-multi-datasource.cpp',
+    'test-multigraph/test-multigraph.cpp',
+    'test-pipeline/test-pipeline.cpp',
+    'test-waterfall/test-waterfall.cpp',
+    'test-hspan/test-hspan.cpp',
+    'test-rspan/test-rspan.cpp',
+    'test-vspan/test-vspan.cpp',
+    'test-richtext/test-richtext.cpp',
+    'test-data-locator/test-data-locator.cpp',
 ]
 
 test_headers = [
@@ -23,7 +37,21 @@ test_headers = [
     'test-qcpaxisrect/test-qcpaxisrect.h',
     'test-colormap/test-colormap.h',
     'test-datacontainer/test-datacontainer.h',
-    'test-qcplegend/test-qcplegend.h'
+    'test-qcplegend/test-qcplegend.h',
+    'test-line-extruder/test-line-extruder.h',
+    'test-datasource/test-datasource.h',
+    'test-datasource2d/test-datasource2d.h',
+    'test-theme/test-theme.h',
+    'test-paintbuffer/test-paintbuffer.h',
+    'test-multi-datasource/test-multi-datasource.h',
+    'test-multigraph/test-multigraph.h',
+    'test-pipeline/test-pipeline.h',
+    'test-waterfall/test-waterfall.h',
+    'test-hspan/test-hspan.h',
+    'test-rspan/test-rspan.h',
+    'test-vspan/test-vspan.h',
+    'test-richtext/test-richtext.h',
+    'test-data-locator/test-data-locator.h',
 ]
 test_moc_files = qtmod.compile_moc(headers : test_headers)
 

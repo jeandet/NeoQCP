@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QDir>
 #include <QMetaEnum>
+#include <numbers>
 #if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
 #  include <QElapsedTimer>
 #endif
@@ -44,6 +45,8 @@ public:
   void setupLegendTest(QCustomPlot *customPlot);
   void setupMultiAxisRectInteractions(QCustomPlot *customPlot);
   void setupAdaptiveSamplingTest(QCustomPlot *customPlot);
+  void setupGraph2Test(QCustomPlot *customPlot);
+  void setupColorMap2Test(QCustomPlot *customPlot);
   void setupColorMapTest(QCustomPlot *customPlot);
   void setupBarsTest(QCustomPlot *customPlot);
   void setupBarsGroupTest(QCustomPlot *customPlot);
@@ -54,6 +57,8 @@ public:
   void setupScatterSkipTest(QCustomPlot *customPlot);
   void setupTimeZoneTest(QCustomPlot *customPlot);
   void setupPolarAxisTest(QCustomPlot *customPlot);
+  void setupMultiGraphComparisonTest(QCustomPlot *customPlot);
+  void setupWaterfallTest(QCustomPlot *customPlot);
   // testbed:
   void setupTestbed(QCustomPlot *customPlot);
   
