@@ -83,13 +83,13 @@ QCPItemAnchor::QCPItemAnchor(QCustomPlot* parentPlot, QCPAbstractItem* parentIte
 QCPItemAnchor::~QCPItemAnchor()
 {
     // unregister as parent at children:
-    foreach (QCPItemPosition* child, mChildrenX.values())
+    for (QCPItemPosition* child : mChildrenX.values())
     {
         if (child->parentAnchorX() == this)
             child->setParentAnchorX(
                 nullptr); // this acts back on this anchor and child removes itself from mChildrenX
     }
-    foreach (QCPItemPosition* child, mChildrenY.values())
+    for (QCPItemPosition* child : mChildrenY.values())
     {
         if (child->parentAnchorY() == this)
             child->setParentAnchorY(
@@ -271,13 +271,13 @@ QCPItemPosition::~QCPItemPosition()
     // itself, because only then
     //       the setParentAnchor(0) call the correct QCPItemPosition::pixelPosition function instead
     //       of QCPItemAnchor::pixelPosition
-    foreach (QCPItemPosition* child, mChildrenX.values())
+    for (QCPItemPosition* child : mChildrenX.values())
     {
         if (child->parentAnchorX() == this)
             child->setParentAnchorX(
                 nullptr); // this acts back on this anchor and child removes itself from mChildrenX
     }
-    foreach (QCPItemPosition* child, mChildrenY.values())
+    for (QCPItemPosition* child : mChildrenY.values())
     {
         if (child->parentAnchorY() == this)
             child->setParentAnchorY(
@@ -694,6 +694,12 @@ QPointF QCPItemPosition::pixelPosition() const
         }
     }
 
+    // coordToPixel can produce NaN (e.g. log axis with negative value); clamp to avoid
+    // Qt assertions in downstream QTransform/QPainter operations.
+    if (qIsNaN(result.x()))
+        result.rx() = 0;
+    if (qIsNaN(result.y()))
+        result.ry() = 0;
     return result;
 }
 
@@ -1108,7 +1114,7 @@ void QCPAbstractItem::setSelected(bool selected)
 */
 QCPItemPosition* QCPAbstractItem::position(const QString& name) const
 {
-    foreach (QCPItemPosition* position, mPositions)
+    for (QCPItemPosition* position : mPositions)
     {
         if (position->name() == name)
             return position;
@@ -1129,7 +1135,7 @@ QCPItemPosition* QCPAbstractItem::position(const QString& name) const
 */
 QCPItemAnchor* QCPAbstractItem::anchor(const QString& name) const
 {
-    foreach (QCPItemAnchor* anchor, mAnchors)
+    for (QCPItemAnchor* anchor : mAnchors)
     {
         if (anchor->name() == name)
             return anchor;
@@ -1148,7 +1154,7 @@ QCPItemAnchor* QCPAbstractItem::anchor(const QString& name) const
 */
 bool QCPAbstractItem::hasAnchor(const QString& name) const
 {
-    foreach (QCPItemAnchor* anchor, mAnchors)
+    for (QCPItemAnchor* anchor : mAnchors)
     {
         if (anchor->name() == name)
             return true;
@@ -1214,7 +1220,7 @@ double QCPAbstractItem::rectDistance(const QRectF& rect, const QPointF& pos, boo
         << QLineF(rect.topLeft(), rect.bottomLeft()) << QLineF(rect.topRight(), rect.bottomRight());
     const QCPVector2D posVec(pos);
     double minDistSqr = (std::numeric_limits<double>::max)();
-    foreach (const QLineF& line, lines)
+    for (const QLineF& line : lines)
     {
         double distSqr = posVec.distanceSquaredToLine(line.p1(), line.p2());
         if (distSqr < minDistSqr)

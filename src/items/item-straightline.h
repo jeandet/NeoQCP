@@ -42,7 +42,7 @@ class QCP_LIB_DECL QCPItemStraightLine : public QCPAbstractItem
 
 public:
     explicit QCPItemStraightLine(QCustomPlot* parentPlot);
-    virtual ~QCPItemStraightLine() Q_DECL_OVERRIDE;
+    virtual ~QCPItemStraightLine() override;
 
     // getters:
     QPen pen() const { return mPen; }
@@ -55,7 +55,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     QCPItemPosition* const point1;
     QCPItemPosition* const point2;
@@ -65,7 +65,7 @@ protected:
     QPen mPen, mSelectedPen;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
 
     // non-virtual methods:
     QLineF getRectClippedStraightLine(const QCPVector2D& base, const QCPVector2D& vec,

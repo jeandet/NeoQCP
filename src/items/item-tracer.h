@@ -70,7 +70,7 @@ public:
     Q_ENUMS(TracerStyle)
 
     explicit QCPItemTracer(QCustomPlot* parentPlot);
-    virtual ~QCPItemTracer() Q_DECL_OVERRIDE;
+    virtual ~QCPItemTracer() override;
 
     // getters:
     QPen pen() const { return mPen; }
@@ -104,7 +104,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     // non-virtual methods:
     void updatePosition();
@@ -122,7 +122,7 @@ protected:
     bool mInterpolating;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
 
     // non-virtual methods:
     QPen mainPen() const;
