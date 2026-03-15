@@ -31,7 +31,7 @@
 #include <QPicture>
 #include <QVariant>
 #include <QPainter>
-#include "../../qcustomplot.h"
+#include "qcustomplot.h"
 
 class QCPDocumentObject : public QObject, public QTextObjectInterface
 {
