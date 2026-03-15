@@ -114,7 +114,7 @@ class QCP_LIB_DECL QCPAbstractPlottable : public QCPLayerable
 
 public:
     QCPAbstractPlottable(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPAbstractPlottable() Q_DECL_OVERRIDE;
+    virtual ~QCPAbstractPlottable() override;
 
     // getters:
     QString name() const { return mName; }
@@ -153,7 +153,7 @@ public:
 
     // introduced virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE
+                              QVariant* details = nullptr) const override
         = 0; // actually introduced in QCPLayerable as non-pure, but we want to force
              // reimplementation for plottables
 
@@ -173,9 +173,9 @@ public:
     void rescaleAxes(bool onlyEnlarge = false) const;
     void rescaleKeyAxis(bool onlyEnlarge = false) const;
     void rescaleValueAxis(bool onlyEnlarge = false, bool inKeyRange = false) const;
-    bool addToLegend(QCPLegend* legend);
+    virtual bool addToLegend(QCPLegend* legend);
     bool addToLegend();
-    bool removeFromLegend(QCPLegend* legend) const;
+    virtual bool removeFromLegend(QCPLegend* legend) const;
     bool removeFromLegend() const;
 
 signals:
@@ -195,14 +195,14 @@ protected:
     QCPSelectionDecorator* mSelectionDecorator;
 
     // reimplemented virtual methods:
-    virtual QRect clipRect() const Q_DECL_OVERRIDE;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE = 0;
-    virtual QCP::Interaction selectionCategory() const Q_DECL_OVERRIDE;
-    void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
+    virtual QRect clipRect() const override;
+    virtual void draw(QCPPainter* painter) override = 0;
+    virtual QCP::Interaction selectionCategory() const override;
+    void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
     // events:
     virtual void selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                             bool* selectionStateChanged) Q_DECL_OVERRIDE;
-    virtual void deselectEvent(bool* selectionStateChanged) Q_DECL_OVERRIDE;
+                             bool* selectionStateChanged) override;
+    virtual void deselectEvent(bool* selectionStateChanged) override;
 
     // introduced virtual methods:
     virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const = 0;
