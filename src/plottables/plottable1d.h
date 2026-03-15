@@ -29,7 +29,9 @@
 #include "core.h"
 #include "datacontainer.h"
 #include "global.h"
+#include "painting/line-extruder.h"
 #include "painting/painter.h"
+#include "painting/plottable-rhi-layer.h"
 #include "plottable.h"
 
 class QCPPlottableInterface1D
@@ -59,26 +61,26 @@ class QCPAbstractPlottable1D
 
 public:
     QCPAbstractPlottable1D(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPAbstractPlottable1D() Q_DECL_OVERRIDE;
+    virtual ~QCPAbstractPlottable1D() override;
 
     // virtual methods of 1d plottable interface:
-    virtual int dataCount() const Q_DECL_OVERRIDE;
-    virtual double dataMainKey(int index) const Q_DECL_OVERRIDE;
-    virtual double dataSortKey(int index) const Q_DECL_OVERRIDE;
-    virtual double dataMainValue(int index) const Q_DECL_OVERRIDE;
-    virtual QCPRange dataValueRange(int index) const Q_DECL_OVERRIDE;
-    virtual QPointF dataPixelPosition(int index) const Q_DECL_OVERRIDE;
-    virtual bool sortKeyIsMainKey() const Q_DECL_OVERRIDE;
+    virtual int dataCount() const override;
+    virtual double dataMainKey(int index) const override;
+    virtual double dataSortKey(int index) const override;
+    virtual double dataMainValue(int index) const override;
+    virtual QCPRange dataValueRange(int index) const override;
+    virtual QPointF dataPixelPosition(int index) const override;
+    virtual bool sortKeyIsMainKey() const override;
     virtual QCPDataSelection selectTestRect(const QRectF& rect,
-                                            bool onlySelectable) const Q_DECL_OVERRIDE;
-    virtual int findBegin(double sortKey, bool expandedRange = true) const Q_DECL_OVERRIDE;
-    virtual int findEnd(double sortKey, bool expandedRange = true) const Q_DECL_OVERRIDE;
+                                            bool onlySelectable) const override;
+    virtual int findBegin(double sortKey, bool expandedRange = true) const override;
+    virtual int findEnd(double sortKey, bool expandedRange = true) const override;
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
-    virtual QCPPlottableInterface1D* interface1D() Q_DECL_OVERRIDE { return this; }
+    virtual QCPPlottableInterface1D* interface1D() override { return this; }
 
 protected:
     // property members:
@@ -597,6 +599,28 @@ template <class DataType>
 void QCPAbstractPlottable1D<DataType>::drawPolyline(QCPPainter* painter,
                                                     const QVector<QPointF>& lineData) const
 {
+    // GPU rendering path: extrude polyline into triangle strip
+    if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
+        rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
+            && painter->pen().style() == Qt::SolidLine)
+    {
+        auto* prl = mParentPlot->plottableRhiLayer(mLayer);
+        if (prl)
+        {
+            QColor penColor = painter->pen().color();
+            float penWidth = qMax(1.0f, static_cast<float>(painter->pen().widthF()));
+            auto strokeVerts = QCPLineExtruder::extrudePolyline(lineData, penWidth, penColor);
+            if (!strokeVerts.isEmpty())
+            {
+                const double dpr = mParentPlot->bufferDevicePixelRatio();
+                const QSize outputSize = mParentPlot->rhiOutputSize();
+                prl->addPlottable({}, strokeVerts, clipRect(), dpr,
+                                   outputSize.height(), rhi->isYUpInNDC());
+            }
+            return;
+        }
+    }
+
     // if drawing lines in plot (instead of PDF), reduce 1px lines to cosmetic, because at least in
     // Qt6 drawing of "1px" width lines is much slower even though it has same appearance apart from
     // High-DPI. In High-DPI cases people must set a pen width slightly larger than 1.0 to get

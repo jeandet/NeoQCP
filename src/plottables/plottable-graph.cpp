@@ -30,6 +30,8 @@
 #include "../core.h"
 #include "../layoutelements/layoutelement-axisrect.h"
 #include "../painting/painter.h"
+#include "../painting/line-extruder.h"
+#include "../painting/plottable-rhi-layer.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPGraphData
@@ -1005,8 +1007,33 @@ void QCPGraph::drawFill(QCPPainter* painter, QVector<QPointF>* lines) const
     const QVector<QCPDataRange> segments = getNonNanSegments(lines, keyAxis()->orientation());
     if (!mChannelFillGraph)
     {
-        // draw base fill under graph, fill goes all the way to the zero-value-line:
-        foreach (QCPDataRange segment, segments)
+        if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
+            rhi && !painter->modes().testFlag(QCPPainter::pmVectorized))
+        {
+            auto* prl = mParentPlot->plottableRhiLayer(mLayer);
+            if (prl)
+            {
+                QColor brushColor = painter->brush().color();
+                const double dpr = mParentPlot->bufferDevicePixelRatio();
+                const QSize outputSize = mParentPlot->rhiOutputSize();
+                const int outHeight = outputSize.height();
+                const bool yUp = rhi->isYUpInNDC();
+
+                for (QCPDataRange segment : segments)
+                {
+                    auto fillVerts = QCPLineExtruder::tessellateFillPolygon(
+                        getFillPolygon(lines, segment), brushColor);
+                    if (!fillVerts.isEmpty())
+                    {
+                        prl->addPlottable(fillVerts, {}, clipRect(), dpr,
+                                           outHeight, yUp);
+                    }
+                }
+                return;
+            }
+        }
+        // QPainter fallback:
+        for (QCPDataRange segment : segments)
             painter->drawPolygon(getFillPolygon(lines, segment));
     }
     else
@@ -1039,7 +1066,7 @@ void QCPGraph::drawScatterPlot(QCPPainter* painter, const QVector<QPointF>& scat
 {
     applyScattersAntialiasingHint(painter);
     style.applyTo(painter, mPen);
-    foreach (const QPointF& scatter, scatters)
+    for (const QPointF& scatter : scatters)
         style.drawShape(painter, scatter.x(), scatter.y());
 }
 

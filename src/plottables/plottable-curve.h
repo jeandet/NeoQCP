@@ -69,7 +69,7 @@ Q_DECLARE_TYPEINFO(QCPCurveData, Q_PRIMITIVE_TYPE);
 
   \see QCPCurveData, QCPCurve::setData
 */
-typedef QCPDataContainer<QCPCurveData> QCPCurveDataContainer;
+using QCPCurveDataContainer = QCPDataContainer<QCPCurveData>;
 
 class QCP_LIB_DECL QCPCurve : public QCPAbstractPlottable1D<QCPCurveData>
 {
@@ -95,7 +95,7 @@ public:
     Q_ENUMS(LineStyle)
 
     explicit QCPCurve(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPCurve() Q_DECL_OVERRIDE;
+    virtual ~QCPCurve() override;
 
     // getters:
     QSharedPointer<QCPCurveDataContainer> data() const { return mDataContainer; }
@@ -124,11 +124,11 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
     virtual QCPRange getKeyRange(bool& foundRange,
-                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const Q_DECL_OVERRIDE;
+                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const override;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
-                                   const QCPRange& inKeyRange = QCPRange()) const Q_DECL_OVERRIDE;
+                                   const QCPRange& inKeyRange = QCPRange()) const override;
 
 protected:
     // property members:
@@ -137,8 +137,8 @@ protected:
     LineStyle mLineStyle;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
 
     // introduced virtual methods:
     virtual void drawCurveLine(QCPPainter* painter, const QVector<QPointF>& lines) const;

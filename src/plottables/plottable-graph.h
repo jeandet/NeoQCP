@@ -68,7 +68,7 @@ Q_DECLARE_TYPEINFO(QCPGraphData, Q_PRIMITIVE_TYPE);
 
   \see QCPGraphData, QCPGraph::setData
 */
-typedef QCPDataContainer<QCPGraphData> QCPGraphDataContainer;
+using QCPGraphDataContainer = QCPDataContainer<QCPGraphData>;
 
 class QCP_LIB_DECL QCPGraph : public QCPAbstractPlottable1D<QCPGraphData>
 {
@@ -108,7 +108,7 @@ public:
     Q_ENUMS(LineStyle)
 
     explicit QCPGraph(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPGraph() Q_DECL_OVERRIDE;
+    virtual ~QCPGraph() override;
 
     // getters:
     QSharedPointer<QCPGraphDataContainer> data() const { return mDataContainer; }
@@ -140,11 +140,11 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
     virtual QCPRange getKeyRange(bool& foundRange,
-                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const Q_DECL_OVERRIDE;
+                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const override;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
-                                   const QCPRange& inKeyRange = QCPRange()) const Q_DECL_OVERRIDE;
+                                   const QCPRange& inKeyRange = QCPRange()) const override;
 
 protected:
     // property members:
@@ -155,8 +155,8 @@ protected:
     bool mAdaptiveSampling;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
 
     // introduced virtual methods:
     virtual void drawFill(QCPPainter* painter, QVector<QPointF>* lines) const;
