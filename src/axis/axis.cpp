@@ -267,7 +267,7 @@ void QCPGrid::drawSubGridLines(QCPPainter* painter) const
     painter->setPen(mSubGridPen);
     if (mParentAxis->orientation() == Qt::Horizontal)
     {
-        foreach (double tickCoord, mParentAxis->mSubTickVector)
+        for (double tickCoord : mParentAxis->mSubTickVector)
         {
             t = mParentAxis->coordToPixel(tickCoord); // x
             painter->drawLine(
@@ -276,7 +276,7 @@ void QCPGrid::drawSubGridLines(QCPPainter* painter) const
     }
     else
     {
-        foreach (double tickCoord, mParentAxis->mSubTickVector)
+        for (double tickCoord : mParentAxis->mSubTickVector)
         {
             t = mParentAxis->coordToPixel(tickCoord); // y
             painter->drawLine(
@@ -1482,7 +1482,7 @@ void QCPAxis::rescale(bool onlyVisiblePlottables)
 {
     QCPRange newRange;
     bool haveRange = false;
-    foreach (QCPAbstractPlottable* plottable, plottables())
+    for (QCPAbstractPlottable* plottable : plottables())
     {
         if (!plottable->realVisibility() && onlyVisiblePlottables)
             continue;
@@ -1703,7 +1703,7 @@ QList<QCPAbstractPlottable*> QCPAxis::plottables() const
     if (!mParentPlot)
         return result;
 
-    foreach (QCPAbstractPlottable* plottable, mParentPlot->mPlottables)
+    for (QCPAbstractPlottable* plottable : mParentPlot->mPlottables)
     {
         if (plottable->keyAxis() == this || plottable->valueAxis() == this)
             result.append(plottable);
@@ -1722,7 +1722,7 @@ QList<QCPGraph*> QCPAxis::graphs() const
     if (!mParentPlot)
         return result;
 
-    foreach (QCPGraph* graph, mParentPlot->mGraphs)
+    for (QCPGraph* graph : mParentPlot->mGraphs)
     {
         if (graph->keyAxis() == this || graph->valueAxis() == this)
             result.append(graph);
@@ -1742,9 +1742,9 @@ QList<QCPAbstractItem*> QCPAxis::items() const
     if (!mParentPlot)
         return result;
 
-    foreach (QCPAbstractItem* item, mParentPlot->mItems)
+    for (QCPAbstractItem* item : mParentPlot->mItems)
     {
-        foreach (QCPItemPosition* position, item->positions())
+        for (QCPItemPosition* position : item->positions())
         {
             if (position->keyAxis() == this || position->valueAxis() == this)
             {
@@ -1954,10 +1954,10 @@ void QCPAxis::wheelEvent(QWheelEvent* event)
     const double delta = event->angleDelta().y();
     const QPointF pos = event->position();
 
-    const double wheelSteps = delta / 120.0; // a single step delta is +/-120 usually
+    const double wheelSteps = delta / 120.0;
     const double factor = qPow(mAxisRect->rangeZoomFactor(orientation()), wheelSteps);
     scaleRange(factor, pixelToCoord(orientation() == Qt::Horizontal ? pos.x() : pos.y()));
-    mParentPlot->replot();
+    mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 
 /*! \internal
@@ -2315,14 +2315,14 @@ void QCPAxisPainterPrivate::draw(QCPPainter* painter)
             : 1; // direction of ticks ("inward" is right for left axis and left for right axis)
         if (QCPAxis::orientation(type) == Qt::Horizontal)
         {
-            foreach (double tickPos, tickPositions)
+            for (double tickPos : tickPositions)
                 painter->drawLine(
                     QLineF(tickPos + xCor, origin.y() - tickLengthOut * tickDir + yCor,
                            tickPos + xCor, origin.y() + tickLengthIn * tickDir + yCor));
         }
         else
         {
-            foreach (double tickPos, tickPositions)
+            for (double tickPos : tickPositions)
                 painter->drawLine(QLineF(origin.x() - tickLengthOut * tickDir + xCor,
                                          tickPos + yCor, origin.x() + tickLengthIn * tickDir + xCor,
                                          tickPos + yCor));
@@ -2337,14 +2337,14 @@ void QCPAxisPainterPrivate::draw(QCPPainter* painter)
         int tickDir = (type == QCPAxis::atBottom || type == QCPAxis::atRight) ? -1 : 1;
         if (QCPAxis::orientation(type) == Qt::Horizontal)
         {
-            foreach (double subTickPos, subTickPositions)
+            for (double subTickPos : subTickPositions)
                 painter->drawLine(
                     QLineF(subTickPos + xCor, origin.y() - subTickLengthOut * tickDir + yCor,
                            subTickPos + xCor, origin.y() + subTickLengthIn * tickDir + yCor));
         }
         else
         {
-            foreach (double subTickPos, subTickPositions)
+            for (double subTickPos : subTickPositions)
                 painter->drawLine(
                     QLineF(origin.x() - subTickLengthOut * tickDir + xCor, subTickPos + yCor,
                            origin.x() + subTickLengthIn * tickDir + xCor, subTickPos + yCor));
@@ -2539,7 +2539,7 @@ int QCPAxisPainterPrivate::size()
         QSize tickLabelsSize(0, 0);
         if (!tickLabels.isEmpty())
         {
-            foreach (const QString& tickLabel, tickLabels)
+            for (const QString& tickLabel : tickLabels)
                 getMaxTickLabelSize(tickLabelFont, tickLabel, &tickLabelsSize);
             result += QCPAxis::orientation(type) == Qt::Horizontal ? tickLabelsSize.height()
                                                                    : tickLabelsSize.width();

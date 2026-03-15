@@ -148,7 +148,7 @@ Q_DECLARE_TYPEINFO(QCPBarsData, Q_PRIMITIVE_TYPE);
 
   \see QCPBarsData, QCPBars::setData
 */
-typedef QCPDataContainer<QCPBarsData> QCPBarsDataContainer;
+using QCPBarsDataContainer = QCPDataContainer<QCPBarsData>;
 
 class QCP_LIB_DECL QCPBars : public QCPAbstractPlottable1D<QCPBarsData>
 {
@@ -181,7 +181,7 @@ public:
     Q_ENUMS(WidthType)
 
     explicit QCPBars(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPBars() Q_DECL_OVERRIDE;
+    virtual ~QCPBars() override;
 
     // getters:
     double width() const { return mWidth; }
@@ -219,14 +219,14 @@ public:
 
     // reimplemented virtual methods:
     virtual QCPDataSelection selectTestRect(const QRectF& rect,
-                                            bool onlySelectable) const Q_DECL_OVERRIDE;
+                                            bool onlySelectable) const override;
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
     virtual QCPRange getKeyRange(bool& foundRange,
-                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const Q_DECL_OVERRIDE;
+                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const override;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
-                                   const QCPRange& inKeyRange = QCPRange()) const Q_DECL_OVERRIDE;
-    virtual QPointF dataPixelPosition(int index) const Q_DECL_OVERRIDE;
+                                   const QCPRange& inKeyRange = QCPRange()) const override;
+    virtual QPointF dataPixelPosition(int index) const override;
 
 protected:
     // property members:
@@ -238,8 +238,8 @@ protected:
     QPointer<QCPBars> mBarBelow, mBarAbove;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
 
     // non-virtual methods:
     void getVisibleDataBounds(QCPBarsDataContainer::const_iterator& begin,

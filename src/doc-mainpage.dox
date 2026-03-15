@@ -127,25 +127,21 @@
 
   See the page about \ref thelayoutsystem "the layout system" for details.
 
-  \section mainpage-performanceimprovement OpenGL Accelerated Plotting and Performance Improvement
+  \section mainpage-performanceimprovement Hardware Accelerated Plotting and Performance Improvement
 
-  QCustomPlot has multiple OpenGL backends to provide OpenGL hardware accelerated plotting across
-  all supported Qt versions. If the computer supports OpenGL, you can enable it by compiling with
-  \c QCUSTOMPLOT_USE_OPENGL and simply calling \ref QCustomPlot::setOpenGl "setOpenGl(true)" on the
-  respective QCustomPlot instance. More details are given in the documentation of that method.
+  NeoQCP uses QRhiWidget for hardware accelerated rendering, which leverages the platform's native
+  graphics API (Vulkan, Metal, Direct3D, or OpenGL as fallback) through Qt's RHI abstraction layer.
+  This provides GPU-accelerated compositing of plot layers automatically, with no additional
+  configuration required.
 
   Information on maximizing plot performance for demanding visualization tasks can be found on the
   dedicated page about \ref performanceimprovement "Plot Performance Improvement".
 
   \section mainpage-flags Preprocessor Define Flags
 
-  QCustomPlot understands some preprocessor defines that are useful for debugging and compilation. The flags must be defined before including the QCustomPlot header. Usually it's best to add them
-  to your qmake project file, using e.g. <tt>DEFINES += QCUSTOMPLOT_USE_OPENGL</tt>
+  NeoQCP understands some preprocessor defines that are useful for debugging and compilation.
 
   <dl>
-  <dt>\c QCUSTOMPLOT_USE_OPENGL </dt>
-  <dd>If this flag is defined, QCustomPlot can use OpenGL to improve plot performance for graphically
-      demanding plots, see \ref QCustomPlot::setOpenGl. </dd>
   <dt>\c QCUSTOMPLOT_COMPILE_LIBRARY </dt>
   <dd>Define this flag when compiling QCustomPlot as a shared library (.so/.dll)</dd>
   <dt>\c QCUSTOMPLOT_USE_LIBRARY </dt>

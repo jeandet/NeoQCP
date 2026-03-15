@@ -57,7 +57,7 @@ public:
     Q_ENUMS(BracketStyle)
 
     QCPSelectionDecoratorBracket();
-    virtual ~QCPSelectionDecoratorBracket() Q_DECL_OVERRIDE;
+    virtual ~QCPSelectionDecoratorBracket() override;
 
     // getters:
     QPen bracketPen() const { return mBracketPen; }
@@ -87,7 +87,7 @@ public:
     virtual void drawBracket(QCPPainter* painter, int direction) const;
 
     // virtual methods:
-    virtual void drawDecoration(QCPPainter* painter, QCPDataSelection selection) Q_DECL_OVERRIDE;
+    virtual void drawDecoration(QCPPainter* painter, QCPDataSelection selection) override;
 
 protected:
     // property members:

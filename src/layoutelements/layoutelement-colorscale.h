@@ -55,7 +55,7 @@ protected:
     using QCPAxisRect::mouseReleaseEvent;
     using QCPAxisRect::update;
     using QCPAxisRect::wheelEvent;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
     void updateGradientImage();
     Q_SLOT void axisSelectionChanged(QCPAxis::SelectableParts selectedParts);
     Q_SLOT void axisSelectableChanged(QCPAxis::SelectableParts selectableParts);
@@ -79,7 +79,7 @@ class QCP_LIB_DECL QCPColorScale : public QCPLayoutElement
 
 public:
     explicit QCPColorScale(QCustomPlot* parentPlot);
-    virtual ~QCPColorScale() Q_DECL_OVERRIDE;
+    virtual ~QCPColorScale() override;
 
     // getters:
     QCPAxis* axis() const { return mColorAxis.data(); }
@@ -114,7 +114,7 @@ public:
     void rescaleDataRange(bool onlyVisibleMaps);
 
     // reimplemented virtual methods:
-    virtual void update(UpdatePhase phase) Q_DECL_OVERRIDE;
+    virtual void update(UpdatePhase phase) override;
 
 signals:
     void dataRangeChanged(const QCPRange& newRange);
@@ -134,12 +134,12 @@ protected:
     QPointer<QCPAxis> mColorAxis;
 
     // reimplemented virtual methods:
-    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
+    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
     // events:
-    virtual void mousePressEvent(QMouseEvent* event, const QVariant& details) Q_DECL_OVERRIDE;
-    virtual void mouseMoveEvent(QMouseEvent* event, const QPointF& startPos) Q_DECL_OVERRIDE;
-    virtual void mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos) Q_DECL_OVERRIDE;
-    virtual void wheelEvent(QWheelEvent* event) Q_DECL_OVERRIDE;
+    virtual void mousePressEvent(QMouseEvent* event, const QVariant& details) override;
+    virtual void mouseMoveEvent(QMouseEvent* event, const QPointF& startPos) override;
+    virtual void mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos) override;
+    virtual void wheelEvent(QWheelEvent* event) override;
 
 private:
     Q_DISABLE_COPY(QCPColorScale)

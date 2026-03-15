@@ -492,7 +492,7 @@ double QCPStatisticalBox::selectTest(const QPointF& pos, bool onlySelectable,
             {
                 const QVector<QLineF> whiskerBackbones = getWhiskerBackboneLines(it);
                 const QCPVector2D posVec(pos);
-                foreach (const QLineF& backbone, whiskerBackbones)
+                for (const QLineF& backbone : whiskerBackbones)
                 {
                     double currentDistSqr = posVec.distanceSquaredToLine(backbone);
                     if (currentDistSqr < minDistSqr)

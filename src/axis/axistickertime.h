@@ -73,10 +73,10 @@ protected:
     QHash<TimeUnit, QString> mFormatPattern;
 
     // reimplemented virtual methods:
-    virtual double getTickStep(const QCPRange& range) Q_DECL_OVERRIDE;
-    virtual int getSubTickCount(double tickStep) Q_DECL_OVERRIDE;
+    virtual double getTickStep(const QCPRange& range) override;
+    virtual int getSubTickCount(double tickStep) override;
     virtual QString getTickLabel(double tick, const QLocale& locale, QChar formatChar,
-                                 int precision) Q_DECL_OVERRIDE;
+                                 int precision) override;
 
     // non-virtual methods:
     void replaceUnit(QString& text, TimeUnit unit, int value) const;

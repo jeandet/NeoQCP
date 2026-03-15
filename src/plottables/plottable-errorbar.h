@@ -62,7 +62,7 @@ Q_DECLARE_TYPEINFO(QCPErrorBarsData, Q_PRIMITIVE_TYPE);
 
   \see QCPErrorBarsData, QCPErrorBars::setData
 */
-typedef QVector<QCPErrorBarsData> QCPErrorBarsDataContainer;
+using QCPErrorBarsDataContainer = QVector<QCPErrorBarsData>;
 
 class QCP_LIB_DECL QCPErrorBars : public QCPAbstractPlottable, public QCPPlottableInterface1D
 {
@@ -92,7 +92,7 @@ public:
     Q_ENUMS(ErrorType)
 
     explicit QCPErrorBars(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPErrorBars() Q_DECL_OVERRIDE;
+    virtual ~QCPErrorBars() override;
 
     // getters:
     QSharedPointer<QCPErrorBarsDataContainer> data() const { return mDataContainer; }
@@ -121,23 +121,23 @@ public:
     void addData(double errorMinus, double errorPlus);
 
     // virtual methods of 1d plottable interface:
-    virtual int dataCount() const Q_DECL_OVERRIDE;
-    virtual double dataMainKey(int index) const Q_DECL_OVERRIDE;
-    virtual double dataSortKey(int index) const Q_DECL_OVERRIDE;
-    virtual double dataMainValue(int index) const Q_DECL_OVERRIDE;
-    virtual QCPRange dataValueRange(int index) const Q_DECL_OVERRIDE;
-    virtual QPointF dataPixelPosition(int index) const Q_DECL_OVERRIDE;
-    virtual bool sortKeyIsMainKey() const Q_DECL_OVERRIDE;
+    virtual int dataCount() const override;
+    virtual double dataMainKey(int index) const override;
+    virtual double dataSortKey(int index) const override;
+    virtual double dataMainValue(int index) const override;
+    virtual QCPRange dataValueRange(int index) const override;
+    virtual QPointF dataPixelPosition(int index) const override;
+    virtual bool sortKeyIsMainKey() const override;
     virtual QCPDataSelection selectTestRect(const QRectF& rect,
-                                            bool onlySelectable) const Q_DECL_OVERRIDE;
-    virtual int findBegin(double sortKey, bool expandedRange = true) const Q_DECL_OVERRIDE;
-    virtual int findEnd(double sortKey, bool expandedRange = true) const Q_DECL_OVERRIDE;
+                                            bool onlySelectable) const override;
+    virtual int findBegin(double sortKey, bool expandedRange = true) const override;
+    virtual int findEnd(double sortKey, bool expandedRange = true) const override;
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
-    virtual QCPPlottableInterface1D* interface1D() Q_DECL_OVERRIDE { return this; }
+    virtual QCPPlottableInterface1D* interface1D() override { return this; }
 
 protected:
     // property members:
@@ -148,12 +148,12 @@ protected:
     double mSymbolGap;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
     virtual QCPRange getKeyRange(bool& foundRange,
-                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const Q_DECL_OVERRIDE;
+                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const override;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
-                                   const QCPRange& inKeyRange = QCPRange()) const Q_DECL_OVERRIDE;
+                                   const QCPRange& inKeyRange = QCPRange()) const override;
 
     // non-virtual methods:
     void getErrorBarLines(QCPErrorBarsDataContainer::const_iterator it, QVector<QLineF>& backbones,

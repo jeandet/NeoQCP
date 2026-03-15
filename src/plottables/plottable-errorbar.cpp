@@ -420,7 +420,7 @@ QCPDataSelection QCPErrorBars::selectTestRect(const QRectF& rect, bool onlySelec
         backbones.clear();
         whiskers.clear();
         getErrorBarLines(it, backbones, whiskers);
-        foreach (const QLineF& backbone, backbones)
+        for (const QLineF& backbone : backbones)
         {
             if (rectIntersectsLine(rect, backbone))
             {
@@ -963,7 +963,7 @@ double QCPErrorBars::pointDistance(const QPointF& pixelPoint,
     for (QCPErrorBarsDataContainer::const_iterator it = begin; it != end; ++it)
     {
         getErrorBarLines(it, backbones, whiskers);
-        foreach (const QLineF& backbone, backbones)
+        for (const QLineF& backbone : backbones)
         {
             const double currentDistSqr = QCPVector2D(pixelPoint).distanceSquaredToLine(backbone);
             if (currentDistSqr < minDistSqr)

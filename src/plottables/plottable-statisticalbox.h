@@ -82,7 +82,7 @@ Q_DECLARE_TYPEINFO(QCPStatisticalBoxData, Q_MOVABLE_TYPE);
 
   \see QCPStatisticalBoxData, QCPStatisticalBox::setData
 */
-typedef QCPDataContainer<QCPStatisticalBoxData> QCPStatisticalBoxDataContainer;
+using QCPStatisticalBoxDataContainer = QCPDataContainer<QCPStatisticalBoxData>;
 
 class QCP_LIB_DECL QCPStatisticalBox : public QCPAbstractPlottable1D<QCPStatisticalBoxData>
 {
@@ -142,13 +142,13 @@ public:
 
     // reimplemented virtual methods:
     virtual QCPDataSelection selectTestRect(const QRectF& rect,
-                                            bool onlySelectable) const Q_DECL_OVERRIDE;
+                                            bool onlySelectable) const override;
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
     virtual QCPRange getKeyRange(bool& foundRange,
-                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const Q_DECL_OVERRIDE;
+                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const override;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
-                                   const QCPRange& inKeyRange = QCPRange()) const Q_DECL_OVERRIDE;
+                                   const QCPRange& inKeyRange = QCPRange()) const override;
 
 protected:
     // property members:
@@ -160,8 +160,8 @@ protected:
     QCPScatterStyle mOutlierStyle;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
 
     // introduced virtual methods:
     virtual void drawStatisticalBox(QCPPainter* painter,
