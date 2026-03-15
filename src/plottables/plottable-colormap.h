@@ -57,7 +57,7 @@ public:
     QCPRange dataBounds() const { return mDataBounds; }
 
     double data(double key, double value);
-    double cell(int keyIndex, int valueIndex);
+    double cell(int keyIndex, int valueIndex) const;
     unsigned char alpha(int keyIndex, int valueIndex);
 
     // setters:
@@ -115,7 +115,7 @@ class QCP_LIB_DECL QCPColorMap : public QCPAbstractPlottable
 
 public:
     explicit QCPColorMap(QCPAxis* keyAxis, QCPAxis* valueAxis);
-    virtual ~QCPColorMap() Q_DECL_OVERRIDE;
+    virtual ~QCPColorMap() override;
 
     // getters:
     QCPColorMapData* data() const { return mMapData; }
@@ -148,11 +148,11 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
     virtual QCPRange getKeyRange(bool& foundRange,
-                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const Q_DECL_OVERRIDE;
+                                 QCP::SignDomain inSignDomain = QCP::sdBoth) const override;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
-                                   const QCPRange& inKeyRange = QCPRange()) const Q_DECL_OVERRIDE;
+                                   const QCPRange& inKeyRange = QCPRange()) const override;
 
 signals:
     void dataRangeChanged(const QCPRange& newRange);
@@ -178,8 +178,8 @@ protected:
     virtual void updateMapImage();
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
 
     friend class QCustomPlot;
     friend class QCPLegend;
