@@ -82,6 +82,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     void dataRangeChanged(const QCPRange& newRange);
     void gradientChanged(const QCPColorGradient& newGradient);
+    void dataScaleTypeChanged(QCPAxis::ScaleType newType);
 
 protected:
     void draw(QCPPainter* painter) override;
