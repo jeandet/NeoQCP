@@ -39,6 +39,10 @@ MainWindow::MainWindow(QWidget *parent) :
   //setupLegendTest(mCustomPlot);
   //setupMultiAxisRectInteractions(mCustomPlot);
   //setupAdaptiveSamplingTest(mCustomPlot);
+  //setupGraph2Test(mCustomPlot);
+  //setupColorMap2Test(mCustomPlot);
+  //setupMultiGraphComparisonTest(mCustomPlot);
+  setupWaterfallTest(mCustomPlot);
   //setupColorMapTest(mCustomPlot);
   //setupBarsTest(mCustomPlot);
   //setupBarsGroupTest(mCustomPlot);
@@ -48,7 +52,7 @@ MainWindow::MainWindow(QWidget *parent) :
   //setupErrorBarTest(mCustomPlot);
   //setupScatterSkipTest(mCustomPlot);
   //setupTimeZoneTest(mCustomPlot);
-  setupPolarAxisTest(mCustomPlot);
+  //setupPolarAxisTest(mCustomPlot);
   //setupTestbed(mCustomPlot);
 }
 
@@ -1360,6 +1364,136 @@ void MainWindow::setupAdaptiveSamplingTest(QCustomPlot *customPlot)
   customPlot->yAxis->scaleRange(1, customPlot->yAxis->range().center());
 }
 
+void MainWindow::setupGraph2Test(QCustomPlot *customPlot)
+{
+  const int n = 500000;
+
+  // Graph 1: QCPGraph2 with owning std::vector<double>
+  auto *g1 = new QCPGraph2(customPlot->xAxis, customPlot->yAxis);
+  {
+    std::vector<double> keys(n), values(n);
+    for (int i = 0; i < n; ++i) {
+      keys[i] = i / static_cast<double>(n) * 10.0 - 5.0;
+      values[i] = qSin(keys[i] * 3) * qExp(-keys[i] * keys[i] / 8.0);
+    }
+    g1->setData(std::move(keys), std::move(values));
+  }
+  g1->setPen(QPen(Qt::blue, 1.5));
+
+  // Graph 2: QCPGraph2 with float values (zero-copy benefit: no double conversion)
+  auto *g2 = new QCPGraph2(customPlot->xAxis, customPlot->yAxis);
+  {
+    std::vector<double> keys(n);
+    std::vector<float> values(n);
+    for (int i = 0; i < n; ++i) {
+      keys[i] = i / static_cast<double>(n) * 10.0 - 5.0;
+      values[i] = static_cast<float>(qCos(keys[i] * 5) * 0.5 / (1.0 + keys[i] * keys[i]));
+    }
+    g2->setData(std::move(keys), std::move(values));
+  }
+  g2->setPen(QPen(Qt::red, 1.5));
+
+  // Graph 3: QCPGraph2 with shared data source (two graphs plotting the same data)
+  auto shared = std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<int>>>(
+      [&] {
+        std::vector<double> keys(n / 10);
+        std::vector<int> values(n / 10);
+        for (int i = 0; i < n / 10; ++i) {
+          keys[i] = i / static_cast<double>(n / 10) * 10.0 - 5.0;
+          values[i] = static_cast<int>(100 * qSin(keys[i] * 2));
+        }
+        return QCPSoADataSource<std::vector<double>, std::vector<int>>(
+            std::move(keys), std::move(values));
+      }());
+  auto *g3 = new QCPGraph2(customPlot->xAxis, customPlot->yAxis);
+  g3->setDataSource(shared);
+  g3->setPen(QPen(QColor(0, 180, 0), 1.0));
+
+  // Graph 4: legacy QCPGraph for visual comparison
+  QCPGraph *gLegacy = customPlot->addGraph();
+  {
+    QVector<double> x(n / 5), y(n / 5);
+    for (int i = 0; i < n / 5; ++i) {
+      x[i] = i / static_cast<double>(n / 5) * 10.0 - 5.0;
+      y[i] = 0.3 * qSin(x[i] * 7);
+    }
+    gLegacy->setData(x, y);
+  }
+  gLegacy->setPen(QPen(QColor(200, 100, 0), 1.0, Qt::DashLine));
+
+  customPlot->rescaleAxes();
+  customPlot->xAxis->scaleRange(1.1, customPlot->xAxis->range().center());
+  customPlot->yAxis->scaleRange(1.2, customPlot->yAxis->range().center());
+}
+
+void MainWindow::setupColorMap2Test(QCustomPlot *customPlot)
+{
+  // Non-uniform x spacing with two gaps, 50 frequency bins
+  // Simulates satellite data: 3 contiguous segments separated by gaps
+  const int ny = 50;
+  std::vector<double> x, y(ny), z;
+
+  for (int j = 0; j < ny; ++j)
+    y[j] = j * 0.5;
+
+  auto addSegment = [&](double x0, double x1, double dx, auto zFunc) {
+    for (double xv = x0; xv <= x1; xv += dx)
+    {
+      x.push_back(xv);
+      for (int j = 0; j < ny; ++j)
+        z.push_back(zFunc(xv, y[j]));
+    }
+  };
+
+  // Segment 1: x = [0, 5], dense (dx=0.05), sin pattern
+  addSegment(0.0, 5.0, 0.05, [](double xv, double yv) {
+    return qSin(xv * 1.2) * qCos(yv * 0.3);
+  });
+
+  // GAP: x = 5 to 15 (no data)
+
+  // Segment 2: x = [15, 25], medium (dx=0.1), different pattern
+  addSegment(15.0, 25.0, 0.1, [](double xv, double yv) {
+    return qSin(xv * 0.4) * qSin(yv * 0.2);
+  });
+
+  // GAP: x = 25 to 40 (no data)
+
+  // Segment 3: x = [40, 50], coarser (dx=0.2), exponential decay
+  addSegment(40.0, 50.0, 0.2, [](double xv, double yv) {
+    return qExp(-(xv - 45.0) * (xv - 45.0) / 20.0) * qSin(yv * 0.5);
+  });
+
+  auto *cm = new QCPColorMap2(customPlot->xAxis, customPlot->yAxis);
+  cm->setData(std::move(x), std::move(y), std::move(z));
+  cm->setGapThreshold(3.0);
+  cm->rescaleDataRange(true);
+
+  auto *colorScale = new QCPColorScale(customPlot);
+  customPlot->plotLayout()->addElement(0, 1, colorScale);
+  cm->setColorScale(colorScale);
+
+  // Set gradient after colorScale (setColorScale overwrites the gradient)
+  QCPColorGradient gradient(QCPColorGradient::gpJet);
+  gradient.setNanHandling(QCPColorGradient::nhTransparent);
+  cm->setGradient(gradient);
+
+  // Add a line plot on top to verify z-ordering
+  auto *graph = customPlot->addGraph();
+  graph->setPen(QPen(Qt::red, 2));
+  QVector<double> gx(200), gy(200);
+  for (int i = 0; i < 200; ++i)
+  {
+    gx[i] = i * 50.0 / 199.0;
+    gy[i] = 12.5 + 10.0 * qSin(gx[i] * 0.3);
+  }
+  graph->setData(gx, gy);
+
+  customPlot->rescaleAxes();
+  customPlot->xAxis->scaleRange(1.05, customPlot->xAxis->range().center());
+  customPlot->yAxis->scaleRange(1.05, customPlot->yAxis->range().center());
+}
+
 void MainWindow::presetInteractive(QCustomPlot *customPlot)
 {
   customPlot->setInteractions(QCP::iRangeDrag|
@@ -1665,6 +1799,152 @@ void MainWindow::colorMapMouseMove(QMouseEvent *event)
 void MainWindow::testbedMouseClick(QMouseEvent *event)
 {
   Q_UNUSED(event)
+}
+
+void MainWindow::setupMultiGraphComparisonTest(QCustomPlot *customPlot)
+{
+    const int numComponents = 10;
+    const int numPoints = 100000;
+
+    std::vector<double> keys(numPoints);
+    std::vector<std::vector<double>> allValues(numComponents, std::vector<double>(numPoints));
+    for (int i = 0; i < numPoints; ++i) {
+        keys[i] = i * 0.001; // 0 to 100
+        for (int c = 0; c < numComponents; ++c) {
+            double phase = c * 0.7;
+            double amplitude = 1.0 + c * 0.3;
+            allValues[c][i] = amplitude * std::sin(keys[i] * (1.0 + c * 0.2) + phase);
+        }
+    }
+
+    QList<QColor> colors = {
+        QColor(31, 119, 180),  QColor(255, 127, 14), QColor(44, 160, 44),
+        QColor(214, 39, 40),   QColor(148, 103, 189), QColor(140, 86, 75),
+        QColor(227, 119, 194), QColor(127, 127, 127), QColor(188, 189, 34),
+        QColor(23, 190, 207)
+    };
+
+    // --- Layout: two axis rects side by side, each with an inset legend ---
+    customPlot->setAutoAddPlottableToLegend(false);
+    customPlot->plotLayout()->clear();
+    auto* leftRect = new QCPAxisRect(customPlot);
+    auto* rightRect = new QCPAxisRect(customPlot);
+    customPlot->plotLayout()->addElement(0, 0, leftRect);
+    customPlot->plotLayout()->addElement(0, 1, rightRect);
+
+    auto* leftLegend = new QCPLegend();
+    leftRect->insetLayout()->addElement(leftLegend, Qt::AlignTop | Qt::AlignRight);
+    leftLegend->setLayer("legend");
+
+    auto* rightLegend = new QCPLegend();
+    rightRect->insetLayout()->addElement(rightLegend, Qt::AlignTop | Qt::AlignRight);
+    rightLegend->setLayer("legend");
+
+    // --- Left plot: 10 separate QCPGraph2 ---
+    for (int c = 0; c < numComponents; ++c) {
+        auto* graph = new QCPGraph2(leftRect->axis(QCPAxis::atBottom),
+                                     leftRect->axis(QCPAxis::atLeft));
+        graph->setData(std::vector<double>(keys), std::vector<double>(allValues[c]));
+        graph->setPen(QPen(colors[c], 1.0));
+        graph->setName(QString("comp %1").arg(c));
+        graph->addToLegend(leftLegend);
+    }
+    leftRect->axis(QCPAxis::atBottom)->setRange(0, 100);
+    leftRect->axis(QCPAxis::atLeft)->setRange(-5, 5);
+
+    // --- Right plot: 1 QCPMultiGraph ---
+    auto* mg = new QCPMultiGraph(rightRect->axis(QCPAxis::atBottom),
+                                  rightRect->axis(QCPAxis::atLeft));
+    mg->setData(std::vector<double>(keys), std::vector<std::vector<double>>(allValues));
+    mg->setComponentColors(colors);
+    QStringList names;
+    for (int c = 0; c < numComponents; ++c)
+        names << QString("comp %1").arg(c);
+    mg->setComponentNames(names);
+    mg->setName("B field");
+    mg->addToLegend(rightLegend);
+
+    rightRect->axis(QCPAxis::atBottom)->setRange(0, 100);
+    rightRect->axis(QCPAxis::atLeft)->setRange(-5, 5);
+
+    customPlot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend);
+    customPlot->replot();
+}
+
+void MainWindow::setupWaterfallTest(QCustomPlot *customPlot)
+{
+    // 20 stations at irregular distances — mimics a real seismic network
+    const QVector<double> stationDistances = {
+        12, 18, 31, 42, 55, 63, 78, 89, 105, 114,
+        138, 152, 171, 190, 208, 235, 267, 310, 358, 420
+    };
+    QStringList stationNames;
+    for (int i = 0; i < stationDistances.size(); ++i)
+        stationNames << QString("STA%1").arg(i + 1, 2, 10, QChar('0'));
+
+    const double sampleRate = 100.0;
+    const double duration = 80.0;
+    const double pWaveVelocity = 6.0;
+    const double sWaveVelocity = 3.5;
+    const int nSamples = static_cast<int>(duration * sampleRate);
+
+    std::vector<double> keys(nSamples);
+    for (int i = 0; i < nSamples; ++i)
+        keys[i] = i / sampleRate;
+
+    std::vector<std::vector<double>> vals(stationDistances.size());
+    for (int s = 0; s < stationDistances.size(); ++s) {
+        vals[s].resize(nSamples);
+        double dist = stationDistances[s];
+        double pArrival = dist / pWaveVelocity;
+        double sArrival = dist / sWaveVelocity;
+        double pFreq = 3.0 + 0.8 * sin(s * 1.3);   // vary per station
+        double sFreq = 1.5 + 0.4 * cos(s * 0.9);
+        double pDecay = 1.2 + 0.3 * (s % 3);
+        double sDecay = 0.6 + 0.15 * (s % 5);
+        double pAmp = 0.6 + 0.4 * exp(-dist / 500.0);  // geometric spreading
+        double sAmp = 1.0;
+
+        for (int i = 0; i < nSamples; ++i) {
+            double t = keys[i];
+            double noise = 0.03 * sin(17.1 * t + s * 2.7) * cos(11.3 * t + s);
+
+            double pSignal = 0.0;
+            double dtP = t - pArrival;
+            if (dtP > 0)
+                pSignal = pAmp * exp(-pDecay * dtP) * sin(2.0 * std::numbers::pi * pFreq * dtP);
+
+            double sSignal = 0.0;
+            double dtS = t - sArrival;
+            if (dtS > 0)
+                sSignal = sAmp * exp(-sDecay * dtS) * sin(2.0 * std::numbers::pi * sFreq * dtS);
+
+            vals[s][i] = pSignal + sSignal + noise;
+        }
+    }
+
+    auto* wf = new QCPWaterfallGraph(customPlot->xAxis, customPlot->yAxis);
+    wf->setData(std::move(keys), std::move(vals));
+    wf->setOffsetMode(QCPWaterfallGraph::omCustom);
+    wf->setOffsets(stationDistances);
+    wf->setNormalize(true);
+    wf->setGain(15.0);
+    wf->setComponentNames(stationNames);
+
+    auto ticker = QSharedPointer<QCPAxisTickerText>(new QCPAxisTickerText);
+    for (int i = 0; i < stationDistances.size(); ++i)
+        ticker->addTick(stationDistances[i], QString("%1 km").arg(stationDistances[i]));
+    customPlot->yAxis->setTicker(ticker);
+    customPlot->yAxis->setLabel("Epicentral Distance (km)");
+    customPlot->xAxis->setLabel("Time (s)");
+    customPlot->xAxis->setRange(0, duration);
+
+    wf->setSelectable(QCP::stMultipleDataRanges);
+
+    customPlot->yAxis->rescale();
+    customPlot->legend->setVisible(true);
+    customPlot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend);
+    customPlot->replot();
 }
 
 void MainWindow::showReplotTime()

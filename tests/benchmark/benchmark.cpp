@@ -1,6 +1,7 @@
 #include <QtTest/QtTest>
 
 #include <qcustomplot.h>
+#include <vector>
 
 class Benchmark : public QObject
 {
@@ -27,10 +28,16 @@ private slots:
   void QCPGraph_AddDataSingleAtBegin();
   void QCPGraph_AddDataSingleRandom();
   
+  void QCPGraph2_SetDataDouble();
+  void QCPGraph2_SetDataFloat();
+  void QCPGraph2_RenderDouble();
+  void QCPGraph2_RenderFloat();
+  void QCPGraph2_RenderManyLines();
+
   void QCPColorMap_Standard();
   void QCPColorMap_ColorizeMap();
-  
-  
+
+
   void QCPAxis_TickLabels();
   void QCPAxis_TickLabelsCached();
   
@@ -528,6 +535,96 @@ void Benchmark::QCPGraph_AddDataSingleRandom()
     ++iteration;
   }
   QTest::setBenchmarkResult(elapsed/1e3/(double)iteration, QTest::WalltimeMilliseconds); // 1e3 instead of 1e6 is intentional to get time of 1000 iterations (fits better to precision of benchmark script)
+}
+
+void Benchmark::QCPGraph2_SetDataDouble()
+{
+  auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+  Q_UNUSED(graph);
+  const int n = 1000000;
+
+  QBENCHMARK {
+    std::vector<double> keys(n), values(n);
+    for (int i = 0; i < n; ++i) {
+      keys[i] = i / static_cast<double>(n);
+      values[i] = qSin(keys[i] * 10 * M_PI);
+    }
+    graph->setData(std::move(keys), std::move(values));
+  }
+}
+
+void Benchmark::QCPGraph2_SetDataFloat()
+{
+  auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+  Q_UNUSED(graph);
+  const int n = 1000000;
+
+  QBENCHMARK {
+    std::vector<double> keys(n);
+    std::vector<float> values(n);
+    for (int i = 0; i < n; ++i) {
+      keys[i] = i / static_cast<double>(n);
+      values[i] = static_cast<float>(qSin(keys[i] * 10 * M_PI));
+    }
+    graph->setData(std::move(keys), std::move(values));
+  }
+}
+
+void Benchmark::QCPGraph2_RenderDouble()
+{
+  auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+  const int n = 1000000;
+  std::vector<double> keys(n), values(n);
+  for (int i = 0; i < n; ++i) {
+    keys[i] = i / static_cast<double>(n);
+    values[i] = qSin(keys[i] * 10 * M_PI);
+  }
+  graph->setData(std::move(keys), std::move(values));
+  graph->rescaleAxes();
+  mPlot->xAxis->scaleRange(0.7, mPlot->xAxis->range().center());
+
+  QBENCHMARK {
+    mPlot->replot();
+  }
+}
+
+void Benchmark::QCPGraph2_RenderFloat()
+{
+  auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+  const int n = 1000000;
+  std::vector<double> keys(n);
+  std::vector<float> values(n);
+  for (int i = 0; i < n; ++i) {
+    keys[i] = i / static_cast<double>(n);
+    values[i] = static_cast<float>(qSin(keys[i] * 10 * M_PI));
+  }
+  graph->setData(std::move(keys), std::move(values));
+  graph->rescaleAxes();
+  mPlot->xAxis->scaleRange(0.7, mPlot->xAxis->range().center());
+
+  QBENCHMARK {
+    mPlot->replot();
+  }
+}
+
+void Benchmark::QCPGraph2_RenderManyLines()
+{
+  const int n = 50000;
+  for (int g = 0; g < 3; ++g) {
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    std::vector<double> keys(n), values(n);
+    for (int i = 0; i < n; ++i) {
+      keys[i] = i / static_cast<double>(n);
+      values[i] = qSin(keys[i] * (10 + 30 * g) * M_PI);
+    }
+    graph->setData(std::move(keys), std::move(values));
+  }
+  mPlot->rescaleAxes();
+  mPlot->xAxis->scaleRange(0.7, mPlot->xAxis->range().center());
+
+  QBENCHMARK {
+    mPlot->replot();
+  }
 }
 
 void Benchmark::QCPColorMap_Standard()

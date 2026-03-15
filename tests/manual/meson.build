@@ -7,3 +7,6 @@ manual = executable('manual',
   manual_moc_files,
   dependencies: [NeoQCP_dep]
 )
+
+subdir('spans')
+subdir('gallery')
