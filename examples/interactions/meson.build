@@ -1,5 +1,5 @@
 
-interactions_moc_files = qtmod.preprocess(moc_headers : ['mainwindow.h'], ui_files: ['mainwindow.ui'], dependencies: [QCustomPlot_dep])
+interactions_moc_files = qtmod.preprocess(moc_headers : ['mainwindow.h'], ui_files: ['mainwindow.ui'], dependencies: [NeoQCP_dep])
 
 interactions = executable('interactions',
   'mainwindow.cpp',

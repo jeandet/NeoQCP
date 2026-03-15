@@ -27,7 +27,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "../../qcustomplot.h"
+#include "qcustomplot.h"
 
 namespace Ui {
 class MainWindow;
