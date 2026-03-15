@@ -114,7 +114,7 @@ public:
     Q_ENUMS(PositionType)
 
     QCPItemPosition(QCustomPlot* parentPlot, QCPAbstractItem* parentItem, const QString& name);
-    virtual ~QCPItemPosition() Q_DECL_OVERRIDE;
+    virtual ~QCPItemPosition() override;
 
     // getters:
     PositionType type() const { return typeX(); }
@@ -140,7 +140,7 @@ public:
     QCPAxis* valueAxis() const { return mValueAxis.data(); }
 
     QCPAxisRect* axisRect() const;
-    virtual QPointF pixelPosition() const Q_DECL_OVERRIDE;
+    virtual QPointF pixelPosition() const override;
 
     // setters:
     void setType(PositionType type);
@@ -164,7 +164,7 @@ protected:
     QCPItemAnchor *mParentAnchorX, *mParentAnchorY;
 
     // reimplemented virtual methods:
-    virtual QCPItemPosition* toQCPItemPosition() Q_DECL_OVERRIDE { return this; }
+    virtual QCPItemPosition* toQCPItemPosition() override { return this; }
 
 private:
     Q_DISABLE_COPY(QCPItemPosition)
@@ -183,7 +183,7 @@ class QCP_LIB_DECL QCPAbstractItem : public QCPLayerable
 
 public:
     explicit QCPAbstractItem(QCustomPlot* parentPlot);
-    virtual ~QCPAbstractItem() Q_DECL_OVERRIDE;
+    virtual ~QCPAbstractItem() override;
 
     // getters:
     bool clipToAxisRect() const { return mClipToAxisRect; }
@@ -202,7 +202,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE
+                              QVariant* details = nullptr) const override
         = 0;
 
     // non-virtual methods:
@@ -217,6 +217,7 @@ public:
 signals:
     void selectionChanged(bool selected);
     void selectableChanged(bool selectable);
+    void deleteRequested();
 
 protected:
     // property members:
@@ -227,14 +228,14 @@ protected:
     bool mSelectable, mSelected;
 
     // reimplemented virtual methods:
-    virtual QCP::Interaction selectionCategory() const Q_DECL_OVERRIDE;
-    virtual QRect clipRect() const Q_DECL_OVERRIDE;
-    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const Q_DECL_OVERRIDE;
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE = 0;
+    virtual QCP::Interaction selectionCategory() const override;
+    virtual QRect clipRect() const override;
+    virtual void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
+    virtual void draw(QCPPainter* painter) override = 0;
     // events:
     virtual void selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                             bool* selectionStateChanged) Q_DECL_OVERRIDE;
-    virtual void deselectEvent(bool* selectionStateChanged) Q_DECL_OVERRIDE;
+                             bool* selectionStateChanged) override;
+    virtual void deselectEvent(bool* selectionStateChanged) override;
 
     // introduced virtual methods:
     virtual QPointF anchorPixelPosition(int anchorId) const;

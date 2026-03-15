@@ -62,7 +62,7 @@ public:
     Q_ENUMS(BracketStyle)
 
     explicit QCPItemBracket(QCustomPlot* parentPlot);
-    virtual ~QCPItemBracket() Q_DECL_OVERRIDE;
+    virtual ~QCPItemBracket() override;
 
     // getters:
     QPen pen() const { return mPen; }
@@ -81,7 +81,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     QCPItemPosition* const left;
     QCPItemPosition* const right;
@@ -99,8 +99,8 @@ protected:
     BracketStyle mStyle;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual QPointF anchorPixelPosition(int anchorId) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual QPointF anchorPixelPosition(int anchorId) const override;
 
     // non-virtual methods:
     QPen mainPen() const;

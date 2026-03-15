@@ -46,7 +46,7 @@ class QCP_LIB_DECL QCPItemPixmap : public QCPAbstractItem
 
 public:
     explicit QCPItemPixmap(QCustomPlot* parentPlot);
-    virtual ~QCPItemPixmap() Q_DECL_OVERRIDE;
+    virtual ~QCPItemPixmap() override;
 
     // getters:
     QPixmap pixmap() const { return mPixmap; }
@@ -70,7 +70,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     QCPItemPosition* const topLeft;
     QCPItemPosition* const bottomRight;
@@ -102,8 +102,8 @@ protected:
     QPen mPen, mSelectedPen;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual QPointF anchorPixelPosition(int anchorId) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual QPointF anchorPixelPosition(int anchorId) const override;
 
     // non-virtual methods:
     void updateScaledPixmap(QRect finalRect = QRect(), bool flipHorz = false,

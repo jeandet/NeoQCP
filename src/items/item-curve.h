@@ -45,7 +45,7 @@ class QCP_LIB_DECL QCPItemCurve : public QCPAbstractItem
 
 public:
     explicit QCPItemCurve(QCustomPlot* parentPlot);
-    virtual ~QCPItemCurve() Q_DECL_OVERRIDE;
+    virtual ~QCPItemCurve() override;
 
     // getters:
     QPen pen() const { return mPen; }
@@ -64,7 +64,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     QCPItemPosition* const start;
     QCPItemPosition* const startDir;
@@ -77,7 +77,7 @@ protected:
     QCPLineEnding mHead, mTail;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
 
     // non-virtual methods:
     QPen mainPen() const;

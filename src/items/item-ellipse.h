@@ -44,7 +44,7 @@ class QCP_LIB_DECL QCPItemEllipse : public QCPAbstractItem
 
 public:
     explicit QCPItemEllipse(QCustomPlot* parentPlot);
-    virtual ~QCPItemEllipse() Q_DECL_OVERRIDE;
+    virtual ~QCPItemEllipse() override;
 
     // getters:
     QPen pen() const { return mPen; }
@@ -63,7 +63,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     QCPItemPosition* const topLeft;
     QCPItemPosition* const bottomRight;
@@ -96,8 +96,8 @@ protected:
     QBrush mBrush, mSelectedBrush;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual QPointF anchorPixelPosition(int anchorId) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual QPointF anchorPixelPosition(int anchorId) const override;
 
     // non-virtual methods:
     QPen mainPen() const;

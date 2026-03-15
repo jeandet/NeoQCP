@@ -174,6 +174,17 @@ QCPAxisRect::QCPAxisRect(QCustomPlot* parentPlot, bool setupDefaultAxes)
         , mRangeZoomFactorVert(0.85)
         , mDragging(false)
 {
+    mWheelZoomRestoreTimer.setSingleShot(true);
+    mWheelZoomRestoreTimer.setInterval(300);
+    connect(&mWheelZoomRestoreTimer, &QTimer::timeout, this, [this]() {
+        if (mWheelZooming)
+        {
+            mWheelZooming = false;
+            mParentPlot->setAntialiasedElements(mAAWheelBackup);
+            mParentPlot->setNotAntialiasedElements(mNotAAWheelBackup);
+            mParentPlot->replot(QCustomPlot::rpQueuedReplot);
+        }
+    });
     mInsetLayout->initializeParentPlot(mParentPlot);
     mInsetLayout->setParentLayerable(this);
     mInsetLayout->setParent(this);
@@ -211,7 +222,7 @@ QCPAxisRect::~QCPAxisRect()
     delete mInsetLayout;
     mInsetLayout = nullptr;
 
-    foreach (QCPAxis* axis, axes())
+    for (QCPAxis* axis : axes())
         removeAxis(axis);
 }
 
@@ -454,7 +465,7 @@ void QCPAxisRect::zoom(const QRectF& pixelRect)
 */
 void QCPAxisRect::zoom(const QRectF& pixelRect, const QList<QCPAxis*>& affectedAxes)
 {
-    foreach (QCPAxis* axis, affectedAxes)
+    for (QCPAxis* axis : affectedAxes)
     {
         if (!axis)
         {
@@ -539,8 +550,8 @@ void QCPAxisRect::setupFullAxesBox(bool connectRanges)
 
     if (connectRanges)
     {
-        connect(xAxis, SIGNAL(rangeChanged(QCPRange)), xAxis2, SLOT(setRange(QCPRange)));
-        connect(yAxis, SIGNAL(rangeChanged(QCPRange)), yAxis2, SLOT(setRange(QCPRange)));
+        connect(xAxis, qOverload<const QCPRange&>(&QCPAxis::rangeChanged), xAxis2, qOverload<const QCPRange&>(&QCPAxis::setRange));
+        connect(yAxis, qOverload<const QCPRange&>(&QCPAxis::rangeChanged), yAxis2, qOverload<const QCPRange&>(&QCPAxis::setRange));
     }
 }
 
@@ -557,7 +568,7 @@ QList<QCPAbstractPlottable*> QCPAxisRect::plottables() const
     // Note: don't append all QCPAxis::plottables() into a list, because we might get duplicate
     // entries
     QList<QCPAbstractPlottable*> result;
-    foreach (QCPAbstractPlottable* plottable, mParentPlot->mPlottables)
+    for (QCPAbstractPlottable* plottable : mParentPlot->mPlottables)
     {
         if (plottable->keyAxis()->axisRect() == this || plottable->valueAxis()->axisRect() == this)
             result.append(plottable);
@@ -577,7 +588,7 @@ QList<QCPGraph*> QCPAxisRect::graphs() const
 {
     // Note: don't append all QCPAxis::graphs() into a list, because we might get duplicate entries
     QList<QCPGraph*> result;
-    foreach (QCPGraph* graph, mParentPlot->mGraphs)
+    for (QCPGraph* graph : mParentPlot->mGraphs)
     {
         if (graph->keyAxis()->axisRect() == this || graph->valueAxis()->axisRect() == this)
             result.append(graph);
@@ -601,14 +612,14 @@ QList<QCPAbstractItem*> QCPAxisRect::items() const
     // entries
     //       and miss those items that have this axis rect as clipAxisRect.
     QList<QCPAbstractItem*> result;
-    foreach (QCPAbstractItem* item, mParentPlot->mItems)
+    for (QCPAbstractItem* item : mParentPlot->mItems)
     {
         if (item->clipAxisRect() == this)
         {
             result.append(item);
             continue;
         }
-        foreach (QCPItemPosition* position, item->positions())
+        for (QCPItemPosition* position : item->positions())
         {
             if (position->axisRect() == this || position->keyAxis()->axisRect() == this
                 || position->valueAxis()->axisRect() == this)
@@ -639,7 +650,7 @@ void QCPAxisRect::update(UpdatePhase phase)
     {
         case upPreparation:
         {
-            foreach (QCPAxis* axis, axes())
+            for (QCPAxis* axis : axes())
                 axis->setupTickVectors();
             break;
         }
@@ -800,7 +811,7 @@ QList<QCPAxis*> QCPAxisRect::rangeDragAxes(Qt::Orientation orientation)
     QList<QCPAxis*> result;
     if (orientation == Qt::Horizontal)
     {
-        foreach (QPointer<QCPAxis> axis, mRangeDragHorzAxis)
+        for (QPointer<QCPAxis> axis : mRangeDragHorzAxis)
         {
             if (!axis.isNull())
                 result.append(axis.data());
@@ -808,7 +819,7 @@ QList<QCPAxis*> QCPAxisRect::rangeDragAxes(Qt::Orientation orientation)
     }
     else
     {
-        foreach (QPointer<QCPAxis> axis, mRangeDragVertAxis)
+        for (QPointer<QCPAxis> axis : mRangeDragVertAxis)
         {
             if (!axis.isNull())
                 result.append(axis.data());
@@ -827,7 +838,7 @@ QList<QCPAxis*> QCPAxisRect::rangeZoomAxes(Qt::Orientation orientation)
     QList<QCPAxis*> result;
     if (orientation == Qt::Horizontal)
     {
-        foreach (QPointer<QCPAxis> axis, mRangeZoomHorzAxis)
+        for (QPointer<QCPAxis> axis : mRangeZoomHorzAxis)
         {
             if (!axis.isNull())
                 result.append(axis.data());
@@ -835,7 +846,7 @@ QList<QCPAxis*> QCPAxisRect::rangeZoomAxes(Qt::Orientation orientation)
     }
     else
     {
-        foreach (QPointer<QCPAxis> axis, mRangeZoomVertAxis)
+        for (QPointer<QCPAxis> axis : mRangeZoomVertAxis)
         {
             if (!axis.isNull())
                 result.append(axis.data());
@@ -930,7 +941,7 @@ void QCPAxisRect::setRangeDragAxes(QCPAxis* horizontal, QCPAxis* vertical)
 void QCPAxisRect::setRangeDragAxes(QList<QCPAxis*> axes)
 {
     QList<QCPAxis*> horz, vert;
-    foreach (QCPAxis* ax, axes)
+    for (QCPAxis* ax : axes)
     {
         if (ax->orientation() == Qt::Horizontal)
             horz.append(ax);
@@ -949,7 +960,7 @@ void QCPAxisRect::setRangeDragAxes(QList<QCPAxis*> axes)
 void QCPAxisRect::setRangeDragAxes(QList<QCPAxis*> horizontal, QList<QCPAxis*> vertical)
 {
     mRangeDragHorzAxis.clear();
-    foreach (QCPAxis* ax, horizontal)
+    for (QCPAxis* ax : horizontal)
     {
         QPointer<QCPAxis> axPointer(ax);
         if (!axPointer.isNull())
@@ -959,7 +970,7 @@ void QCPAxisRect::setRangeDragAxes(QList<QCPAxis*> horizontal, QList<QCPAxis*> v
                      << "invalid axis passed in horizontal list:" << reinterpret_cast<quintptr>(ax);
     }
     mRangeDragVertAxis.clear();
-    foreach (QCPAxis* ax, vertical)
+    for (QCPAxis* ax : vertical)
     {
         QPointer<QCPAxis> axPointer(ax);
         if (!axPointer.isNull())
@@ -1004,7 +1015,7 @@ void QCPAxisRect::setRangeZoomAxes(QCPAxis* horizontal, QCPAxis* vertical)
 void QCPAxisRect::setRangeZoomAxes(QList<QCPAxis*> axes)
 {
     QList<QCPAxis*> horz, vert;
-    foreach (QCPAxis* ax, axes)
+    for (QCPAxis* ax : axes)
     {
         if (ax->orientation() == Qt::Horizontal)
             horz.append(ax);
@@ -1023,7 +1034,7 @@ void QCPAxisRect::setRangeZoomAxes(QList<QCPAxis*> axes)
 void QCPAxisRect::setRangeZoomAxes(QList<QCPAxis*> horizontal, QList<QCPAxis*> vertical)
 {
     mRangeZoomHorzAxis.clear();
-    foreach (QCPAxis* ax, horizontal)
+    for (QCPAxis* ax : horizontal)
     {
         QPointer<QCPAxis> axPointer(ax);
         if (!axPointer.isNull())
@@ -1033,7 +1044,7 @@ void QCPAxisRect::setRangeZoomAxes(QList<QCPAxis*> horizontal, QList<QCPAxis*> v
                      << "invalid axis passed in horizontal list:" << reinterpret_cast<quintptr>(ax);
     }
     mRangeZoomVertAxis.clear();
-    foreach (QCPAxis* ax, vertical)
+    for (QCPAxis* ax : vertical)
     {
         QPointer<QCPAxis> axPointer(ax);
         if (!axPointer.isNull())
@@ -1221,10 +1232,10 @@ void QCPAxisRect::mousePressEvent(QMouseEvent* event, const QVariant& details)
         if (mParentPlot->interactions().testFlag(QCP::iRangeDrag))
         {
             mDragStartHorzRange.clear();
-            foreach (QPointer<QCPAxis> axis, mRangeDragHorzAxis)
+            for (QPointer<QCPAxis> axis : mRangeDragHorzAxis)
                 mDragStartHorzRange.append(axis.isNull() ? QCPRange() : axis->range());
             mDragStartVertRange.clear();
-            foreach (QPointer<QCPAxis> axis, mRangeDragVertAxis)
+            for (QPointer<QCPAxis> axis : mRangeDragVertAxis)
                 mDragStartVertRange.append(axis.isNull() ? QCPRange() : axis->range());
         }
     }
@@ -1342,12 +1353,24 @@ void QCPAxisRect::wheelEvent(QWheelEvent* event)
     {
         if (mRangeZoom != 0)
         {
+            if (mParentPlot->noAntialiasingOnDrag())
+            {
+                if (!mWheelZooming)
+                {
+                    mWheelZooming = true;
+                    mAAWheelBackup = mParentPlot->antialiasedElements();
+                    mNotAAWheelBackup = mParentPlot->notAntialiasedElements();
+                }
+                mParentPlot->setNotAntialiasedElements(QCP::aeAll);
+                mWheelZoomRestoreTimer.start();
+            }
+
             double factor;
-            double wheelSteps = delta / 120.0; // a single step delta is +/-120 usually
+            double wheelSteps = delta / 120.0;
             if (mRangeZoom.testFlag(Qt::Horizontal))
             {
                 factor = qPow(mRangeZoomFactorHorz, wheelSteps);
-                foreach (QPointer<QCPAxis> axis, mRangeZoomHorzAxis)
+                for (QPointer<QCPAxis> axis : mRangeZoomHorzAxis)
                 {
                     if (!axis.isNull())
                         axis->scaleRange(factor, axis->pixelToCoord(pos.x()));
@@ -1356,13 +1379,13 @@ void QCPAxisRect::wheelEvent(QWheelEvent* event)
             if (mRangeZoom.testFlag(Qt::Vertical))
             {
                 factor = qPow(mRangeZoomFactorVert, wheelSteps);
-                foreach (QPointer<QCPAxis> axis, mRangeZoomVertAxis)
+                for (QPointer<QCPAxis> axis : mRangeZoomVertAxis)
                 {
                     if (!axis.isNull())
                         axis->scaleRange(factor, axis->pixelToCoord(pos.y()));
                 }
             }
-            mParentPlot->replot();
+            mParentPlot->replot(QCustomPlot::rpQueuedReplot);
         }
     }
 }

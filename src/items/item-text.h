@@ -53,7 +53,7 @@ class QCP_LIB_DECL QCPItemText : public QCPAbstractItem
 
 public:
     explicit QCPItemText(QCustomPlot* parentPlot);
-    virtual ~QCPItemText() Q_DECL_OVERRIDE;
+    virtual ~QCPItemText() override;
 
     // getters:
     QColor color() const { return mColor; }
@@ -99,7 +99,7 @@ public:
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
-                              QVariant* details = nullptr) const Q_DECL_OVERRIDE;
+                              QVariant* details = nullptr) const override;
 
     QCPItemPosition* const position;
     QCPItemAnchor* const topLeft;
@@ -136,8 +136,8 @@ protected:
     QMargins mPadding;
 
     // reimplemented virtual methods:
-    virtual void draw(QCPPainter* painter) Q_DECL_OVERRIDE;
-    virtual QPointF anchorPixelPosition(int anchorId) const Q_DECL_OVERRIDE;
+    virtual void draw(QCPPainter* painter) override;
+    virtual QPointF anchorPixelPosition(int anchorId) const override;
 
     // non-virtual methods:
     QPointF getTextDrawPoint(const QPointF& pos, const QRectF& rect,
