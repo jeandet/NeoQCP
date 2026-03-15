@@ -437,6 +437,85 @@ void TestDataSource2D::resampleGapDetectedWithTwoVisibleColumns()
     delete r;
 }
 
+void TestDataSource2D::resampleLogYNoBinGaps()
+{
+    // Bug #1: With log-scaled Y and widely-spaced channels (e.g. energy spectrogram),
+    // arithmetic half-spacing left gaps between channels that showed as white lines.
+    // With the fix, geometric midpoints are used, so all output bins get data.
+    std::vector<double> x = {0.0, 1.0, 2.0};
+    std::vector<double> y = {1.0, 10.0, 100.0, 1000.0, 10000.0};
+    std::vector<double> z(15);
+    for (int i = 0; i < 15; ++i)
+        z[i] = static_cast<double>(i + 1);
+
+    QCPSoADataSource2D src(std::move(x), std::move(y), std::move(z));
+
+    auto* r = qcp::algo2d::resample(src, 0, 3,
+        QCPRange(0, 2), QCPRange(1, 10000), 3, 50, true, 1.5);
+    QVERIFY(r);
+
+    // Every output bin should have data — no NaN gaps between channels
+    int nanCount = 0;
+    for (int i = 0; i < r->keySize(); ++i)
+        for (int j = 0; j < r->valueSize(); ++j)
+            if (std::isnan(r->cell(i, j)))
+                ++nanCount;
+
+    QVERIFY2(nanCount == 0,
+        qPrintable(QString("Log-Y resample has %1 NaN bins out of %2 — channels have gaps")
+            .arg(nanCount).arg(r->keySize() * r->valueSize())));
+
+    delete r;
+}
+
+void TestDataSource2D::dataBoundsSkipsNaN()
+{
+    // Bug #4: recalculateDataBounds didn't skip NaN, leading to wrong Z range.
+    QCPColorMapData data(3, 2, QCPRange(0, 2), QCPRange(0, 1));
+    data.setCell(0, 0, 5.0);
+    data.setCell(1, 0, std::nan(""));
+    data.setCell(2, 0, 10.0);
+    data.setCell(0, 1, std::nan(""));
+    data.setCell(1, 1, 2.0);
+    data.setCell(2, 1, std::nan(""));
+
+    data.recalculateDataBounds();
+
+    QCOMPARE(data.dataBounds().lower, 2.0);
+    QCOMPARE(data.dataBounds().upper, 10.0);
+}
+
+void TestDataSource2D::colormap2NanHandling()
+{
+    // Bug #2: Default NaN handling was nhNone, causing UB when colorizing
+    // resampled data (which naturally contains NaN for empty bins).
+    // After fix, QCPColorMap2 sets nhTransparent by default.
+    auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+    QCOMPARE(cm->gradient().nanHandling(), QCPColorGradient::nhTransparent);
+}
+
+void TestDataSource2D::colormap2DataScaleTypeSync()
+{
+    // Bug #3: colorize() was always called with logarithmic=false.
+    // Verify that dataScaleType propagates from QCPColorScale.
+    auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+    auto* cs = new QCPColorScale(mPlot);
+    mPlot->plotLayout()->addElement(0, 1, cs);
+
+    QCOMPARE(cm->dataScaleType(), QCPAxis::stLinear);
+
+    cs->setDataScaleType(QCPAxis::stLogarithmic);
+    cm->setColorScale(cs);
+    QCOMPARE(cm->dataScaleType(), QCPAxis::stLogarithmic);
+
+    // Changing scale type on color scale propagates to colormap
+    cs->setDataScaleType(QCPAxis::stLinear);
+    QCOMPARE(cm->dataScaleType(), QCPAxis::stLinear);
+
+    cs->setDataScaleType(QCPAxis::stLogarithmic);
+    QCOMPARE(cm->dataScaleType(), QCPAxis::stLogarithmic);
+}
+
 void TestDataSource2D::colormap2Creation()
 {
     auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);

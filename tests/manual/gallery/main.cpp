@@ -159,7 +159,6 @@ static QWidget* createColorMapTab()
     auto* cm = new QCPColorMap2(plot->xAxis, plot->yAxis);
     cm->setData(std::move(x), std::move(y), std::move(z));
     cm->setGapThreshold(3.0);
-    cm->rescaleDataRange(true);
 
     auto* scale = new QCPColorScale(plot);
     plot->plotLayout()->addElement(0, 1, scale);
@@ -168,13 +167,78 @@ static QWidget* createColorMapTab()
     QCPColorGradient gradient(QCPColorGradient::gpJet);
     gradient.setNanHandling(QCPColorGradient::nhTransparent);
     cm->setGradient(gradient);
+    cm->rescaleDataRange(true);
 
     plot->rescaleAxes();
     plot->replot();
     return wrapPlot(plot);
 }
 
-// ── Tab 4: MultiGraph ────────────────────────────────────────────────────────
+// ── Tab 4: ColorMap2 Log-Y + Log-Z + NaN + Gaps ─────────────────────────
+
+static QWidget* createColorMapLogTab()
+{
+    auto* plot = makePlot();
+
+    // Energy spectrogram: log-spaced Y channels, two data segments with a gap
+    const int nChannels = 32;
+    std::vector<double> y(nChannels);
+    for (int j = 0; j < nChannels; ++j)
+        y[j] = std::pow(10.0, 0.5 + j * 3.5 / (nChannels - 1)); // ~3 to ~31623
+
+    std::vector<double> x, z;
+    auto addSegment = [&](double t0, double t1, double dt) {
+        for (double t = t0; t <= t1; t += dt) {
+            x.push_back(t);
+            for (int j = 0; j < nChannels; ++j) {
+                double freq = y[j];
+                double logFreq = std::log10(freq);
+                // Two spectral peaks drifting in time, plus noise
+                double peak1 = 2.0 + 0.5 * std::sin(t * 0.3);
+                double peak2 = 3.5 + 0.3 * std::cos(t * 0.2);
+                double v = std::exp(-(logFreq - peak1) * (logFreq - peak1) / 0.15)
+                         + 0.6 * std::exp(-(logFreq - peak2) * (logFreq - peak2) / 0.08)
+                         + 0.02 * std::sin(logFreq * t);
+                // Sprinkle some NaN to simulate missing data
+                if (std::sin(t * 7.1 + j * 1.3) > 0.97)
+                    v = std::nan("");
+                z.push_back(v);
+            }
+        }
+    };
+
+    addSegment(0.0, 30.0, 0.5);   // segment 1
+    // gap: 30 to 50
+    addSegment(50.0, 100.0, 0.5);  // segment 2
+
+    auto* cm = new QCPColorMap2(plot->xAxis, plot->yAxis);
+    cm->setData(std::move(x), std::move(y), std::move(z));
+    cm->setGapThreshold(3.0);
+
+    // Log-Y axis
+    plot->yAxis->setScaleType(QCPAxis::stLogarithmic);
+    plot->yAxis->setTicker(QSharedPointer<QCPAxisTickerLog>::create());
+    plot->yAxis->setLabel("Energy (eV)");
+    plot->xAxis->setLabel("Time (s)");
+
+    // Color scale with log-Z
+    auto* scale = new QCPColorScale(plot);
+    plot->plotLayout()->addElement(0, 1, scale);
+    scale->setDataScaleType(QCPAxis::stLogarithmic);
+    scale->axis()->setTicker(QSharedPointer<QCPAxisTickerLog>::create());
+    cm->setColorScale(scale);
+
+    QCPColorGradient gradient(QCPColorGradient::gpJet);
+    gradient.setNanHandling(QCPColorGradient::nhTransparent);
+    cm->setGradient(gradient);
+    cm->rescaleDataRange(true);
+
+    plot->rescaleAxes();
+    plot->replot();
+    return wrapPlot(plot);
+}
+
+// ── Tab 5: MultiGraph ────────────────────────────────────────────────────────
 
 static QWidget* createMultiGraphTab()
 {
@@ -676,6 +740,7 @@ int main(int argc, char* argv[])
     tabs->addTab(createSpansTab(),       "Spans");
     tabs->addTab(createGraphTab(),       "Graph / Curve");
     tabs->addTab(createColorMapTab(),    "ColorMap2");
+    tabs->addTab(createColorMapLogTab(), "ColorMap2 Log/NaN/Gap");
     tabs->addTab(createMultiGraphTab(),  "MultiGraph");
     tabs->addTab(createWaterfallTab(),   "Waterfall");
     tabs->addTab(createItemsTab(),       "Items");

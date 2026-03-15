@@ -35,6 +35,12 @@ private slots:
     void resampleGapDetectedWhenZoomedIn();
     void resampleGapDetectedWithTwoVisibleColumns();
 
+    // Bug fix regression tests
+    void resampleLogYNoBinGaps();
+    void dataBoundsSkipsNaN();
+    void colormap2NanHandling();
+    void colormap2DataScaleTypeSync();
+
     // QCPColorMap2 integration tests
     void colormap2Creation();
     void colormap2SetDataOwning();
