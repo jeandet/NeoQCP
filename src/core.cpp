@@ -30,18 +30,29 @@
 #include "Profiling.hpp"
 #include "axis/axis.h"
 #include "items/item.h"
+#include "items/item-text.h"
 #include "layer.h"
 #include "layoutelements/layoutelement-axisrect.h"
 #include "layoutelements/layoutelement-legend.h"
 #include "painting/painter.h"
 #include "painting/paintbuffer.h"
-#include "painting/paintbuffer-glfbo.h"
 #include "painting/paintbuffer-pixmap.h"
+#include "painting/paintbuffer-rhi.h"
+#include "painting/plottable-rhi-layer.h"
+#include "painting/colormap-rhi-layer.h"
+#include <QSet>
+#include <rhi/qrhi.h>
+#include "embedded_shaders.h"
 #include "plottables/plottable.h"
 #include "plottables/plottable-graph.h"
 #include "selectionrect.h"
+#include "theme.h"
+#include "layoutelements/layoutelement-textelement.h"
+#include "layoutelements/layoutelement-colorscale.h"
 
+#include <QTimer>
 #include "neoqcp_config.h"
+#include "datasource/pipeline-scheduler.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -378,7 +389,7 @@
   Constructs a QCustomPlot and sets reasonable default values.
 */
 QCustomPlot::QCustomPlot(QWidget* parent)
-        : QWidget(parent)
+        : QRhiWidget(parent)
         , xAxis(nullptr)
         , yAxis(nullptr)
         , xAxis2(nullptr)
@@ -402,7 +413,8 @@ QCustomPlot::QCustomPlot(QWidget* parent)
         , mMultiSelectModifier(Qt::ControlModifier)
         , mSelectionRectMode(QCP::srmNone)
         , mSelectionRect(nullptr)
-        , mOpenGl(false)
+        , mOwnedTheme(nullptr)
+        , mThemeDirty(false)
         , mMouseHasMoved(false)
         , mMouseEventLayerable(nullptr)
         , mMouseSignalLayerable(nullptr)
@@ -410,11 +422,9 @@ QCustomPlot::QCustomPlot(QWidget* parent)
         , mReplotQueued(false)
         , mReplotTime(0)
         , mReplotTimeAverage(0)
-        , mOpenGlMultisamples(4)
-        , mOpenGlAntialiasedElementsBackup(QCP::aeNone)
-        , mOpenGlCacheLabelsBackup(true)
 {
     setAttribute(Qt::WA_NoMousePropagation);
+    setSampleCount(4); // 4x MSAA for smooth GPU-rendered geometry
     setFocusPolicy(Qt::ClickFocus);
     setMouseTracking(true);
     QLocale currentLocale = locale();
@@ -428,8 +438,6 @@ QCustomPlot::QCustomPlot(QWidget* parent)
 #endif
 #endif
 
-    mOpenGlAntialiasedElementsBackup = mAntialiasedElements;
-    mOpenGlCacheLabelsBackup = mPlottingHints.testFlag(QCP::phCacheLabels);
     // create initial layers:
     mLayers.append(new QCPLayer(this, QLatin1String("background")));
     mLayers.append(new QCPLayer(this, QLatin1String("grid")));
@@ -476,11 +484,31 @@ QCustomPlot::QCustomPlot(QWidget* parent)
 
     setViewport(rect()); // needs to be called after mPlotLayout has been created
 
-    replot(rpQueuedReplot);
+    mOwnedTheme = new QCPTheme(this);
+    mTheme = mOwnedTheme;
+    connect(mTheme, &QCPTheme::changed, this, [this]() {
+        if (!mThemeDirty) {
+            mThemeDirty = true;
+            QTimer::singleShot(0, this, [this]() {
+                mThemeDirty = false;
+                applyTheme();
+            });
+        }
+    });
+
+    mPipelineScheduler = new QCPPipelineScheduler(0, this);
+
+    // No replot here — initialize() + resizeEvent() will handle the first replot once
+    // the RHI backend is ready, avoiding throwaway pixmap buffer creation.
 }
 
 QCustomPlot::~QCustomPlot()
 {
+    // Release paint buffer GPU resources before QRhiWidget tears down the RHI
+    qDeleteAll(mPlottableRhiLayers);
+    mPlottableRhiLayers.clear();
+    mPaintBuffers.clear();
+
     clearPlottables();
     clearItems();
 
@@ -494,6 +522,124 @@ QCustomPlot::~QCustomPlot()
     qDeleteAll(
         mLayers); // don't use removeLayer, because it would prevent the last layer to be removed
     mLayers.clear();
+}
+
+QCPTheme* QCustomPlot::theme() const
+{
+    return mTheme;
+}
+
+void QCustomPlot::setTheme(QCPTheme* theme)
+{
+    if (mTheme == theme)
+        return;
+    if (mTheme)
+        disconnect(mTheme, &QCPTheme::changed, this, nullptr);
+    mTheme = theme ? theme : mOwnedTheme;
+    connect(mTheme, &QCPTheme::changed, this, [this]() {
+        if (!mThemeDirty) {
+            mThemeDirty = true;
+            QTimer::singleShot(0, this, [this]() {
+                mThemeDirty = false;
+                applyTheme();
+            });
+        }
+    });
+    applyTheme();
+}
+
+void QCustomPlot::applyTheme()
+{
+    if (!mTheme)
+        return;
+
+    mBackgroundBrush.setColor(mTheme->background());
+
+    auto applyThemeToAxis = [&](QCPAxis* axis) {
+        QPen bp = axis->basePen();    bp.setColor(mTheme->foreground()); axis->setBasePen(bp);
+        QPen tp = axis->tickPen();    tp.setColor(mTheme->foreground()); axis->setTickPen(tp);
+        QPen sp = axis->subTickPen(); sp.setColor(mTheme->foreground()); axis->setSubTickPen(sp);
+        axis->setLabelColor(mTheme->foreground());
+        axis->setTickLabelColor(mTheme->foreground());
+
+        QPen sbp = axis->selectedBasePen();    sbp.setColor(mTheme->selection()); axis->setSelectedBasePen(sbp);
+        QPen stp = axis->selectedTickPen();    stp.setColor(mTheme->selection()); axis->setSelectedTickPen(stp);
+        QPen ssp = axis->selectedSubTickPen(); ssp.setColor(mTheme->selection()); axis->setSelectedSubTickPen(ssp);
+        axis->setSelectedLabelColor(mTheme->selection());
+        axis->setSelectedTickLabelColor(mTheme->selection());
+
+        auto* grid = axis->grid();
+        QPen gp = grid->pen();         gp.setColor(mTheme->grid());    grid->setPen(gp);
+        QPen sgp = grid->subGridPen(); sgp.setColor(mTheme->subGrid()); grid->setSubGridPen(sgp);
+        QPen zlp = grid->zeroLinePen(); zlp.setColor(mTheme->grid());  grid->setZeroLinePen(zlp);
+    };
+
+    for (auto* rect : axisRects())
+        for (auto* axis : rect->axes())
+            applyThemeToAxis(axis);
+
+    if (legend) {
+        legend->setBrush(QBrush(mTheme->legendBackground()));
+        QPen lbp = legend->borderPen(); lbp.setColor(mTheme->legendBorder()); legend->setBorderPen(lbp);
+        legend->setTextColor(mTheme->foreground());
+        legend->setSelectedTextColor(mTheme->selection());
+        QPen slbp = legend->selectedBorderPen(); slbp.setColor(mTheme->selection()); legend->setSelectedBorderPen(slbp);
+    }
+
+    std::function<void(QCPLayoutElement*)> walkLayout = [&](QCPLayoutElement* el) {
+        if (!el) return;
+        if (auto* te = qobject_cast<QCPTextElement*>(el)) {
+            te->setTextColor(mTheme->foreground());
+            te->setSelectedTextColor(mTheme->selection());
+        }
+        if (auto* cs = qobject_cast<QCPColorScale*>(el)) {
+            applyThemeToAxis(cs->axis());
+        }
+        if (auto* layout = qobject_cast<QCPLayout*>(el)) {
+            for (int i = 0; i < layout->elementCount(); ++i)
+                walkLayout(layout->elementAt(i));
+        }
+    };
+    walkLayout(plotLayout());
+
+    for (auto* item : mItems) {
+        if (auto* textItem = qobject_cast<QCPItemText*>(item)) {
+            textItem->setColor(mTheme->foreground());
+            textItem->setSelectedColor(mTheme->selection());
+        }
+    }
+
+    if (mSelectionRect) {
+        QPen srp = mSelectionRect->pen(); srp.setColor(mTheme->selection()); mSelectionRect->setPen(srp);
+    }
+
+    replot(QCustomPlot::rpQueuedReplot);
+}
+
+QColor QCustomPlot::themeBackground() const { return mTheme ? mTheme->background() : QColor(); }
+void QCustomPlot::setThemeBackground(const QColor& c) { if (mTheme) mTheme->setBackground(c); }
+
+QColor QCustomPlot::themeForeground() const { return mTheme ? mTheme->foreground() : QColor(); }
+void QCustomPlot::setThemeForeground(const QColor& c) { if (mTheme) mTheme->setForeground(c); }
+
+QColor QCustomPlot::themeGrid() const { return mTheme ? mTheme->grid() : QColor(); }
+void QCustomPlot::setThemeGrid(const QColor& c) { if (mTheme) mTheme->setGrid(c); }
+
+QColor QCustomPlot::themeSubGrid() const { return mTheme ? mTheme->subGrid() : QColor(); }
+void QCustomPlot::setThemeSubGrid(const QColor& c) { if (mTheme) mTheme->setSubGrid(c); }
+
+QColor QCustomPlot::themeSelection() const { return mTheme ? mTheme->selection() : QColor(); }
+void QCustomPlot::setThemeSelection(const QColor& c) { if (mTheme) mTheme->setSelection(c); }
+
+QColor QCustomPlot::themeLegendBackground() const { return mTheme ? mTheme->legendBackground() : QColor(); }
+void QCustomPlot::setThemeLegendBackground(const QColor& c) { if (mTheme) mTheme->setLegendBackground(c); }
+
+QColor QCustomPlot::themeLegendBorder() const { return mTheme ? mTheme->legendBorder() : QColor(); }
+void QCustomPlot::setThemeLegendBorder(const QColor& c) { if (mTheme) mTheme->setLegendBorder(c); }
+
+void QCustomPlot::setMaxPipelineThreads(int count)
+{
+    mPipelineScheduler->setMaxThreads(count);
 }
 
 /*!
@@ -781,19 +927,15 @@ void QCustomPlot::setSelectionRectMode(QCP::SelectionRectMode mode)
 
         // disconnect old connections:
         if (mSelectionRectMode == QCP::srmSelect)
-            disconnect(mSelectionRect, SIGNAL(accepted(QRect, QMouseEvent*)), this,
-                       SLOT(processRectSelection(QRect, QMouseEvent*)));
+            disconnect(mSelectionRect, &QCPSelectionRect::accepted, this, &QCustomPlot::processRectSelection);
         else if (mSelectionRectMode == QCP::srmZoom)
-            disconnect(mSelectionRect, SIGNAL(accepted(QRect, QMouseEvent*)), this,
-                       SLOT(processRectZoom(QRect, QMouseEvent*)));
+            disconnect(mSelectionRect, &QCPSelectionRect::accepted, this, &QCustomPlot::processRectZoom);
 
         // establish new ones:
         if (mode == QCP::srmSelect)
-            connect(mSelectionRect, SIGNAL(accepted(QRect, QMouseEvent*)), this,
-                    SLOT(processRectSelection(QRect, QMouseEvent*)));
+            connect(mSelectionRect, &QCPSelectionRect::accepted, this, &QCustomPlot::processRectSelection);
         else if (mode == QCP::srmZoom)
-            connect(mSelectionRect, SIGNAL(accepted(QRect, QMouseEvent*)), this,
-                    SLOT(processRectZoom(QRect, QMouseEvent*)));
+            connect(mSelectionRect, &QCPSelectionRect::accepted, this, &QCustomPlot::processRectZoom);
     }
 
     mSelectionRectMode = mode;
@@ -819,98 +961,10 @@ void QCustomPlot::setSelectionRect(QCPSelectionRect* selectionRect)
     {
         // establish connections with new selection rect:
         if (mSelectionRectMode == QCP::srmSelect)
-            connect(mSelectionRect, SIGNAL(accepted(QRect, QMouseEvent*)), this,
-                    SLOT(processRectSelection(QRect, QMouseEvent*)));
+            connect(mSelectionRect, &QCPSelectionRect::accepted, this, &QCustomPlot::processRectSelection);
         else if (mSelectionRectMode == QCP::srmZoom)
-            connect(mSelectionRect, SIGNAL(accepted(QRect, QMouseEvent*)), this,
-                    SLOT(processRectZoom(QRect, QMouseEvent*)));
+            connect(mSelectionRect, &QCPSelectionRect::accepted, this, &QCustomPlot::processRectZoom);
     }
-}
-
-/*!
-  \warning This is still an experimental feature and its performance depends on the system that it
-  runs on. Having multiple QCustomPlot widgets in one application with enabled OpenGL rendering
-  might cause context conflicts on some systems.
-
-  This method allows to enable OpenGL plot rendering, for increased plotting performance of
-  graphically demanding plots (thick lines, translucent fills, etc.).
-
-  If \a enabled is set to true, QCustomPlot will try to initialize OpenGL and, if successful,
-  continue plotting with hardware acceleration. The parameter \a multisampling controls how many
-  samples will be used per pixel, it essentially controls the antialiasing quality. If \a
-  multisampling is set too high for the current graphics hardware, the maximum allowed value will
-  be used.
-
-  You can test whether switching to OpenGL rendering was successful by checking whether the
-  according getter \a QCustomPlot::openGl() returns true. If the OpenGL initialization fails,
-  rendering continues with the regular software rasterizer, and an according qDebug output is
-  generated.
-
-  If switching to OpenGL was successful, this method disables label caching (\ref setPlottingHint
-  "setPlottingHint(QCP::phCacheLabels, false)") and turns on QCustomPlot's antialiasing override
-  for all elements (\ref setAntialiasedElements "setAntialiasedElements(QCP::aeAll)"), leading to a
-  higher quality output. The antialiasing override allows for pixel-grid aligned drawing in the
-  OpenGL paint device. As stated before, in OpenGL rendering the actual antialiasing of the plot is
-  controlled with \a multisampling. If \a enabled is set to false, the antialiasing/label caching
-  settings are restored to what they were before OpenGL was enabled, if they weren't altered in the
-  meantime.
-
-  \note OpenGL support is only enabled if QCustomPlot is compiled with the macro \c
-  QCUSTOMPLOT_USE_OPENGL defined. This define must be set before including the QCustomPlot header
-  both during compilation of the QCustomPlot library as well as when compiling your application. It
-  is best to just include the line <tt>DEFINES += QCUSTOMPLOT_USE_OPENGL</tt> in the respective
-  qmake project files.
-  \note If you are using a Qt version before 5.0, you must also add the module "opengl" to your \c
-  QT variable in the qmake project files. For Qt versions 5.0 and higher, QCustomPlot switches to a
-  newer OpenGL interface which is already in the "gui" module.
-*/
-void QCustomPlot::setOpenGl(bool enabled, int multisampling)
-{
-    mOpenGlMultisamples = qMax(0, multisampling);
-#ifdef QCUSTOMPLOT_USE_OPENGL
-    mOpenGl = enabled;
-    if (mOpenGl)
-    {
-        if (setupOpenGl())
-        {
-            // backup antialiasing override and labelcaching setting so we can restore upon
-            // disabling OpenGL
-            mOpenGlAntialiasedElementsBackup = mAntialiasedElements;
-            mOpenGlCacheLabelsBackup = mPlottingHints.testFlag(QCP::phCacheLabels);
-            // set antialiasing override to antialias all (aligns gl pixel grid properly), and
-            // disable label caching (would use software rasterizer for pixmap caches):
-            setAntialiasedElements(QCP::aeAll);
-            setPlottingHint(QCP::phCacheLabels, false);
-        }
-        else
-        {
-            qDebug()
-                << Q_FUNC_INFO
-                << "Failed to enable OpenGL, continuing plotting without hardware acceleration.";
-            mOpenGl = false;
-        }
-    }
-    else
-    {
-        // restore antialiasing override and labelcaching to what it was before enabling OpenGL, if
-        // nobody changed it in the meantime:
-        if (mAntialiasedElements == QCP::aeAll)
-            setAntialiasedElements(mOpenGlAntialiasedElementsBackup);
-        if (!mPlottingHints.testFlag(QCP::phCacheLabels))
-            setPlottingHint(QCP::phCacheLabels, mOpenGlCacheLabelsBackup);
-        freeOpenGl();
-    }
-    // recreate all paint buffers:
-    mPaintBuffers.clear();
-    setupPaintBuffers();
-
-#else
-    Q_UNUSED(enabled)
-    qDebug()
-        << Q_FUNC_INFO
-        << "QCustomPlot can't use OpenGL because QCUSTOMPLOT_USE_OPENGL was not defined during "
-           "compilation (add 'DEFINES += QCUSTOMPLOT_USE_OPENGL' to your qmake .pro file)";
-#endif
 }
 
 /*!
@@ -957,17 +1011,38 @@ void QCustomPlot::setBufferDevicePixelRatio(double ratio)
         {
             buffer->setDevicePixelRatio(mBufferDevicePixelRatio);
         }
-#ifdef NEOQCP_BATCH_DRAWING
-        if (mBatchDrawingHelper)
-        {
-            mBatchDrawingHelper->setDevicePixelRatio(mBufferDevicePixelRatio);
-        }
-#endif
 #else
         qDebug() << Q_FUNC_INFO << "Device pixel ratios not supported for Qt versions before 5.4";
         mBufferDevicePixelRatio = 1.0;
 #endif
     }
+}
+
+QCPPlottableRhiLayer* QCustomPlot::plottableRhiLayer(QCPLayer* layer)
+{
+    if (!mRhi)
+        return nullptr;
+    if (!mPlottableRhiLayers.contains(layer))
+    {
+        auto* prl = new QCPPlottableRhiLayer(mRhi);
+        mPlottableRhiLayers[layer] = prl;
+    }
+    return mPlottableRhiLayers[layer];
+}
+
+void QCustomPlot::registerColormapRhiLayer(QCPColormapRhiLayer* layer)
+{
+    mColormapRhiLayers.insert(layer);
+}
+
+void QCustomPlot::unregisterColormapRhiLayer(QCPColormapRhiLayer* layer)
+{
+    mColormapRhiLayers.remove(layer);
+}
+
+QSize QCustomPlot::rhiOutputSize() const
+{
+    return renderTarget() ? renderTarget()->pixelSize() : QSize();
 }
 
 /*!
@@ -1111,8 +1186,8 @@ bool QCustomPlot::removePlottable(QCPAbstractPlottable* plottable)
     if (QCPGraph* graph = qobject_cast<QCPGraph*>(plottable))
         mGraphs.removeOne(graph);
     // remove plottable:
-    delete plottable;
     mPlottables.removeOne(plottable);
+    delete plottable;
     return true;
 }
 
@@ -1169,7 +1244,7 @@ int QCustomPlot::plottableCount() const
 QList<QCPAbstractPlottable*> QCustomPlot::selectedPlottables() const
 {
     QList<QCPAbstractPlottable*> result;
-    foreach (QCPAbstractPlottable* plottable, mPlottables)
+    for (QCPAbstractPlottable* plottable : mPlottables)
     {
         if (plottable->selected())
             result.append(plottable);
@@ -1340,7 +1415,7 @@ int QCustomPlot::graphCount() const
 QList<QCPGraph*> QCustomPlot::selectedGraphs() const
 {
     QList<QCPGraph*> result;
-    foreach (QCPGraph* graph, mGraphs)
+    for (QCPGraph* graph : mGraphs)
     {
         if (graph->selected())
             result.append(graph);
@@ -1456,7 +1531,7 @@ int QCustomPlot::itemCount() const
 QList<QCPAbstractItem*> QCustomPlot::selectedItems() const
 {
     QList<QCPAbstractItem*> result;
-    foreach (QCPAbstractItem* item, mItems)
+    for (QCPAbstractItem* item : mItems)
     {
         if (item->selected())
             result.append(item);
@@ -1498,7 +1573,7 @@ bool QCustomPlot::hasItem(QCPAbstractItem* item) const
 */
 QCPLayer* QCustomPlot::layer(const QString& name) const
 {
-    foreach (QCPLayer* layer, mLayers)
+    for (QCPLayer* layer : mLayers)
     {
         if (layer->name() == name)
             return layer;
@@ -1661,7 +1736,7 @@ bool QCustomPlot::removeLayer(QCPLayer* layer)
     QList<QCPLayerable*> children = layer->children();
     if (isFirstLayer) // prepend in reverse order (such that relative order stays the same)
         std::reverse(children.begin(), children.end());
-    foreach (QCPLayerable* child, children)
+    for (QCPLayerable* child : children)
         child->moveToLayer(targetLayer, isFirstLayer); // prepend if isFirstLayer, otherwise append
 
     // if removed layer is current layer, change current layer to layer below/above:
@@ -1786,7 +1861,7 @@ QList<QCPAxisRect*> QCustomPlot::axisRects() const
 
     while (!elementStack.isEmpty())
     {
-        foreach (QCPLayoutElement* element, elementStack.pop()->elements(false))
+        for (QCPLayoutElement* element : elementStack.pop()->elements(false))
         {
             if (element)
             {
@@ -1816,7 +1891,7 @@ QCPLayoutElement* QCustomPlot::layoutElementAt(const QPointF& pos) const
     while (searchSubElements && currentElement)
     {
         searchSubElements = false;
-        foreach (QCPLayoutElement* subElement, currentElement->elements(false))
+        for (QCPLayoutElement* subElement : currentElement->elements(false))
         {
             if (subElement && subElement->realVisibility()
                 && subElement->selectTest(pos, false) >= 0)
@@ -1848,7 +1923,7 @@ QCPAxisRect* QCustomPlot::axisRectAt(const QPointF& pos) const
     while (searchSubElements && currentElement)
     {
         searchSubElements = false;
-        foreach (QCPLayoutElement* subElement, currentElement->elements(false))
+        for (QCPLayoutElement* subElement : currentElement->elements(false))
         {
             if (subElement && subElement->realVisibility()
                 && subElement->selectTest(pos, false) >= 0)
@@ -1874,10 +1949,10 @@ QCPAxisRect* QCustomPlot::axisRectAt(const QPointF& pos) const
 QList<QCPAxis*> QCustomPlot::selectedAxes() const
 {
     QList<QCPAxis*> result, allAxes;
-    foreach (QCPAxisRect* rect, axisRects())
+    for (QCPAxisRect* rect : axisRects())
         allAxes << rect->axes();
 
-    foreach (QCPAxis* axis, allAxes)
+    for (QCPAxis* axis : allAxes)
     {
         if (axis->selectedParts() != QCPAxis::spNone)
             result.append(axis);
@@ -1903,7 +1978,7 @@ QList<QCPLegend*> QCustomPlot::selectedLegends() const
 
     while (!elementStack.isEmpty())
     {
-        foreach (QCPLayoutElement* subElement, elementStack.pop()->elements(false))
+        for (QCPLayoutElement* subElement : elementStack.pop()->elements(false))
         {
             if (subElement)
             {
@@ -1931,9 +2006,9 @@ QList<QCPLegend*> QCustomPlot::selectedLegends() const
 */
 void QCustomPlot::deselectAll()
 {
-    foreach (QCPLayer* layer, mLayers)
+    for (QCPLayer* layer : mLayers)
     {
-        foreach (QCPLayerable* layerable, layer->children())
+        for (QCPLayerable* layerable : layer->children())
             layerable->deselectEvent(nullptr);
     }
 }
@@ -1968,19 +2043,19 @@ void QCustomPlot::deselectAll()
 void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
 {
     PROFILE_HERE;
-    PROFILE_PASS_VALUE_N("OpenGL", this->mOpenGl);
     if (refreshPriority == QCustomPlot::rpQueuedReplot)
     {
         if (!mReplotQueued)
         {
             mReplotQueued = true;
-            QTimer::singleShot(0, this, SLOT(replot()));
+            QTimer::singleShot(0, this, [this] { replot(); });
         }
         return;
     }
 
     if (mReplotting) // incase signals loop back to replot slot
         return;
+
     mReplotting = true;
     mReplotQueued = false;
     emit beforeReplot();
@@ -1990,22 +2065,31 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
     replotTimer.start();
 
     updateLayout();
+    ensureAtLeastOneBufferDirty();
     // draw all layered objects (grid, axes, plottables, items, legend,...) into their buffers:
     setupPaintBuffers();
+    for (auto it = mPlottableRhiLayers.begin(); it != mPlottableRhiLayers.end(); ++it)
+    {
+        if (auto pb = it.key()->mPaintBuffer.toStrongRef(); pb && pb->contentDirty())
+            it.value()->clear();
+    }
     for (auto& layer : mLayers)
     {
-        layer->drawToPaintBuffer();
+        if (QSharedPointer<QCPAbstractPaintBuffer> pb = layer->mPaintBuffer.toStrongRef();
+            pb && pb->contentDirty())
+        {
+            layer->drawToPaintBuffer();
+        }
     }
     for (auto& buffer : mPaintBuffers)
     {
         buffer->setInvalidated(false);
+        buffer->setContentDirty(false);
     }
 
-    if ((refreshPriority == rpRefreshHint && mPlottingHints.testFlag(QCP::phImmediateRefresh))
-        || refreshPriority == rpImmediateRefresh)
-        repaint();
-    else
-        update();
+    // QRhiWidget rendering is compositor-driven; always use update() to schedule the next frame.
+    // repaint() would attempt a synchronous paint which is not compatible with QRhiWidget.
+    update();
 
     mReplotTime = replotTimer.nsecsElapsed() * 1e-6;
 
@@ -2043,10 +2127,10 @@ double QCustomPlot::replotTime(bool average) const
 void QCustomPlot::rescaleAxes(bool onlyVisiblePlottables)
 {
     QList<QCPAxis*> allAxes;
-    foreach (QCPAxisRect* rect, axisRects())
+    for (QCPAxisRect* rect : axisRects())
         allAxes << rect->axes();
 
-    foreach (QCPAxis* axis, allAxes)
+    for (QCPAxis* axis : allAxes)
         axis->rescale(onlyVisiblePlottables);
 }
 
@@ -2320,17 +2404,103 @@ QSize QCustomPlot::sizeHint() const
 
 /*! \internal
 
-  Event handler for when the QCustomPlot widget needs repainting. This does not cause a \ref replot,
-  but draws the internal buffer on the widget surface.
+  Called by QRhiWidget when the RHI instance is ready. Creates GPU resources needed for
+  compositing paint buffer textures onto the widget surface.
 */
-void QCustomPlot::paintEvent(QPaintEvent* event)
+void QCustomPlot::initialize(QRhiCommandBuffer* cb)
 {
-    Q_UNUSED(event)
+    PROFILE_HERE_N("QCustomPlot::initialize");
+
+    // QRhiWidget calls initialize() on resize (when the backing texture is recreated).
+    // Most RHI resources (sampler, buffers) are still valid, but the pipeline depends on the
+    // render pass descriptor which may change. Invalidate it for lazy recreation in render().
+    if (mRhiInitialized)
+    {
+        delete mCompositePipeline;
+        mCompositePipeline = nullptr;
+        delete mLayoutSrb;
+        mLayoutSrb = nullptr;
+        for (const auto& buffer : mPaintBuffers)
+        {
+            if (auto* rhiBuffer = dynamic_cast<QCPPaintBufferRhi*>(buffer.data()))
+                rhiBuffer->setSrb(nullptr, nullptr);
+        }
+        for (auto* prl : mPlottableRhiLayers)
+            prl->invalidatePipeline();
+        for (auto* crl : mColormapRhiLayers)
+            crl->invalidatePipeline();
+        // QRhiWidget calls initialize() on resize BEFORE resizeEvent() fires.
+        // Regenerate geometry now so render() has fresh data for the new size.
+        setViewport(rect());
+        replot(rpQueuedRefresh);
+        return;
+    }
+
+    mRhi = QRhiWidget::rhi();
+    if (!mRhi)
+    {
+        qDebug() << Q_FUNC_INFO << "No QRhi instance available";
+        return;
+    }
+
+    // Create sampler for texture compositing
+    mSampler = mRhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear,
+                                 QRhiSampler::None,
+                                 QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
+    mSampler->create();
+
+    // Fullscreen quad: position (x,y) + texcoord (u,v)
+    // QImage origin is top-left. In Y-up NDC (OpenGL), (-1,-1) is bottom-left so V must be
+    // flipped. In Y-down NDC (Metal/D3D), (-1,-1) is top-left so V maps directly.
+    const float v0 = mRhi->isYUpInNDC() ? 1.0f : 0.0f; // V at NDC bottom
+    const float v1 = mRhi->isYUpInNDC() ? 0.0f : 1.0f; // V at NDC top
+    const float quadVertices[] = {
+        -1.0f, -1.0f,  0.0f, v0,
+         1.0f, -1.0f,  1.0f, v0,
+         1.0f,  1.0f,  1.0f, v1,
+        -1.0f,  1.0f,  0.0f, v1,
+    };
+    mQuadVertexBuffer = mRhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer,
+                                         sizeof(quadVertices));
+    mQuadVertexBuffer->create();
+
+    static const quint16 quadIndices[] = { 0, 1, 2, 0, 2, 3 };
+    mQuadIndexBuffer = mRhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::IndexBuffer,
+                                        sizeof(quadIndices));
+    mQuadIndexBuffer->create();
+
+    // Upload vertex/index data
+    QRhiResourceUpdateBatch* updates = mRhi->nextResourceUpdateBatch();
+    updates->uploadStaticBuffer(mQuadVertexBuffer, quadVertices);
+    updates->uploadStaticBuffer(mQuadIndexBuffer, quadIndices);
+    cb->resourceUpdate(updates);
+
+    // Recreate paint buffers now that we have an RHI instance
+    mPaintBuffers.clear();
+    setupPaintBuffers();
+
+    mRhiInitialized = true;
+
+    // Draw content into the fresh buffers so the first frame is not blank.
+    // This handles widgets that are initially hidden (e.g. in a QTabWidget).
+    setViewport(rect());
+    replot(rpQueuedRefresh);
+}
+
+/*! \internal
+
+  Called by QRhiWidget each frame. Uploads paint buffer staging images to GPU textures
+  and composites them onto the widget render target.
+*/
+void QCustomPlot::render(QRhiCommandBuffer* cb)
+{
     PROFILE_FRAME_MARK;
-    PROFILE_HERE;
-    PROFILE_PASS_VALUE(this->openGl());
-    // detect if the device pixel ratio has changed (e.g. moving window between different DPI
-    // screens), and adapt buffers if necessary:
+    PROFILE_HERE_N("QCustomPlot::render");
+
+    if (!mRhiInitialized || !mRhi)
+        return;
+
+    // Detect DPR changes
     if (const auto newDpr = devicePixelRatioF(); !qFuzzyCompare(mBufferDevicePixelRatio, newDpr))
     {
         setBufferDevicePixelRatio(newDpr);
@@ -2338,29 +2508,198 @@ void QCustomPlot::paintEvent(QPaintEvent* event)
         return;
     }
 
-    QCPPainter painter(this);
-    if (painter.isActive())
-    {
-        painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+    const QSize outputSize = renderTarget()->pixelSize();
+    QRhiResourceUpdateBatch* updates = mRhi->nextResourceUpdateBatch();
 
-        if (mBackgroundBrush.style() != Qt::NoBrush)
-            painter.fillRect(mViewport, mBackgroundBrush);
-        drawBackground(&painter);
-#ifdef NEOQCP_BATCH_DRAWING
-        if (std::size(mPaintBuffers) > 0 && mBatchDrawingHelper && mOpenGl)
+    // Upload staging images that changed since last frame
+    for (const auto& buffer : mPaintBuffers)
+    {
+        auto* rhiBuffer = static_cast<QCPPaintBufferRhi*>(buffer.data());
+        if (rhiBuffer->texture() && rhiBuffer->needsUpload())
         {
-            mBatchDrawingHelper->batch_draw(mPaintBuffers, &painter);
+            QRhiTextureSubresourceUploadDescription subDesc(rhiBuffer->stagingImage());
+            QRhiTextureUploadDescription uploadDesc(
+                QRhiTextureUploadEntry(0, 0, subDesc));
+            updates->uploadTexture(rhiBuffer->texture(), uploadDesc);
+            rhiBuffer->setUploaded();
         }
-        else{
-#endif
-        for (const auto& buffer : mPaintBuffers)
-        {
-            buffer->draw(&painter);
-        }
-#ifdef NEOQCP_BATCH_DRAWING
-        }
-#endif
     }
+
+    // Upload plottable GPU resources
+    for (auto* prl : mPlottableRhiLayers)
+    {
+        prl->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
+        prl->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
+                              mRhi->isYUpInNDC());
+    }
+
+    // Upload colormap GPU resources
+    for (auto* crl : mColormapRhiLayers)
+    {
+        crl->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
+        crl->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
+                              mRhi->isYUpInNDC());
+    }
+
+    // Create pipeline lazily (needs renderPassDescriptor from the first render call)
+    if (!mCompositePipeline)
+    {
+        QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
+            reinterpret_cast<const char*>(composite_vert_qsb_data), composite_vert_qsb_data_len));
+        QShader fragShader = QShader::fromSerialized(QByteArray::fromRawData(
+            reinterpret_cast<const char*>(composite_frag_qsb_data), composite_frag_qsb_data_len));
+
+        if (!vertShader.isValid() || !fragShader.isValid())
+        {
+            qDebug() << Q_FUNC_INFO << "Failed to deserialize compositing shaders";
+            return;
+        }
+
+        mCompositePipeline = mRhi->newGraphicsPipeline();
+        mCompositePipeline->setShaderStages({
+            { QRhiShaderStage::Vertex, vertShader },
+            { QRhiShaderStage::Fragment, fragShader }
+        });
+
+        QRhiVertexInputLayout inputLayout;
+        inputLayout.setBindings({ { 4 * sizeof(float) } });
+        inputLayout.setAttributes({
+            { 0, 0, QRhiVertexInputAttribute::Float2, 0 },
+            { 0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float) }
+        });
+        mCompositePipeline->setVertexInputLayout(inputLayout);
+
+        // Premultiplied alpha blending
+        QRhiGraphicsPipeline::TargetBlend blend;
+        blend.enable = true;
+        blend.srcColor = QRhiGraphicsPipeline::One;
+        blend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+        blend.srcAlpha = QRhiGraphicsPipeline::One;
+        blend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+        mCompositePipeline->setTargetBlends({ blend });
+
+        mCompositePipeline->setRenderPassDescriptor(renderTarget()->renderPassDescriptor());
+        // Layout-only SRB for pipeline compatibility
+        delete mLayoutSrb;
+        mLayoutSrb = mRhi->newShaderResourceBindings();
+        mLayoutSrb->setBindings({
+            QRhiShaderResourceBinding::sampledTexture(
+                0, QRhiShaderResourceBinding::FragmentStage,
+                nullptr, mSampler)
+        });
+        mLayoutSrb->create();
+        mCompositePipeline->setShaderResourceBindings(mLayoutSrb);
+        mCompositePipeline->setSampleCount(sampleCount());
+        mCompositePipeline->create();
+    }
+
+    // Begin render pass -- clear with background color
+    QColor clearColor = (mBackgroundBrush.style() == Qt::SolidPattern)
+        ? mBackgroundBrush.color() : Qt::white;
+
+    cb->beginPass(renderTarget(), clearColor, { 1.0f, 0 }, updates);
+
+    cb->setGraphicsPipeline(mCompositePipeline);
+    cb->setViewport({ 0, 0, float(outputSize.width()), float(outputSize.height()) });
+    const QRhiCommandBuffer::VertexInput vbufBinding(mQuadVertexBuffer, 0);
+    cb->setVertexInput(0, 1, &vbufBinding, mQuadIndexBuffer, 0, QRhiCommandBuffer::IndexUInt16);
+
+    // Iterate over layers (not paint buffers) — mPaintBuffers and mLayers are NOT 1:1.
+    // Multiple logical layers share a single paint buffer. Track which buffers we've
+    // already composited to avoid double-drawing.
+    QSet<QCPAbstractPaintBuffer*> compositedBuffers;
+
+    for (QCPLayer* layer : mLayers)
+    {
+        // Composite the layer's paint buffer texture (if not already done)
+        if (auto pb = layer->mPaintBuffer.toStrongRef())
+        {
+            if (!compositedBuffers.contains(pb.data()))
+            {
+                compositedBuffers.insert(pb.data());
+                auto* rhiBuffer = static_cast<QCPPaintBufferRhi*>(pb.data());
+                {
+                    if (rhiBuffer->texture())
+                    {
+                        if (!rhiBuffer->srb() || !rhiBuffer->srbMatchesTexture())
+                        {
+                            auto* srb = mRhi->newShaderResourceBindings();
+                            srb->setBindings({
+                                QRhiShaderResourceBinding::sampledTexture(
+                                    0, QRhiShaderResourceBinding::FragmentStage,
+                                    rhiBuffer->texture(), mSampler)
+                            });
+                            srb->create();
+                            rhiBuffer->setSrb(srb, rhiBuffer->texture());
+                        }
+                        cb->setGraphicsPipeline(mCompositePipeline);
+                        cb->setShaderResources(rhiBuffer->srb());
+                        cb->setVertexInput(0, 1, &vbufBinding, mQuadIndexBuffer, 0,
+                                           QRhiCommandBuffer::IndexUInt16);
+                        cb->drawIndexed(6);
+                    }
+                }
+            }
+        }
+
+        // Draw colormap texture quads for this layer (between paint buffer and line plottables)
+        for (auto* crl : mColormapRhiLayers)
+        {
+            if (crl->layer() == layer && crl->hasContent())
+            {
+                crl->render(cb, outputSize);
+
+                cb->setGraphicsPipeline(mCompositePipeline);
+                cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
+                cb->setVertexInput(0, 1, &vbufBinding, mQuadIndexBuffer, 0,
+                                   QRhiCommandBuffer::IndexUInt16);
+            }
+        }
+
+        // Draw GPU plottable geometry for this layer (after its paint buffer)
+        if (auto* prl = mPlottableRhiLayers.value(layer, nullptr))
+        {
+            if (prl->hasGeometry())
+            {
+                prl->render(cb, outputSize);
+
+                // Restore composite pipeline state for next layer
+                cb->setGraphicsPipeline(mCompositePipeline);
+                cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
+                cb->setVertexInput(0, 1, &vbufBinding, mQuadIndexBuffer, 0,
+                                   QRhiCommandBuffer::IndexUInt16);
+            }
+        }
+    }
+
+    cb->endPass();
+}
+
+/*! \internal
+
+  Called by QRhiWidget when GPU resources should be released.
+*/
+void QCustomPlot::releaseResources()
+{
+    PROFILE_HERE_N("QCustomPlot::releaseResources");
+    // Release paint buffer GPU resources while the RHI is still valid
+    qDeleteAll(mPlottableRhiLayers);
+    mPlottableRhiLayers.clear();
+    // Colormap RHI layers are owned by QCPColorMap2 instances — just clear tracking
+    mColormapRhiLayers.clear();
+    mPaintBuffers.clear();
+    delete mCompositePipeline;
+    mCompositePipeline = nullptr;
+    delete mLayoutSrb;
+    mLayoutSrb = nullptr;
+    delete mSampler;
+    mSampler = nullptr;
+    delete mQuadVertexBuffer;
+    mQuadVertexBuffer = nullptr;
+    delete mQuadIndexBuffer;
+    mQuadIndexBuffer = nullptr;
+    mRhi = nullptr;
+    mRhiInitialized = false;
 }
 
 /*! \internal
@@ -2614,6 +2953,24 @@ void QCustomPlot::wheelEvent(QWheelEvent* event)
 
 /*! \internal
 
+  Event handler for key press events. Emits \ref deleteRequested on all selected items when the
+  Delete or Backspace key is pressed.
+*/
+void QCustomPlot::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace)
+    {
+        for (auto* item : mItems)
+        {
+            if (item->selected())
+                emit item->deleteRequested();
+        }
+    }
+    QRhiWidget::keyPressEvent(event);
+}
+
+/*! \internal
+
   This function draws the entire plot, including background pixmap, with the specified \a painter.
   It does not make use of the paint buffers like \ref replot, so this is the function typically
   used by saving/exporting methods such as \ref savePdf or \ref toPainter.
@@ -2631,11 +2988,11 @@ void QCustomPlot::draw(QCPPainter* painter)
     drawBackground(painter);
 
     // draw all layered objects (grid, axes, plottables, items, legend,...):
-    foreach (QCPLayer* layer, mLayers)
+    for (QCPLayer* layer : mLayers)
         layer->draw(painter);
 
     /* Debug code to draw all layout element rects
-    foreach (QCPLayoutElement *el, findChildren<QCPLayoutElement*>())
+    for (QCPLayoutElement *el : findChildren<QCPLayoutElement*>())
     {
       painter->setBrush(Qt::NoBrush);
       painter->setPen(QPen(QColor(0, 0, 0, 100), 0, Qt::DashLine));
@@ -2765,55 +3122,30 @@ void QCustomPlot::setupPaintBuffers()
     // remove unneeded buffers:
     while (mPaintBuffers.size() - 1 > bufferIndex)
         mPaintBuffers.removeLast();
-    // resize buffers to viewport size and clear contents:
+    // resize buffers to viewport size and clear dirty ones:
     for (auto& buffer : mPaintBuffers)
     {
-        buffer->setSize(viewport().size()); // won't do anything if already correct size
-        buffer->clear(Qt::transparent);
-        buffer->setInvalidated();
-    }
-#ifdef NEOQCP_BATCH_DRAWING
-    if (mOpenGl)
-    {
-        if (!mBatchDrawingHelper)
+        buffer->setSize(viewport().size()); // may set contentDirty if size changed
+        if (buffer->contentDirty())
         {
-            mBatchDrawingHelper = new NeoQCPBatchDrawingHelper(
-                viewport().size(), mBufferDevicePixelRatio, mGlContext, mGlPaintDevice);
+            buffer->clear(Qt::transparent);
+            buffer->setInvalidated();
         }
-        else
-        {
-            mBatchDrawingHelper->setSizeAndDevicePixelRatio(viewport().size(), mBufferDevicePixelRatio);
-        }
-
-
     }
-#endif
 }
 
 /*! \internal
 
   This method is used by \ref setupPaintBuffers when it needs to create new paint buffers.
 
-  Depending on the current setting of \ref setOpenGl, and the current Qt version, different
-  backends (subclasses of \ref QCPAbstractPaintBuffer) are created, initialized with the proper
-  size and device pixel ratio, and returned.
+  Creates a new \ref QCPPaintBufferPixmap initialized with the proper size and device pixel ratio,
+  and returns it.
 */
 QCPAbstractPaintBuffer* QCustomPlot::createPaintBuffer(const QString& layerName)
 {
-    if (mOpenGl)
-    {
-#if defined(QCP_OPENGL_FBO)
-        return new QCPPaintBufferGlFbo(viewport().size(), mBufferDevicePixelRatio, layerName,
-                                       mGlContext, mGlPaintDevice);
-#else
-        qDebug() << Q_FUNC_INFO
-                 << "OpenGL enabled even though no support for it compiled in, this shouldn't have "
-                    "happened. Falling back to pixmap paint buffer.";
-        return new QCPPaintBufferPixmap(viewport().size(), mBufferDevicePixelRatio, layerName);
-#endif
-    }
-    else
-        return new QCPPaintBufferPixmap(viewport().size(), mBufferDevicePixelRatio, layerName);
+    if (mRhi)
+        return new QCPPaintBufferRhi(viewport().size(), mBufferDevicePixelRatio, layerName, mRhi);
+    return new QCPPaintBufferPixmap(viewport().size(), mBufferDevicePixelRatio, layerName);
 }
 
 /*!
@@ -2837,80 +3169,15 @@ bool QCustomPlot::hasInvalidatedPaintBuffers()
     return false;
 }
 
-/*! \internal
-
-  When \ref setOpenGl is set to true, this method is used to initialize OpenGL (create a context,
-  surface, paint device).
-
-  Returns true on success.
-
-  If this method is successful, all paint buffers should be deleted and then reallocated by calling
-  \ref setupPaintBuffers, so the OpenGL-based paint buffer subclasses (\ref
-  QCPPaintBufferGlPbuffer, \ref QCPPaintBufferGlFbo) are used for subsequent replots.
-
-  \see freeOpenGl
-*/
-bool QCustomPlot::setupOpenGl()
+void QCustomPlot::ensureAtLeastOneBufferDirty()
 {
-#ifdef QCP_OPENGL_FBO
-    freeOpenGl();
-    auto proposedSurfaceFormat = QSurfaceFormat::defaultFormat();
-    proposedSurfaceFormat.setSamples(mOpenGlMultisamples);
-#ifdef QCP_OPENGL_OFFSCREENSURFACE
-    QOffscreenSurface* surface = new QOffscreenSurface;
-#else
-#error "QCP_OPENGL_OFFSCREENSURFACE must be defined to use OpenGL in QCustomPlot"
-#endif
-    surface->setFormat(proposedSurfaceFormat);
-    surface->create();
-    mGlSurface = QSharedPointer<QSurface>(surface);
-    mGlContext = QSharedPointer<QOpenGLContext>(new QOpenGLContext);
-    mGlContext->setFormat(mGlSurface->format());
-    if (!mGlContext->create())
+    for (const auto& b : mPaintBuffers)
     {
-        qDebug() << Q_FUNC_INFO << "Failed to create OpenGL context";
-        mGlContext.clear();
-        mGlSurface.clear();
-        return false;
+        if (b->contentDirty())
+            return;
     }
-    if (!mGlContext->makeCurrent(
-            mGlSurface.data())) // context needs to be current to create paint device
-    {
-        qDebug() << Q_FUNC_INFO << "Failed to make opengl context current";
-        mGlContext.clear();
-        mGlSurface.clear();
-        return false;
-    }
-    if (!QOpenGLFramebufferObject::hasOpenGLFramebufferObjects())
-    {
-        qDebug() << Q_FUNC_INFO << "OpenGL of this system doesn't support frame buffer objects";
-        mGlContext.clear();
-        mGlSurface.clear();
-        return false;
-    }
-    mGlPaintDevice = QSharedPointer<QOpenGLPaintDevice>(new QOpenGLPaintDevice);
-    return true;
-#endif
-}
-
-/*! \internal
-
-  When \ref setOpenGl is set to false, this method is used to deinitialize OpenGL (releases the
-  context and frees resources).
-
-  After OpenGL is disabled, all paint buffers should be deleted and then reallocated by calling
-  \ref setupPaintBuffers, so the standard software rendering paint buffer subclass (\ref
-  QCPPaintBufferPixmap) is used for subsequent replots.
-
-  \see setupOpenGl
-*/
-void QCustomPlot::freeOpenGl()
-{
-#ifdef QCP_OPENGL_FBO
-    mGlPaintDevice.clear();
-    mGlContext.clear();
-    mGlSurface.clear();
-#endif
+    for (auto& b : mPaintBuffers)
+        b->setContentDirty(true);
 }
 
 /*! \internal
@@ -2963,10 +3230,8 @@ void QCustomPlot::legendRemoved(QCPLegend* legend)
 */
 void QCustomPlot::processRectSelection(QRect rect, QMouseEvent* event)
 {
-    typedef QPair<QCPAbstractPlottable*, QCPDataSelection> SelectionCandidate;
-    typedef QMultiMap<int, SelectionCandidate>
-        SelectionCandidates; // map key is number of selected data points, so we have selections
-                             // sorted by size
+    using SelectionCandidate = QPair<QCPAbstractPlottable*, QCPDataSelection>;
+    using SelectionCandidates = QMultiMap<int, SelectionCandidate>; // map key is number of selected data points, so we have selections sorted by size
 
     bool selectionStateChanged = false;
 
@@ -3216,6 +3481,12 @@ bool QCustomPlot::registerItem(QCPAbstractItem* item)
     if (!item->layer()) // usually the layer is already set in the constructor of the item (via
                         // QCPLayerable constructor)
         item->setLayer(currentLayer());
+    if (mTheme) {
+        if (auto* textItem = qobject_cast<QCPItemText*>(item)) {
+            textItem->setColor(mTheme->foreground());
+            textItem->setSelectedColor(mTheme->selection());
+        }
+    }
     return true;
 }
 
@@ -3361,8 +3632,8 @@ bool QCustomPlot::saveRastered(const QString& fileName, int width, int height, d
 */
 QPixmap QCustomPlot::toPixmap(int width, int height, double scale)
 {
-    // this method is somewhat similar to toPainter. Change something here, and a change in
-    // toPainter might be necessary, too.
+    // Temporarily mutates mViewport for export. Safe because single-threaded and mReplotting
+    // prevents recursive replot. Viewport is restored before returning.
     int newWidth, newHeight;
     if (width == 0 || height == 0)
     {

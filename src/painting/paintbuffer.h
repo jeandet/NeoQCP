@@ -48,6 +48,8 @@ public:
     // setters:
     void setSize(const QSize& size);
     void setInvalidated(bool invalidated = true);
+    bool contentDirty() const { return mContentDirty; }
+    void setContentDirty(bool dirty = true);
     void setDevicePixelRatio(double ratio);
 
     // introduced virtual methods:
@@ -66,6 +68,7 @@ protected:
 
     // non-property members:
     bool mInvalidated;
+    bool mContentDirty;
 
     // introduced virtual methods:
     virtual void reallocateBuffer() = 0;

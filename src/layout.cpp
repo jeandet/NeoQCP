@@ -138,7 +138,7 @@ int QCPMarginGroup::commonMargin(QCP::MarginSide side) const
     // query all automatic margins of the layout elements in this margin group side and find
     // maximum:
     int result = 0;
-    foreach (QCPLayoutElement* el, mChildren.value(side))
+    for (QCPLayoutElement* el : mChildren.value(side))
     {
         if (!el->autoMargins().testFlag(side))
             continue;
@@ -453,7 +453,7 @@ void QCPLayoutElement::setMarginGroup(QCP::MarginSides sides, QCPMarginGroup* gr
     if (sides.testFlag(QCP::msBottom))
         sideVector.append(QCP::msBottom);
 
-    foreach (QCP::MarginSide side, sideVector)
+    for (QCP::MarginSide side : sideVector)
     {
         if (marginGroup(side) != group)
         {
@@ -498,7 +498,7 @@ void QCPLayoutElement::update(UpdatePhase phase)
             QMargins newMargins = mMargins;
             const QList<QCP::MarginSide> allMarginSides = QList<QCP::MarginSide>()
                 << QCP::msLeft << QCP::msRight << QCP::msTop << QCP::msBottom;
-            foreach (QCP::MarginSide side, allMarginSides)
+            for (QCP::MarginSide side : allMarginSides)
             {
                 if (mAutoMargins.testFlag(
                         side)) // this side's margin shall be calculated automatically
@@ -616,7 +616,7 @@ double QCPLayoutElement::selectTest(const QPointF& pos, bool onlySelectable,
 */
 void QCPLayoutElement::parentPlotInitialized(QCustomPlot* parentPlot)
 {
-    foreach (QCPLayoutElement* el, elements(false))
+    for (QCPLayoutElement* el : elements(false))
     {
         if (!el->parentPlot())
             el->initializeParentPlot(parentPlot);
@@ -1003,7 +1003,7 @@ QVector<int> QCPLayout::getSectionSizes(QVector<int> maxSizes, QVector<int> minS
             // find section that hits its maximum next:
             int nextId = -1;
             double nextMax = 1e12;
-            foreach (int secId, unfinishedSections)
+            for (int secId : unfinishedSections)
             {
                 double hitsMaxAt
                     = (maxSizes.at(secId) - sectionSizes.at(secId)) / stretchFactors.at(secId);
@@ -1017,13 +1017,13 @@ QVector<int> QCPLayout::getSectionSizes(QVector<int> maxSizes, QVector<int> minS
             // stretch all remaining sections so far that the found section actually hits its
             // maximum, without exceeding the total size when we add up all sections)
             double stretchFactorSum = 0;
-            foreach (int secId, unfinishedSections)
+            for (int secId : unfinishedSections)
                 stretchFactorSum += stretchFactors.at(secId);
             double nextMaxLimit = freeSize / stretchFactorSum;
             if (nextMax < nextMaxLimit) // next maximum is actually hit, move forward to that point
                                         // and fix the size of that section
             {
-                foreach (int secId, unfinishedSections)
+                for (int secId : unfinishedSections)
                 {
                     sectionSizes[secId]
                         += nextMax * stretchFactors.at(secId); // increment all sections
@@ -1034,7 +1034,7 @@ QVector<int> QCPLayout::getSectionSizes(QVector<int> maxSizes, QVector<int> minS
             }
             else // next maximum isn't hit, just distribute rest of free space on remaining sections
             {
-                foreach (int secId, unfinishedSections)
+                for (int secId : unfinishedSections)
                     sectionSizes[secId]
                         += nextMaxLimit * stretchFactors.at(secId); // increment all sections
                 unfinishedSections.clear();
@@ -1073,7 +1073,7 @@ QVector<int> QCPLayout::getSectionSizes(QVector<int> maxSizes, QVector<int> minS
             }
             // reset all section sizes to zero that are in unfinished sections (all others have been
             // set to their minimum):
-            foreach (int secId, unfinishedSections)
+            for (int secId : unfinishedSections)
                 sectionSizes[secId] = 0;
         }
     }
@@ -1516,7 +1516,7 @@ void QCPLayoutGrid::setFillOrder(FillOrder order, bool rearrange)
     // if rearranging, re-insert via linear index according to new fill order:
     if (rearrange)
     {
-        foreach (QCPLayoutElement* tempElement, tempElements)
+        for (QCPLayoutElement* tempElement : tempElements)
             addElement(tempElement);
     }
 }
@@ -1860,9 +1860,9 @@ QSize QCPLayoutGrid::minimumOuterSizeHint() const
     QVector<int> minColWidths, minRowHeights;
     getMinimumRowColSizes(&minColWidths, &minRowHeights);
     QSize result(0, 0);
-    foreach (int w, minColWidths)
+    for (int w : minColWidths)
         result.rwidth() += w;
-    foreach (int h, minRowHeights)
+    for (int h : minRowHeights)
         result.rheight() += h;
     result.rwidth() += qMax(0, columnCount() - 1) * mColumnSpacing;
     result.rheight() += qMax(0, rowCount() - 1) * mRowSpacing;
@@ -1878,9 +1878,9 @@ QSize QCPLayoutGrid::maximumOuterSizeHint() const
     getMaximumRowColSizes(&maxColWidths, &maxRowHeights);
 
     QSize result(0, 0);
-    foreach (int w, maxColWidths)
+    for (int w : maxColWidths)
         result.setWidth(qMin(result.width() + w, QWIDGETSIZE_MAX));
-    foreach (int h, maxRowHeights)
+    for (int h : maxRowHeights)
         result.setHeight(qMin(result.height() + h, QWIDGETSIZE_MAX));
     result.rwidth() += qMax(0, columnCount() - 1) * mColumnSpacing;
     result.rheight() += qMax(0, rowCount() - 1) * mRowSpacing;
@@ -2214,7 +2214,7 @@ double QCPLayoutInset::selectTest(const QPointF& pos, bool onlySelectable, QVari
     if (onlySelectable)
         return -1;
 
-    foreach (QCPLayoutElement* el, mElements)
+    for (QCPLayoutElement* el : mElements)
     {
         // inset layout shall only return positive selectTest, if actually an inset object is at pos
         // else it would block the entire underlying QCPAxisRect with its surface.

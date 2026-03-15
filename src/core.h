@@ -33,6 +33,9 @@
 #include "plottables/plottable.h"
 #include "neoqcp_config.h"
 
+#include <QPointer>
+#include <QRhiWidget>
+
 class QCPPainter;
 class QCPLayer;
 class QCPAbstractItem;
@@ -40,11 +43,17 @@ class QCPGraph;
 class QCPLegend;
 class QCPAbstractLegendItem;
 class QCPSelectionRect;
-#ifdef NEOQCP_BATCH_DRAWING
-class NeoQCPBatchDrawingHelper;
-#endif
+class QRhi;
+class QRhiGraphicsPipeline;
+class QRhiSampler;
+class QRhiBuffer;
+class QRhiShaderResourceBindings;
+class QCPPlottableRhiLayer;
+class QCPColormapRhiLayer;
+class QCPTheme;
+class QCPPipelineScheduler;
 
-class QCP_LIB_DECL QCustomPlot : public QWidget
+class QCP_LIB_DECL QCustomPlot : public QRhiWidget
 {
     Q_OBJECT
     /// \cond INCLUDE_QPROPERTIES
@@ -60,7 +69,13 @@ class QCP_LIB_DECL QCustomPlot : public QWidget
     Q_PROPERTY(bool noAntialiasingOnDrag READ noAntialiasingOnDrag WRITE setNoAntialiasingOnDrag)
     Q_PROPERTY(Qt::KeyboardModifier multiSelectModifier READ multiSelectModifier WRITE
                    setMultiSelectModifier)
-    Q_PROPERTY(bool openGl READ openGl WRITE setOpenGl)
+    Q_PROPERTY(QColor themeBackground READ themeBackground WRITE setThemeBackground)
+    Q_PROPERTY(QColor themeForeground READ themeForeground WRITE setThemeForeground)
+    Q_PROPERTY(QColor themeGrid READ themeGrid WRITE setThemeGrid)
+    Q_PROPERTY(QColor themeSubGrid READ themeSubGrid WRITE setThemeSubGrid)
+    Q_PROPERTY(QColor themeSelection READ themeSelection WRITE setThemeSelection)
+    Q_PROPERTY(QColor themeLegendBackground READ themeLegendBackground WRITE setThemeLegendBackground)
+    Q_PROPERTY(QColor themeLegendBorder READ themeLegendBorder WRITE setThemeLegendBorder)
     /// \endcond
 
 public:
@@ -84,32 +99,36 @@ public:
     */
     enum RefreshPriority
     {
-        rpImmediateRefresh ///< Replots immediately and repaints the widget immediately by calling
-                           ///< QWidget::repaint() after the replot
+        rpImmediateRefresh ///< Replots immediately. Under QRhiWidget, the
+                           ///< widget repaint is always queued via update().
         ,
-        rpQueuedRefresh ///< Replots immediately, but queues the widget repaint, by calling
-                        ///< QWidget::update() after the replot. This way multiple redundant widget
-                        ///< repaints can be avoided.
+        rpQueuedRefresh ///< Replots immediately. Under QRhiWidget, identical
+                        ///< to rpImmediateRefresh (repaint is always queued).
         ,
-        rpRefreshHint ///< Whether to use immediate or queued refresh depends on whether the
-                      ///< plotting hint \ref QCP::phImmediateRefresh is set, see \ref
-                      ///< setPlottingHints.
+        rpRefreshHint ///< Replots immediately. Under QRhiWidget, identical
+                      ///< to rpImmediateRefresh (repaint is always queued).
         ,
         rpQueuedReplot ///< Queues the entire replot for the next event loop iteration. This way
-                       ///< multiple redundant replots can be avoided. The actual replot is then
-                       ///< done with \ref rpRefreshHint priority.
+                       ///< multiple redundant replots can be avoided.
     };
     Q_ENUMS(RefreshPriority)
 
     explicit QCustomPlot(QWidget* parent = nullptr);
-    virtual ~QCustomPlot() Q_DECL_OVERRIDE;
+    virtual ~QCustomPlot() override;
 
     // getters:
     QRect viewport() const { return mViewport; }
 
     double bufferDevicePixelRatio() const { return mBufferDevicePixelRatio; }
 
+    QRhi* rhi() const { return mRhi; }
+    QCPPlottableRhiLayer* plottableRhiLayer(QCPLayer* layer);
+    void registerColormapRhiLayer(QCPColormapRhiLayer* layer);
+    void unregisterColormapRhiLayer(QCPColormapRhiLayer* layer);
+    QSize rhiOutputSize() const;
+
     QPixmap background() const { return mBackgroundPixmap; }
+    QBrush backgroundBrush() const { return mBackgroundBrush; }
 
     bool backgroundScaled() const { return mBackgroundScaled; }
 
@@ -137,8 +156,6 @@ public:
 
     QCPSelectionRect* selectionRect() const { return mSelectionRect; }
 
-    bool openGl() const { return mOpenGl; }
-
     // setters:
     void setViewport(const QRect& rect);
     void setBufferDevicePixelRatio(double ratio);
@@ -163,7 +180,27 @@ public:
     void setMultiSelectModifier(Qt::KeyboardModifier modifier);
     void setSelectionRectMode(QCP::SelectionRectMode mode);
     void setSelectionRect(QCPSelectionRect* selectionRect);
-    void setOpenGl(bool enabled, int multisampling = 16);
+    // theme:
+    QCPTheme* theme() const;
+    void setTheme(QCPTheme* theme);
+    void applyTheme();
+    QColor themeBackground() const;
+    void setThemeBackground(const QColor& color);
+    QColor themeForeground() const;
+    void setThemeForeground(const QColor& color);
+    QColor themeGrid() const;
+    void setThemeGrid(const QColor& color);
+    QColor themeSubGrid() const;
+    void setThemeSubGrid(const QColor& color);
+    QColor themeSelection() const;
+    void setThemeSelection(const QColor& color);
+    QColor themeLegendBackground() const;
+    void setThemeLegendBackground(const QColor& color);
+    QColor themeLegendBorder() const;
+    void setThemeLegendBorder(const QColor& color);
+    // pipeline:
+    QCPPipelineScheduler* pipelineScheduler() const { return mPipelineScheduler; }
+    void setMaxPipelineThreads(int count);
 
     // non-property methods:
     // plottable interface:
@@ -296,8 +333,9 @@ protected:
     Qt::KeyboardModifier mMultiSelectModifier;
     QCP::SelectionRectMode mSelectionRectMode;
     QCPSelectionRect* mSelectionRect;
-    bool mOpenGl;
-
+    QCPTheme* mOwnedTheme;
+    QPointer<QCPTheme> mTheme;
+    bool mThemeDirty;
     // non-property members:
     QList<QSharedPointer<QCPAbstractPaintBuffer>> mPaintBuffers;
     QPoint mMousePressPos;
@@ -309,28 +347,31 @@ protected:
     bool mReplotting;
     bool mReplotQueued;
     double mReplotTime, mReplotTimeAverage;
-    int mOpenGlMultisamples;
-    QCP::AntialiasedElements mOpenGlAntialiasedElementsBackup;
-    bool mOpenGlCacheLabelsBackup;
-#ifdef QCP_OPENGL_FBO
-    QSharedPointer<QOpenGLContext> mGlContext;
-    QSharedPointer<QSurface> mGlSurface;
-    QSharedPointer<QOpenGLPaintDevice> mGlPaintDevice;
-#ifdef NEOQCP_BATCH_DRAWING
-    NeoQCPBatchDrawingHelper* mBatchDrawingHelper = nullptr;
-#endif // NEOQCP_BATCH_DRAWING
-#endif
-
+    // RHI compositing resources (mRhi cached from rhi() in initialize(); Qt docs only guarantee
+    // rhi() during initialize/render/releaseResources, but the pointer is stable in practice):
+    QRhi* mRhi = nullptr;
+    QRhiGraphicsPipeline* mCompositePipeline = nullptr;
+    QRhiShaderResourceBindings* mLayoutSrb = nullptr;
+    QRhiSampler* mSampler = nullptr;
+    QRhiBuffer* mQuadVertexBuffer = nullptr;
+    QRhiBuffer* mQuadIndexBuffer = nullptr;
+    bool mRhiInitialized = false;
+    QMap<QCPLayer*, QCPPlottableRhiLayer*> mPlottableRhiLayers;
+    QSet<QCPColormapRhiLayer*> mColormapRhiLayers;
+    QCPPipelineScheduler* mPipelineScheduler = nullptr;
     // reimplemented virtual methods:
-    virtual QSize minimumSizeHint() const Q_DECL_OVERRIDE;
-    virtual QSize sizeHint() const Q_DECL_OVERRIDE;
-    virtual void paintEvent(QPaintEvent* event) Q_DECL_OVERRIDE;
-    virtual void resizeEvent(QResizeEvent* event) Q_DECL_OVERRIDE;
-    virtual void mouseDoubleClickEvent(QMouseEvent* event) Q_DECL_OVERRIDE;
-    virtual void mousePressEvent(QMouseEvent* event) Q_DECL_OVERRIDE;
-    virtual void mouseMoveEvent(QMouseEvent* event) Q_DECL_OVERRIDE;
-    virtual void mouseReleaseEvent(QMouseEvent* event) Q_DECL_OVERRIDE;
-    virtual void wheelEvent(QWheelEvent* event) Q_DECL_OVERRIDE;
+    virtual QSize minimumSizeHint() const override;
+    virtual QSize sizeHint() const override;
+    void initialize(QRhiCommandBuffer* cb) override;
+    void render(QRhiCommandBuffer* cb) override;
+    void releaseResources() override;
+    virtual void resizeEvent(QResizeEvent* event) override;
+    virtual void mouseDoubleClickEvent(QMouseEvent* event) override;
+    virtual void mousePressEvent(QMouseEvent* event) override;
+    virtual void mouseMoveEvent(QMouseEvent* event) override;
+    virtual void mouseReleaseEvent(QMouseEvent* event) override;
+    virtual void wheelEvent(QWheelEvent* event) override;
+    virtual void keyPressEvent(QKeyEvent* event) override;
 
     // introduced virtual methods:
     virtual void draw(QCPPainter* painter);
@@ -354,12 +395,11 @@ protected:
     void setupPaintBuffers();
     QCPAbstractPaintBuffer* createPaintBuffer(const QString& layerName);
     bool hasInvalidatedPaintBuffers();
-    bool setupOpenGl();
-    void freeOpenGl();
-
+    void ensureAtLeastOneBufferDirty();
     friend class QCPLegend;
     friend class QCPAxis;
     friend class QCPLayer;
+    friend class TestPaintBuffer;
     friend class QCPAxisRect;
     friend class QCPAbstractPlottable;
     friend class QCPGraph;
@@ -398,7 +438,7 @@ PlottableType* QCustomPlot::plottableAt(const QPointF& pos, bool onlySelectable,
         = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance
                                // as selections, so initialize with that value
 
-    foreach (QCPAbstractPlottable* plottable, mPlottables)
+    for (QCPAbstractPlottable* plottable : mPlottables)
     {
         PlottableType* currentPlottable = qobject_cast<PlottableType*>(plottable);
         if (!currentPlottable
@@ -454,7 +494,7 @@ ItemType* QCustomPlot::itemAt(const QPointF& pos, bool onlySelectable) const
         = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance
                                // as selections, so initialize with that value
 
-    foreach (QCPAbstractItem* item, mItems)
+    for (QCPAbstractItem* item : mItems)
     {
         ItemType* currentItem = qobject_cast<ItemType*>(item);
         if (!currentItem

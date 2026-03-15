@@ -24,72 +24,41 @@
 **                   https://github.com/SciQLop/NeoQCP (fork)             **
 ** Original version: 2.1.1 (Date: 06.11.22)                               **
 ****************************************************************************/
+#pragma once
 
-#include "paintbuffer-pixmap.h"
-#include "painter.h"
-#include "Profiling.hpp"
+#include "paintbuffer.h"
+#include <rhi/qrhi.h>
 
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////// QCPPaintBufferPixmap
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*! \class QCPPaintBufferPixmap
-  \brief A paint buffer based on QPixmap, using software raster rendering
-
-  This paint buffer is the default and fall-back paint buffer which uses software rendering and
-  QPixmap as internal buffer.
-*/
-
-/*!
-  Creates a pixmap paint buffer instancen with the specified \a size and \a devicePixelRatio, if
-  applicable.
-*/
-QCPPaintBufferPixmap::QCPPaintBufferPixmap(const QSize& size, double devicePixelRatio,
-                                           const QString& layerName)
-        : QCPAbstractPaintBuffer(size, devicePixelRatio, layerName)
+class QCP_LIB_DECL QCPPaintBufferRhi : public QCPAbstractPaintBuffer
 {
-    QCPPaintBufferPixmap::reallocateBuffer();
-}
+public:
+    explicit QCPPaintBufferRhi(const QSize& size, double devicePixelRatio,
+                                const QString& layerName, QRhi* rhi);
+    virtual ~QCPPaintBufferRhi() override;
 
-QCPPaintBufferPixmap::~QCPPaintBufferPixmap() { }
+    // reimplemented virtual methods:
+    virtual QCPPainter* startPainting() override;
+    virtual void donePainting() override;
+    virtual void draw(QCPPainter* painter) const override;
+    void clear(const QColor& color) override;
 
-/* inherits documentation from base class */
-QCPPainter* QCPPaintBufferPixmap::startPainting()
-{
-    QCPPainter* result = new QCPPainter(&mBuffer);
-    return result;
-}
+    // RHI-specific accessors:
+    QRhiTexture* texture() const { return mTexture; }
+    const QImage& stagingImage() const { return mStagingImage; }
+    QRhiShaderResourceBindings* srb() const { return mSrb; }
+    bool srbMatchesTexture() const { return mSrbBoundTexture == mTexture; }
+    void setSrb(QRhiShaderResourceBindings* srb, QRhiTexture* boundTexture);
+    bool needsUpload() const { return mNeedsUpload; }
+    void setUploaded() { mNeedsUpload = false; }
 
-/* inherits documentation from base class */
-void QCPPaintBufferPixmap::draw(QCPPainter* painter) const
-{
-    PROFILE_HERE_N("QCPPaintBufferPixmap::draw");
-    if (painter && painter->isActive())
-        painter->drawPixmap(0, 0, mBuffer);
-    else
-        qDebug() << Q_FUNC_INFO << "invalid or inactive painter passed";
-}
+protected:
+    virtual void reallocateBuffer() override;
 
-/* inherits documentation from base class */
-void QCPPaintBufferPixmap::clear(const QColor& color)
-{
-    mBuffer.fill(color);
-}
-
-/* inherits documentation from base class */
-void QCPPaintBufferPixmap::reallocateBuffer()
-{
-    setInvalidated();
-    if (!qFuzzyCompare(1.0, mDevicePixelRatio))
-    {
-        mBuffer = QPixmap(mSize * mDevicePixelRatio);
-        mBuffer.setDevicePixelRatio(mDevicePixelRatio);
-    }
-    else
-    {
-        mBuffer = QPixmap(mSize);
-    }
-}
-
+private:
+    QRhi* mRhi;
+    QRhiTexture* mTexture = nullptr;
+    QRhiShaderResourceBindings* mSrb = nullptr;
+    QRhiTexture* mSrbBoundTexture = nullptr;
+    QImage mStagingImage;
+    bool mNeedsUpload = true;
+};
