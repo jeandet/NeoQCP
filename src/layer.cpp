@@ -199,7 +199,7 @@ void QCPLayer::setMode(QCPLayer::LayerMode mode)
 void QCPLayer::draw(QCPPainter* painter)
 {
     PROFILE_HERE_N("QCPLayer::draw");
-    foreach (QCPLayerable* child, mChildren)
+    for (QCPLayerable* child : mChildren)
     {
         if (child->realVisibility())
         {
@@ -272,6 +272,12 @@ void QCPLayer::replot()
     }
     else
         mParentPlot->replot();
+}
+
+void QCPLayer::markDirty()
+{
+    if (QSharedPointer<QCPAbstractPaintBuffer> pb = mPaintBuffer.toStrongRef())
+        pb->setContentDirty(true);
 }
 
 /*! \internal

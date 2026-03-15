@@ -52,6 +52,13 @@ __pycache__/
 callgrind.out.*
 cachegrind.out.*
 
+# IDE / Editor:
+
+.cache/
+.qtcreator/
+meson.build.user
+*.swp
+
 # Amalgamated sources:
 
 /qcustomplot.h

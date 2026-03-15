@@ -88,6 +88,7 @@ public:
 
     // non-virtual methods:
     void replot();
+    void markDirty();
 
 protected:
     // property members:
@@ -112,6 +113,7 @@ private:
 
     friend class QCustomPlot;
     friend class QCPLayerable;
+    friend class TestPaintBuffer;
 };
 Q_DECLARE_METATYPE(QCPLayer::LayerMode)
 

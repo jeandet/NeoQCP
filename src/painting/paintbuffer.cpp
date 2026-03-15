@@ -48,9 +48,9 @@
   previous frame.
 
   The simplest paint buffer implementation is \ref QCPPaintBufferPixmap which allows regular
-  software rendering via the raster engine. Hardware accelerated rendering via pixel buffers and
-  frame buffer objects is provided by \ref QCPPaintBufferGlPbuffer and \ref QCPPaintBufferGlFbo.
-  They are used automatically if \ref QCustomPlot::setOpenGl is enabled.
+  software rendering via the raster engine. Hardware accelerated rendering is provided via
+  QRhiWidget, which uses the platform's native graphics API (Vulkan, Metal, Direct3D, or OpenGL)
+  through Qt's RHI abstraction layer.
 */
 
 /* start documentation of pure virtual functions */
@@ -122,6 +122,7 @@ QCPAbstractPaintBuffer::QCPAbstractPaintBuffer(const QSize& size, double deviceP
         , mDevicePixelRatio(devicePixelRatio)
         , mLayerName(layerName)
         , mInvalidated(true)
+        , mContentDirty(true)
 {
 }
 
@@ -141,6 +142,7 @@ void QCPAbstractPaintBuffer::setSize(const QSize& size)
     {
         mSize = size;
         reallocateBuffer();
+        mContentDirty = true;
     }
 }
 
@@ -162,6 +164,13 @@ void QCPAbstractPaintBuffer::setSize(const QSize& size)
 void QCPAbstractPaintBuffer::setInvalidated(bool invalidated)
 {
     mInvalidated = invalidated;
+    if (invalidated)
+        mContentDirty = true;
+}
+
+void QCPAbstractPaintBuffer::setContentDirty(bool dirty)
+{
+    mContentDirty = dirty;
 }
 
 /*!
@@ -179,6 +188,7 @@ void QCPAbstractPaintBuffer::setDevicePixelRatio(double ratio)
     {
         mDevicePixelRatio = ratio;
         reallocateBuffer();
+        mContentDirty = true;
     }
 }
 

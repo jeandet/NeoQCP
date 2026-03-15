@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  QT_VERSION: 6.9.1
+  QT_VERSION: 6.10.2
 
 jobs:
   build_and_test:
@@ -20,69 +20,85 @@ jobs:
           - os: ubuntu-latest
             arch: x86_64
             qt_host: linux
+            qt_dir: gcc_64
           - os: ubuntu-24.04-arm
             arch: aarch64
             qt_host: linux_arm64
+            qt_dir: gcc_arm64
           - os: windows-latest
             arch: x86_64
             qt_host: windows
-          - os: macos-13  # Intel
+            qt_dir: msvc2022_64
+          - os: macos-15-intel  # Intel
             arch: x86_64
             qt_host: mac
+            qt_dir: macos
           - os: macos-14 # Apple Silicon
             arch: arm64
             qt_host: mac
+            qt_dir: macos
     steps:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
         with:
           arch: amd64
       - uses: actions/checkout@v4
-      - name: Forward GITHUB_WORKSPACE env var
-        shell: bash
-        run: |
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE" >> $GITHUB_ENV
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install dependencies on Linux x86_64
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install build tools
+        run: pip install aqtinstall meson ninja
+
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: Qt
+          key: qt-${{ env.QT_VERSION }}-${{ matrix.qt_host }}-${{ matrix.qt_dir }}
+      - name: Install Qt
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        shell: bash
         run: |
-          sudo apt update && sudo apt install -y libgl-dev xvfb libatomic1 libglx-dev libegl-dev libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2-dev libxi6 libxtst6 libglib2.0-bin libdbus-1-3 libxdamage1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libnss3
-          pip install aqtinstall meson ninja
-          aqt install-qt -O "$GITHUB_WORKSPACE"/Qt ${{ matrix.qt_host }} desktop ${{ env.QT_VERSION }}
-          echo "${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/gcc_64/bin" >> $GITHUB_PATH
-          echo "LD_LIBRARY_PATH=${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/gcc_64/lib" >> $GITHUB_ENV
+          if [ "${{ matrix.qt_host }}" = "windows" ]; then
+            aqt install-qt -O Qt ${{ matrix.qt_host }} desktop ${{ env.QT_VERSION }} win64_msvc2022_64 -m qtshadertools
+          else
+            aqt install-qt -O Qt ${{ matrix.qt_host }} desktop ${{ env.QT_VERSION }} -m qtshadertools
+          fi
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update && sudo apt install -y ccache libgl-dev xvfb libatomic1 libglx-dev libegl-dev libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2-dev libxi6 libxtst6 libglib2.0-bin libdbus-1-3 libxdamage1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libnss3
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ matrix.os }}
+
+      - name: Set up environment (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "$GITHUB_WORKSPACE/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/bin" >> $GITHUB_PATH
+          echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/lib" >> $GITHUB_ENV
           echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
-      - name: Install dependencies on Linux aarch64
-        if: matrix.os == 'ubuntu-24.04-arm'
+      - name: Set up environment (Windows)
+        if: runner.os == 'Windows'
         run: |
-          sudo apt update && sudo apt install -y libgl-dev xvfb libatomic1 libglx-dev libegl-dev libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2-dev libxi6 libxtst6 libglib2.0-bin libdbus-1-3 libxdamage1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libnss3
-          pip install aqtinstall meson ninja
-          aqt install-qt -O "$GITHUB_WORKSPACE"/Qt ${{ matrix.qt_host }} desktop ${{ env.QT_VERSION }} 
-          echo "${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/gcc_arm64/bin" >> $GITHUB_PATH
-          echo "LD_LIBRARY_PATH=${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/gcc_arm64/lib" >> $GITHUB_ENV
-          echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
-      - name: Install dependencies on Windows
-        if: matrix.os == 'windows-latest'
+          echo "$env:GITHUB_WORKSPACE\Qt\$env:QT_VERSION\${{ matrix.qt_dir }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "QT_QPA_PLATFORM=offscreen" >> $env:GITHUB_ENV
+      - name: Set up environment (macOS)
+        if: runner.os == 'macOS'
         run: |
-          pip install aqtinstall meson ninja
-          aqt install-qt -O ${{ env.GITHUB_WORKSPACE }}\\Qt windows desktop ${{ env.QT_VERSION }} win64_msvc2022_64
-          echo "$env:GITHUB_WORKSPACE\Qt\$env:QT_VERSION\msvc2022_64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-      - name: Install dependencies on macOS
-        if: matrix.os == 'macos-13' || matrix.os == 'macos-14'
-        run: |
-          pip install aqtinstall meson ninja
-          aqt install-qt -O "${{ env.GITHUB_WORKSPACE }}/Qt" mac desktop ${{ env.QT_VERSION }}
-          echo "${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/macos/bin" >> $GITHUB_PATH
-          echo "DYLD_FALLBACK_FRAMEWORK_PATH=${{ env.GITHUB_WORKSPACE }}/Qt/${{ env.QT_VERSION }}/macos/lib" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/bin" >> $GITHUB_PATH
+          echo "DYLD_FALLBACK_FRAMEWORK_PATH=$GITHUB_WORKSPACE/Qt/${{ env.QT_VERSION }}/${{ matrix.qt_dir }}/lib" >> $GITHUB_ENV
           echo "MACOSX_DEPLOYMENT_TARGET=12.0" >> $GITHUB_ENV
+          echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
+
       - name: Build
         run: |
           meson setup --buildtype debugoptimized build
           meson compile -C build
       - name: Test
         run: |
-          meson test --print-errorlogs --no-rebuild -C build 
-
+          meson test --print-errorlogs --no-rebuild -C build
