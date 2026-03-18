@@ -10,6 +10,15 @@ private slots:
     void showMessageStoresText();
     void clearMessageHidesOverlay();
     void showMessageEmitsSignal();
+    void compactRectIsSingleLine();
+    void fitContentRectFitsText();
+    void fullWidgetRectCoversWidget();
+    void positionTop();
+    void positionBottom();
+    void positionLeft();
+    void positionRight();
+    void opacityRoundtrip();
+    void showMessageTriggersReplot();
 
 private:
     QCustomPlot* mPlot;

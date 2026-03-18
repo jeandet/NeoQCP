@@ -74,7 +74,49 @@ QRect QCPOverlay::overlayRect() const
 
 QRect QCPOverlay::computeRect() const
 {
-    return {}; // stub — implemented in Task 3
+    if (mText.isEmpty() || !mParentPlot)
+        return {};
+
+    const QRect viewport = mParentPlot->rect();
+    const QFontMetrics fm(mFont);
+    constexpr int pad = 4;
+    const bool horizontal = (mPosition == Top || mPosition == Bottom);
+
+    if (mSizeMode == FullWidget)
+        return viewport;
+
+    int contentSize = 0;
+    if (mSizeMode == Compact || mCollapsed) {
+        contentSize = fm.height() + 2 * pad;
+    } else { // FitContent
+        if (horizontal) {
+            QRect textBounds = fm.boundingRect(
+                QRect(0, 0, viewport.width() - 2 * pad, 0),
+                Qt::AlignLeft | Qt::TextWordWrap, mText);
+            contentSize = textBounds.height() + 2 * pad;
+        } else {
+            QRect textBounds = fm.boundingRect(
+                QRect(0, 0, viewport.height() - 2 * pad, 0),
+                Qt::AlignLeft | Qt::TextWordWrap, mText);
+            contentSize = textBounds.height() + 2 * pad;
+        }
+    }
+
+    switch (mPosition) {
+        case Top:
+            return QRect(viewport.left(), viewport.top(),
+                         viewport.width(), contentSize);
+        case Bottom:
+            return QRect(viewport.left(), viewport.bottom() - contentSize + 1,
+                         viewport.width(), contentSize);
+        case Left:
+            return QRect(viewport.left(), viewport.top(),
+                         contentSize, viewport.height());
+        case Right:
+            return QRect(viewport.right() - contentSize + 1, viewport.top(),
+                         contentSize, viewport.height());
+    }
+    return {};
 }
 
 QRect QCPOverlay::collapseHandleRect() const
@@ -87,9 +129,94 @@ void QCPOverlay::applyDefaultAntialiasingHint(QCPPainter* painter) const
     painter->setAntialiasing(true);
 }
 
-void QCPOverlay::draw(QCPPainter*)
+void QCPOverlay::draw(QCPPainter* painter)
 {
-    // stub — implemented in Task 3
+    if (mText.isEmpty())
+        return;
+    // Skip during export
+    if (painter->modes().testFlag(QCPPainter::pmNoCaching))
+        return;
+
+    const QRect rect = computeRect();
+    if (rect.isEmpty())
+        return;
+
+    painter->save();
+
+    // Background
+    QColor bg = levelColor();
+    bg.setAlphaF(mOpacity);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(bg);
+    painter->drawRoundedRect(rect, 4, 4);
+
+    // Text
+    constexpr int pad = 4;
+    painter->setPen(Qt::white);
+    painter->setFont(mFont);
+
+    const bool horizontal = (mPosition == Top || mPosition == Bottom);
+    const QString displayText = mCollapsed ? mText.section('\n', 0, 0) : mText;
+
+    if (horizontal) {
+        QRect textRect = rect.adjusted(pad, pad, -pad, -pad);
+        int flags = Qt::AlignLeft | Qt::AlignVCenter;
+        if (mSizeMode != Compact && !mCollapsed)
+            flags = Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap;
+        painter->drawText(textRect, flags, displayText);
+    } else {
+        // Rotated text for Left/Right
+        painter->translate(rect.center());
+        if (mPosition == Left)
+            painter->rotate(-90); // bottom-to-top
+        else
+            painter->rotate(90);  // top-to-bottom
+        QRect textRect(-rect.height() / 2, -rect.width() / 2,
+                       rect.height(), rect.width());
+        textRect.adjust(pad, pad, -pad, -pad);
+        int flags = Qt::AlignLeft | Qt::AlignVCenter;
+        if (mSizeMode != Compact && !mCollapsed)
+            flags = Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap;
+        painter->drawText(textRect, flags, displayText);
+    }
+
+    // Collapse handle
+    if (mCollapsible) {
+        QRect handleRect = collapseHandleRect();
+        painter->setPen(QPen(Qt::white, 1.5));
+        painter->setBrush(Qt::NoBrush);
+        QPointF center = handleRect.center();
+        qreal sz = 4.0;
+        if (horizontal) {
+            if (mCollapsed) {
+                painter->drawLine(QPointF(center.x() - sz, center.y() - sz/2),
+                                  QPointF(center.x(), center.y() + sz/2));
+                painter->drawLine(QPointF(center.x(), center.y() + sz/2),
+                                  QPointF(center.x() + sz, center.y() - sz/2));
+            } else {
+                painter->drawLine(QPointF(center.x() - sz, center.y() + sz/2),
+                                  QPointF(center.x(), center.y() - sz/2));
+                painter->drawLine(QPointF(center.x(), center.y() - sz/2),
+                                  QPointF(center.x() + sz, center.y() + sz/2));
+            }
+        } else {
+            if (mCollapsed) {
+                qreal dir = (mPosition == Left) ? 1.0 : -1.0;
+                painter->drawLine(QPointF(center.x() - dir*sz/2, center.y() - sz),
+                                  QPointF(center.x() + dir*sz/2, center.y()));
+                painter->drawLine(QPointF(center.x() + dir*sz/2, center.y()),
+                                  QPointF(center.x() - dir*sz/2, center.y() + sz));
+            } else {
+                qreal dir = (mPosition == Left) ? -1.0 : 1.0;
+                painter->drawLine(QPointF(center.x() - dir*sz/2, center.y() - sz),
+                                  QPointF(center.x() + dir*sz/2, center.y()));
+                painter->drawLine(QPointF(center.x() + dir*sz/2, center.y()),
+                                  QPointF(center.x() - dir*sz/2, center.y() + sz));
+            }
+        }
+    }
+
+    painter->restore();
 }
 
 double QCPOverlay::selectTest(const QPointF&, bool, QVariant*) const
