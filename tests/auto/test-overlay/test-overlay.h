@@ -1,4 +1,5 @@
 #include <QtTest/QtTest>
+#include <QtWidgets/qtestsupport_widgets.h>
 #include "qcustomplot.h"
 
 class TestOverlay : public QObject
