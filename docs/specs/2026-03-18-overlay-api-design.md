@@ -17,9 +17,11 @@ QCPLayerable
   └── QCPOverlay
 ```
 
-Owned by `QCustomPlot` as a dedicated member (`mOverlay`), created lazily on first `overlay()` call. Lives on a dedicated `"overlay"` layer added as the topmost `lmBuffered` layer. Not stored in `mItems` or `mPlotLayout`, so `clear()` has no effect on it.
+Owned by `QCustomPlot` as a dedicated member (`mOverlay`), created lazily on first `overlay()` call. Lives on a dedicated `"notification"` layer added as the topmost `lmBuffered` layer. Not stored in `mItems` or `mPlotLayout`, so `clear()` has no effect on it.
 
-**Layer ordering guarantee**: The `"overlay"` layer is re-ordered to the top during `replot()` if user code has added layers after it via `addLayer()`. This ensures the overlay always composites above everything.
+> Note: The layer is named `"notification"` rather than `"overlay"` because QCustomPlot already creates a default `"overlay"` layer used by items like tracers. The `"notification"` layer sits above it.
+
+**Layer ordering guarantee**: The `"notification"` layer is re-ordered to the top during `replot()` if user code has added layers after it via `addLayer()`. This ensures the overlay always composites above everything.
 
 **Ownership and destruction**: `mOverlay` is QObject-parented to `QCustomPlot`. During `~QCustomPlot()`, `qDeleteAll(mLayers)` destroys the layer and the overlay removes itself from it via `QCPLayerable`'s destructor. The QObject parent-child cleanup handles the rest — no explicit `delete mOverlay` needed.
 
@@ -103,7 +105,7 @@ No dragging, no selection, no other interaction. The overlay does not participat
 Changes to `QCustomPlot`:
 
 - `core.h`: add `QCPOverlay* mOverlay{nullptr}` member and `QCPOverlay* overlay()` accessor.
-- `core.cpp`: `overlay()` lazily constructs `QCPOverlay`, creates the `"overlay"` layer as topmost `lmBuffered`, and assigns the overlay to it.
+- `core.cpp`: `overlay()` lazily constructs `QCPOverlay`, creates the `"notification"` layer as topmost `lmBuffered`, and assigns the overlay to it.
 
 No changes to `clear()`, `initialize()`, or `render()`. Minor addition in `replot()`: ensure the overlay layer is topmost (re-order if needed).
 
