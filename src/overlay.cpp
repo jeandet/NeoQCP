@@ -107,10 +107,12 @@ QRect QCPOverlay::computeRect() const
                 Qt::AlignLeft | Qt::TextWordWrap, mText);
             contentSize = textBounds.height() + 2 * pad;
         } else {
+            // Text is drawn horizontally in the side panel, word-wrapping
+            // at viewport height. contentSize is the overlay width.
             QRect textBounds = fm.boundingRect(
-                QRect(0, 0, viewport.height() - 2 * pad, 0),
+                QRect(0, 0, viewport.width(), 0),
                 Qt::AlignLeft | Qt::TextWordWrap, mText);
-            contentSize = textBounds.height() + 2 * pad;
+            contentSize = textBounds.width() + 2 * pad;
         }
     }
 
