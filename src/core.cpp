@@ -646,8 +646,11 @@ void QCustomPlot::setMaxPipelineThreads(int count)
 QCPOverlay* QCustomPlot::overlay()
 {
     if (!mOverlay) {
-        addLayer(QLatin1String("notification"));
         auto* notifLayer = layer(QLatin1String("notification"));
+        if (!notifLayer) {
+            addLayer(QLatin1String("notification"));
+            notifLayer = layer(QLatin1String("notification"));
+        }
         notifLayer->setMode(QCPLayer::lmBuffered);
         setupPaintBuffers();
 
