@@ -19,6 +19,12 @@ private slots:
     void positionRight();
     void opacityRoundtrip();
     void showMessageTriggersReplot();
+    void collapseToggle();
+    void clickPassThroughCompact();
+    void clickBlockedFullWidget();
+    void overlayStaysTopmost();
+    void overlaySurvivesClear();
+    void overlayAccessorCreatesLazily();
 
 private:
     QCustomPlot* mPlot;

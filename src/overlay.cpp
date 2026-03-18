@@ -121,7 +121,21 @@ QRect QCPOverlay::computeRect() const
 
 QRect QCPOverlay::collapseHandleRect() const
 {
-    return {}; // stub — implemented in Task 4
+    if (!mCollapsible)
+        return {};
+    const QRect rect = computeRect();
+    if (rect.isEmpty())
+        return {};
+
+    constexpr int handleSize = 20;
+    const bool horizontal = (mPosition == Top || mPosition == Bottom);
+    if (horizontal) {
+        return QRect(rect.right() - handleSize, rect.top(),
+                     handleSize, rect.height());
+    } else {
+        return QRect(rect.left(), rect.bottom() - handleSize,
+                     rect.width(), handleSize);
+    }
 }
 
 void QCPOverlay::applyDefaultAntialiasingHint(QCPPainter* painter) const
@@ -219,12 +233,27 @@ void QCPOverlay::draw(QCPPainter* painter)
     painter->restore();
 }
 
-double QCPOverlay::selectTest(const QPointF&, bool, QVariant*) const
+double QCPOverlay::selectTest(const QPointF& pos, bool /*onlySelectable*/,
+                               QVariant* /*details*/) const
 {
-    return -1; // stub — implemented in Task 4
+    if (mText.isEmpty() || !visible())
+        return -1;
+
+    const QRect rect = computeRect();
+    if (!rect.contains(pos.toPoint()))
+        return -1;
+
+    if (mSizeMode == FullWidget)
+        return 0;
+
+    if (mCollapsible && collapseHandleRect().contains(pos.toPoint()))
+        return 0;
+
+    return -1;
 }
 
-void QCPOverlay::mousePressEvent(QMouseEvent*, const QVariant&)
+void QCPOverlay::mousePressEvent(QMouseEvent* event, const QVariant& /*details*/)
 {
-    // stub — implemented in Task 4
+    if (mCollapsible && collapseHandleRect().contains(event->pos()))
+        setCollapsed(!mCollapsed);
 }

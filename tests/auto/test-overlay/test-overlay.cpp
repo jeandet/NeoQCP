@@ -135,3 +135,82 @@ void TestOverlay::showMessageTriggersReplot()
     QApplication::processEvents();
     QVERIFY(spy.count() >= 1);
 }
+
+void TestOverlay::collapseToggle()
+{
+    auto* ov = mPlot->overlay();
+    ov->showMessage("Line one\nLine two\nLine three",
+                    QCPOverlay::Info, QCPOverlay::FitContent, QCPOverlay::Top);
+    ov->setCollapsible(true);
+    QVERIFY(!ov->isCollapsed());
+
+    QSignalSpy spy(ov, &QCPOverlay::collapsedChanged);
+    ov->setCollapsed(true);
+    QVERIFY(ov->isCollapsed());
+    QCOMPARE(spy.count(), 1);
+    QCOMPARE(spy.first().at(0).toBool(), true);
+
+    ov->setCollapsed(false);
+    QVERIFY(!ov->isCollapsed());
+    QCOMPARE(spy.count(), 2);
+}
+
+void TestOverlay::clickPassThroughCompact()
+{
+    auto* ov = mPlot->overlay();
+    ov->showMessage("status", QCPOverlay::Info, QCPOverlay::Compact, QCPOverlay::Top);
+    QApplication::processEvents();
+    QApplication::processEvents();
+
+    QRect r = ov->overlayRect();
+    QPointF center = r.center();
+    QCPLayerable* layerable = ov;
+    double dist = layerable->selectTest(center, false);
+    QCOMPARE(dist, -1.0);
+}
+
+void TestOverlay::clickBlockedFullWidget()
+{
+    auto* ov = mPlot->overlay();
+    ov->showMessage("error", QCPOverlay::Error, QCPOverlay::FullWidget);
+    QApplication::processEvents();
+    QApplication::processEvents();
+
+    QPointF center = mPlot->rect().center();
+    QCPLayerable* layerable = ov;
+    double dist = layerable->selectTest(center, false);
+    QCOMPARE(dist, 0.0);
+}
+
+void TestOverlay::overlayStaysTopmost()
+{
+    mPlot->overlay();
+    mPlot->addLayer("userLayer");
+    mPlot->replot();
+    QApplication::processEvents();
+
+    auto* notifLayer = mPlot->layer("notification");
+    QVERIFY(notifLayer != nullptr);
+    QCOMPARE(notifLayer->index(), mPlot->layerCount() - 1);
+}
+
+void TestOverlay::overlaySurvivesClear()
+{
+    auto* ov = mPlot->overlay();
+    ov->showMessage("persist", QCPOverlay::Info);
+    mPlot->clearPlottables();
+    mPlot->clearItems();
+    mPlot->clearGraphs();
+    QCOMPARE(ov->text(), QString("persist"));
+    QVERIFY(ov->visible());
+    QCOMPARE(mPlot->overlay(), ov);
+}
+
+void TestOverlay::overlayAccessorCreatesLazily()
+{
+    auto* ov1 = mPlot->overlay();
+    auto* ov2 = mPlot->overlay();
+    QVERIFY(ov1 != nullptr);
+    QCOMPARE(ov1, ov2);
+    QCOMPARE(ov1->layer()->name(), QString("notification"));
+}
