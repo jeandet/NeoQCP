@@ -25,6 +25,7 @@ private slots:
     void overlayStaysTopmost();
     void overlaySurvivesClear();
     void overlayAccessorCreatesLazily();
+    void overlayExcludedFromExport();
 
 private:
     QCustomPlot* mPlot;
