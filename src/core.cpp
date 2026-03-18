@@ -2073,6 +2073,16 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
 
     mReplotting = true;
     mReplotQueued = false;
+
+    if (mOverlay) {
+        if (auto* notifLayer = layer(QLatin1String("notification"));
+            notifLayer && notifLayer != mLayers.last()) {
+            mLayers.removeOne(notifLayer);
+            mLayers.append(notifLayer);
+            updateLayerIndices();
+        }
+    }
+
     emit beforeReplot();
 
 
