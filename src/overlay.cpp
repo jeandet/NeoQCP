@@ -128,13 +128,19 @@ QRect QCPOverlay::collapseHandleRect() const
         return {};
 
     constexpr int handleSize = 20;
-    const bool horizontal = (mPosition == Top || mPosition == Bottom);
-    if (horizontal) {
-        return QRect(rect.right() - handleSize, rect.top(),
-                     handleSize, rect.height());
-    } else {
-        return QRect(rect.left(), rect.bottom() - handleSize,
-                     rect.width(), handleSize);
+    switch (mPosition) {
+        case Top:
+            return QRect(rect.right() - handleSize, rect.top(),
+                         handleSize, handleSize);
+        case Bottom:
+            return QRect(rect.right() - handleSize, rect.bottom() - handleSize + 1,
+                         handleSize, handleSize);
+        case Left:
+            return QRect(rect.left(), rect.top(),
+                         handleSize, handleSize);
+        case Right:
+            return QRect(rect.right() - handleSize + 1, rect.top(),
+                         handleSize, handleSize);
     }
 }
 
@@ -170,16 +176,11 @@ void QCPOverlay::draw(QCPPainter* painter)
     painter->setFont(mFont);
 
     const bool horizontal = (mPosition == Top || mPosition == Bottom);
+    const bool rotateText = !horizontal && (mSizeMode == Compact || mCollapsed);
     const QString displayText = mCollapsed ? mText.section('\n', 0, 0) : mText;
 
-    if (horizontal) {
-        QRect textRect = rect.adjusted(pad, pad, -pad, -pad);
-        int flags = Qt::AlignLeft | Qt::AlignVCenter;
-        if (mSizeMode != Compact && !mCollapsed)
-            flags = Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap;
-        painter->drawText(textRect, flags, displayText);
-    } else {
-        // Rotated text for Left/Right
+    if (rotateText) {
+        painter->save();
         painter->translate(rect.center());
         if (mPosition == Left)
             painter->rotate(-90); // bottom-to-top
@@ -188,6 +189,23 @@ void QCPOverlay::draw(QCPPainter* painter)
         QRect textRect(-rect.height() / 2, -rect.width() / 2,
                        rect.height(), rect.width());
         textRect.adjust(pad, pad, -pad, -pad);
+        if (mCollapsible) {
+            constexpr int handleSize = 20;
+            // In rotated coords, textRect left = top of overlay (Right)
+            // or bottom of overlay (Left). Shrink from the handle side.
+            if (mPosition == Right)
+                textRect.adjust(handleSize, 0, 0, 0);
+            else
+                textRect.adjust(0, 0, -handleSize, 0);
+        }
+        painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, displayText);
+        painter->restore();
+    } else {
+        QRect textRect = rect.adjusted(pad, pad, -pad, -pad);
+        if (mCollapsible && !horizontal) {
+            constexpr int handleSize = 20;
+            textRect.adjust(0, handleSize, 0, 0);
+        }
         int flags = Qt::AlignLeft | Qt::AlignVCenter;
         if (mSizeMode != Compact && !mCollapsed)
             flags = Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap;
@@ -201,32 +219,22 @@ void QCPOverlay::draw(QCPPainter* painter)
         painter->setBrush(Qt::NoBrush);
         QPointF center = handleRect.center();
         qreal sz = 4.0;
-        if (horizontal) {
-            if (mCollapsed) {
-                painter->drawLine(QPointF(center.x() - sz, center.y() - sz/2),
-                                  QPointF(center.x(), center.y() + sz/2));
-                painter->drawLine(QPointF(center.x(), center.y() + sz/2),
-                                  QPointF(center.x() + sz, center.y() - sz/2));
-            } else {
-                painter->drawLine(QPointF(center.x() - sz, center.y() + sz/2),
-                                  QPointF(center.x(), center.y() - sz/2));
-                painter->drawLine(QPointF(center.x(), center.y() - sz/2),
-                                  QPointF(center.x() + sz, center.y() + sz/2));
-            }
+        // flip: +1 keeps original direction (Top/Left), -1 mirrors (Bottom/Right)
+        qreal flip = (mPosition == Bottom || mPosition == Right) ? -1.0 : 1.0;
+        if (mPosition == Top || mPosition == Bottom) {
+            // ▲ when expanded (collapse toward edge), ▼ when collapsed (expand inward)
+            qreal d = mCollapsed ? -flip : flip;
+            painter->drawLine(QPointF(center.x() - sz, center.y() + d * sz/2),
+                              QPointF(center.x(), center.y() - d * sz/2));
+            painter->drawLine(QPointF(center.x(), center.y() - d * sz/2),
+                              QPointF(center.x() + sz, center.y() + d * sz/2));
         } else {
-            if (mCollapsed) {
-                qreal dir = (mPosition == Left) ? 1.0 : -1.0;
-                painter->drawLine(QPointF(center.x() - dir*sz/2, center.y() - sz),
-                                  QPointF(center.x() + dir*sz/2, center.y()));
-                painter->drawLine(QPointF(center.x() + dir*sz/2, center.y()),
-                                  QPointF(center.x() - dir*sz/2, center.y() + sz));
-            } else {
-                qreal dir = (mPosition == Left) ? -1.0 : 1.0;
-                painter->drawLine(QPointF(center.x() - dir*sz/2, center.y() - sz),
-                                  QPointF(center.x() + dir*sz/2, center.y()));
-                painter->drawLine(QPointF(center.x() + dir*sz/2, center.y()),
-                                  QPointF(center.x() - dir*sz/2, center.y() + sz));
-            }
+            // ◀ when expanded (collapse toward edge), ▶ when collapsed (expand inward)
+            qreal d = mCollapsed ? flip : -flip;
+            painter->drawLine(QPointF(center.x() - d * sz/2, center.y() - sz),
+                              QPointF(center.x() + d * sz/2, center.y()));
+            painter->drawLine(QPointF(center.x() + d * sz/2, center.y()),
+                              QPointF(center.x() - d * sz/2, center.y() + sz));
         }
     }
 
