@@ -54,6 +54,12 @@ private slots:
     void graphResamplerBinMinMaxKeyPositions();
     void graphResamplerBinMinMaxZeroBins();
     void graphResamplerNonFiniteKeysSkipped();
+    void graphResamplerParallelMatchesSingleThreaded();
+
+    // L2 lazy rebuild (deferred to draw)
+    void graph2L2RebuildDeferredToDraw();
+    void graph2L2CoalescesMultipleViewportChanges();
+    void graph2L2DirtyAfterL1Ready();
 
     // Histogram binner
     void bin2dBasicCounts();

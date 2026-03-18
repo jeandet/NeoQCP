@@ -4,6 +4,7 @@
 #include "datasource/abstract-datasource.h"
 #include "datasource/soa-datasource.h"
 #include "datasource/async-pipeline.h"
+#include "datasource/graph-resampler.h"
 #include <memory>
 #include <span>
 
@@ -105,6 +106,18 @@ protected:
 private:
     std::shared_ptr<QCPAbstractDataSource> mDataSource;
     QCPGraphPipeline mPipeline;
+
+    // Two-phase resampling: L1 built async, L2 computed lazily at draw time
+    std::shared_ptr<qcp::algo::GraphResamplerCache> mL1Cache;
+    std::shared_ptr<QCPAbstractDataSource> mL2Result;
+    bool mNeedsResampling = false;
+    bool mL2Dirty = false;
+
+    void onL1Ready();
+    void rebuildL2(const ViewportParams& vp);
+
+    friend class TestPipeline;
+
     LineStyle mLineStyle = lsLine;
     QCPScatterStyle mScatterStyle;
     int mScatterSkip = 0;
