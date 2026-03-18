@@ -22,6 +22,7 @@
 #include "test-vspan/test-vspan.h"
 #include "test-richtext/test-richtext.h"
 #include "test-data-locator/test-data-locator.h"
+#include "test-overlay/test-overlay.h"
 
 #define QCPTEST(t) t t##instance; QTest::qExec(&t##instance)
 
@@ -53,6 +54,7 @@ int main(int argc, char **argv)
   QCPTEST(TestWaterfall);
   QCPTEST(TestPipeline);
   QCPTEST(TestRichText);
+  QCPTEST(TestOverlay);
 
   return 0;
 }

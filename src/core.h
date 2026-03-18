@@ -52,6 +52,7 @@ class QCPPlottableRhiLayer;
 class QCPColormapRhiLayer;
 class QCPTheme;
 class QCPPipelineScheduler;
+class QCPOverlay;
 
 class QCP_LIB_DECL QCustomPlot : public QRhiWidget
 {
@@ -198,6 +199,8 @@ public:
     void setThemeLegendBackground(const QColor& color);
     QColor themeLegendBorder() const;
     void setThemeLegendBorder(const QColor& color);
+    // overlay:
+    QCPOverlay* overlay();
     // pipeline:
     QCPPipelineScheduler* pipelineScheduler() const { return mPipelineScheduler; }
     void setMaxPipelineThreads(int count);
@@ -359,6 +362,7 @@ protected:
     QMap<QCPLayer*, QCPPlottableRhiLayer*> mPlottableRhiLayers;
     QSet<QCPColormapRhiLayer*> mColormapRhiLayers;
     QCPPipelineScheduler* mPipelineScheduler = nullptr;
+    QCPOverlay* mOverlay = nullptr;
     // reimplemented virtual methods:
     virtual QSize minimumSizeHint() const override;
     virtual QSize sizeHint() const override;

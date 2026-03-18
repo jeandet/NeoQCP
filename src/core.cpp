@@ -26,6 +26,7 @@
 /*! \file */
 
 #include "core.h"
+#include "overlay.h"
 
 #include "Profiling.hpp"
 #include "axis/axis.h"
@@ -640,6 +641,20 @@ void QCustomPlot::setThemeLegendBorder(const QColor& c) { if (mTheme) mTheme->se
 void QCustomPlot::setMaxPipelineThreads(int count)
 {
     mPipelineScheduler->setMaxThreads(count);
+}
+
+QCPOverlay* QCustomPlot::overlay()
+{
+    if (!mOverlay) {
+        addLayer(QLatin1String("notification"));
+        auto* notifLayer = layer(QLatin1String("notification"));
+        notifLayer->setMode(QCPLayer::lmBuffered);
+        setupPaintBuffers();
+
+        mOverlay = new QCPOverlay(this);
+        mOverlay->setLayer(notifLayer);
+    }
+    return mOverlay;
 }
 
 /*!
