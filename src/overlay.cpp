@@ -101,18 +101,23 @@ QRect QCPOverlay::computeRect() const
     if (mSizeMode == Compact || mCollapsed) {
         contentSize = fm.height() + 2 * pad;
     } else { // FitContent
+        constexpr int handleSize = 20;
         if (horizontal) {
+            int availWidth = viewport.width() - 2 * pad;
+            if (mCollapsible)
+                availWidth -= handleSize;
             QRect textBounds = fm.boundingRect(
-                QRect(0, 0, viewport.width() - 2 * pad, 0),
+                QRect(0, 0, availWidth, 0),
                 Qt::AlignLeft | Qt::TextWordWrap, mText);
             contentSize = textBounds.height() + 2 * pad;
         } else {
-            // Text is drawn horizontally in the side panel, word-wrapping
-            // at viewport height. contentSize is the overlay width.
+            int availHeight = viewport.height() - 2 * pad;
+            if (mCollapsible)
+                availHeight -= handleSize;
             QRect textBounds = fm.boundingRect(
-                QRect(0, 0, viewport.width(), 0),
+                QRect(0, 0, availHeight, 0),
                 Qt::AlignLeft | Qt::TextWordWrap, mText);
-            contentSize = textBounds.width() + 2 * pad;
+            contentSize = qMin(textBounds.width() + 2 * pad, viewport.width());
         }
     }
 
