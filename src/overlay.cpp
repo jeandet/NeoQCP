@@ -34,7 +34,13 @@ void QCPOverlay::clearMessage()
 
 void QCPOverlay::setCollapsible(bool enabled)
 {
+    if (mCollapsible == enabled)
+        return;
     mCollapsible = enabled;
+    if (!mCollapsible)
+        mCollapsed = false;
+    if (mParentPlot)
+        mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 
 void QCPOverlay::setCollapsed(bool collapsed)
@@ -50,11 +56,15 @@ void QCPOverlay::setCollapsed(bool collapsed)
 void QCPOverlay::setOpacity(qreal opacity)
 {
     mOpacity = qBound(0.0, opacity, 1.0);
+    if (mParentPlot && visible())
+        mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 
 void QCPOverlay::setFont(const QFont& font)
 {
     mFont = font;
+    if (mParentPlot && visible())
+        mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 
 QColor QCPOverlay::levelColor() const
@@ -130,10 +140,10 @@ QRect QCPOverlay::collapseHandleRect() const
     constexpr int handleSize = 20;
     switch (mPosition) {
         case Top:
-            return QRect(rect.right() - handleSize, rect.top(),
+            return QRect(rect.right() - handleSize + 1, rect.top(),
                          handleSize, handleSize);
         case Bottom:
-            return QRect(rect.right() - handleSize, rect.bottom() - handleSize + 1,
+            return QRect(rect.right() - handleSize + 1, rect.bottom() - handleSize + 1,
                          handleSize, handleSize);
         case Left:
             return QRect(rect.left(), rect.top(),
@@ -142,6 +152,7 @@ QRect QCPOverlay::collapseHandleRect() const
             return QRect(rect.right() - handleSize + 1, rect.top(),
                          handleSize, handleSize);
     }
+    return {};
 }
 
 void QCPOverlay::applyDefaultAntialiasingHint(QCPPainter* painter) const
