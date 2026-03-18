@@ -11,8 +11,11 @@ class QCP_LIB_DECL QCPOverlay : public QCPLayerable
     Q_OBJECT
 public:
     enum Level { Info, Warning, Error };
+    Q_ENUM(Level)
     enum SizeMode { Compact, FitContent, FullWidget };
+    Q_ENUM(SizeMode)
     enum Position { Top, Bottom, Left, Right };
+    Q_ENUM(Position)
 
     explicit QCPOverlay(QCustomPlot* parentPlot);
     ~QCPOverlay() override = default;

@@ -75,7 +75,7 @@ signals:
 4. Draw text: white text, `AlignLeft | AlignVCenter` for Compact, `TextWordWrap` for FitContent/FullWidget.
 5. Draw collapse handle (if collapsible): chevron icon (▼/▲ or ◀/▶ depending on position) at the trailing edge. When collapsed, only chevron + first line shown regardless of SizeMode.
 
-For Left/Right positions, text is rotated: Left = bottom-to-top (+90°), Right = top-to-bottom (-90°).
+For Left/Right positions in Compact mode or when collapsed, text is rotated: Left = bottom-to-top (-90°), Right = top-to-bottom (+90°). In FitContent/FullWidget mode (not collapsed), text is drawn horizontally and word-wraps within the narrow side panel.
 
 All pixel sizes (padding, collapse handle) are in logical pixels, scaled by `mParentPlot->bufferDevicePixelRatio()` for HiDPI displays.
 
@@ -87,7 +87,7 @@ No custom shaders — pure QPainter on the overlay's paint buffer, composited by
 
 ## Export Behavior
 
-The overlay is a debug/status UI element and is **excluded from exports**. `draw()` bails early when the painter mode is `pmVectorized` or `pmNoCaching` (the modes used by `savePdf()`, `savePng()`, `toPixmap()`, etc.).
+The overlay is a debug/status UI element and is **excluded from exports**. `draw()` bails early when the painter mode `pmNoCaching` is set (this flag is present for all export paths: `savePdf()`, `savePng()`, `toPixmap()`, etc.).
 
 ## Mouse Interaction
 
