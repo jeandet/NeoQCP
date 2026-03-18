@@ -1,6 +1,13 @@
 #include <QApplication>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QGroupBox>
+#include <QLabel>
 #include <QMainWindow>
+#include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSplitter>
 #include <QTabWidget>
 #include <QThread>
 #include <QVBoxLayout>
@@ -934,6 +941,135 @@ static QWidget* createHistogram2DLogTab()
     return wrapPlot(plot);
 }
 
+// ── Tab: Overlay ────────────────────────────────────────────────────────────
+
+static QWidget* createOverlayTab()
+{
+    auto* splitter = new QSplitter(Qt::Horizontal);
+
+    // Left: plot with some background data
+    auto* plot = makePlot();
+    plot->xAxis->setRange(0, 10);
+    plot->yAxis->setRange(-1.5, 1.5);
+    auto* graph = plot->addGraph();
+    QVector<double> x(200), y(200);
+    for (int i = 0; i < 200; ++i) {
+        x[i] = i * 0.05;
+        y[i] = qSin(x[i] * 2) * qCos(x[i] * 0.7);
+    }
+    graph->setData(x, y);
+    graph->setPen(QPen(Qt::blue, 1.5));
+    plot->replot();
+    splitter->addWidget(plot);
+
+    // Right: control panel
+    auto* panel = new QWidget;
+    auto* layout = new QVBoxLayout(panel);
+
+    // Message text
+    auto* msgGroup = new QGroupBox("Message");
+    auto* msgLayout = new QVBoxLayout(msgGroup);
+    auto* textEdit = new QPlainTextEdit("[ok] 10801 pts, (10801, 3) float32, 0.00s");
+    textEdit->setMaximumHeight(80);
+    msgLayout->addWidget(textEdit);
+    layout->addWidget(msgGroup);
+
+    // Level
+    auto* levelCombo = new QComboBox;
+    levelCombo->addItem("Info",    static_cast<int>(QCPOverlay::Info));
+    levelCombo->addItem("Warning", static_cast<int>(QCPOverlay::Warning));
+    levelCombo->addItem("Error",   static_cast<int>(QCPOverlay::Error));
+    layout->addWidget(new QLabel("Level:"));
+    layout->addWidget(levelCombo);
+
+    // Size mode
+    auto* sizeCombo = new QComboBox;
+    sizeCombo->addItem("Compact",    static_cast<int>(QCPOverlay::Compact));
+    sizeCombo->addItem("FitContent", static_cast<int>(QCPOverlay::FitContent));
+    sizeCombo->addItem("FullWidget", static_cast<int>(QCPOverlay::FullWidget));
+    layout->addWidget(new QLabel("Size mode:"));
+    layout->addWidget(sizeCombo);
+
+    // Position
+    auto* posCombo = new QComboBox;
+    posCombo->addItem("Top",    static_cast<int>(QCPOverlay::Top));
+    posCombo->addItem("Bottom", static_cast<int>(QCPOverlay::Bottom));
+    posCombo->addItem("Left",   static_cast<int>(QCPOverlay::Left));
+    posCombo->addItem("Right",  static_cast<int>(QCPOverlay::Right));
+    layout->addWidget(new QLabel("Position:"));
+    layout->addWidget(posCombo);
+
+    // Opacity
+    auto* opacitySpin = new QDoubleSpinBox;
+    opacitySpin->setRange(0.0, 1.0);
+    opacitySpin->setSingleStep(0.1);
+    opacitySpin->setValue(1.0);
+    layout->addWidget(new QLabel("Opacity:"));
+    layout->addWidget(opacitySpin);
+
+    // Collapsible
+    auto* collapsibleCheck = new QCheckBox("Collapsible");
+    layout->addWidget(collapsibleCheck);
+
+    // Show / Clear buttons
+    auto* showBtn = new QPushButton("Show Message");
+    auto* clearBtn = new QPushButton("Clear Message");
+    layout->addWidget(showBtn);
+    layout->addWidget(clearBtn);
+
+    // Status label
+    auto* statusLabel = new QLabel("(no overlay)");
+    statusLabel->setWordWrap(true);
+    layout->addWidget(statusLabel);
+
+    layout->addStretch();
+
+    splitter->addWidget(panel);
+    splitter->setStretchFactor(0, 3); // plot gets more space
+    splitter->setStretchFactor(1, 1);
+
+    // Apply current settings and show overlay
+    auto applyOverlay = [=]() {
+        auto* ov = plot->overlay();
+        auto level = static_cast<QCPOverlay::Level>(levelCombo->currentData().toInt());
+        auto sizeMode = static_cast<QCPOverlay::SizeMode>(sizeCombo->currentData().toInt());
+        auto position = static_cast<QCPOverlay::Position>(posCombo->currentData().toInt());
+        ov->setOpacity(opacitySpin->value());
+        ov->setCollapsible(collapsibleCheck->isChecked());
+        ov->showMessage(textEdit->toPlainText(), level, sizeMode, position);
+        statusLabel->setText(
+            QString("Level=%1  Size=%2  Pos=%3  Opacity=%4  Collapsible=%5")
+                .arg(levelCombo->currentText(), sizeCombo->currentText(),
+                     posCombo->currentText(), QString::number(opacitySpin->value(), 'f', 1),
+                     collapsibleCheck->isChecked() ? "yes" : "no"));
+    };
+
+    QObject::connect(showBtn, &QPushButton::clicked, applyOverlay);
+    QObject::connect(clearBtn, &QPushButton::clicked, [=]() {
+        plot->overlay()->clearMessage();
+        statusLabel->setText("(cleared)");
+    });
+
+    // Live-update on control changes
+    QObject::connect(levelCombo, qOverload<int>(&QComboBox::currentIndexChanged), [=](int) {
+        if (plot->overlay()->visible()) applyOverlay();
+    });
+    QObject::connect(sizeCombo, qOverload<int>(&QComboBox::currentIndexChanged), [=](int) {
+        if (plot->overlay()->visible()) applyOverlay();
+    });
+    QObject::connect(posCombo, qOverload<int>(&QComboBox::currentIndexChanged), [=](int) {
+        if (plot->overlay()->visible()) applyOverlay();
+    });
+    QObject::connect(opacitySpin, qOverload<double>(&QDoubleSpinBox::valueChanged), [=](double) {
+        if (plot->overlay()->visible()) applyOverlay();
+    });
+    QObject::connect(collapsibleCheck, &QCheckBox::toggled, [=](bool) {
+        if (plot->overlay()->visible()) applyOverlay();
+    });
+
+    return splitter;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[])
@@ -963,6 +1099,7 @@ int main(int argc, char* argv[])
     tabs->addTab(createMassiveGraphTab(), "Graph2 500M pts (~8GB)");
     tabs->addTab(createHistogram2DTab(),    "Histogram2D");
     tabs->addTab(createHistogram2DLogTab(), "Histogram2D (log)");
+    tabs->addTab(createOverlayTab(),       "Overlay");
 
     window.setCentralWidget(tabs);
     window.show();
