@@ -214,3 +214,17 @@ void TestOverlay::overlayAccessorCreatesLazily()
     QCOMPARE(ov1, ov2);
     QCOMPARE(ov1->layer()->name(), QString("notification"));
 }
+
+void TestOverlay::overlayExcludedFromExport()
+{
+    auto* ov = mPlot->overlay();
+    ov->showMessage("should not appear", QCPOverlay::Error, QCPOverlay::FullWidget);
+    QApplication::processEvents();
+    QApplication::processEvents();
+
+    QPixmap px = mPlot->toPixmap(400, 300);
+    QImage img = px.toImage();
+    QColor centerColor = img.pixelColor(200, 150);
+    QColor errorColor = QColor(178, 34, 34);
+    QVERIFY(centerColor != errorColor);
+}
