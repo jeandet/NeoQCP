@@ -59,6 +59,10 @@ cachegrind.out.*
 meson.build.user
 *.swp
 
+# Worktrees:
+
+.worktrees/
+
 # Amalgamated sources:
 
 /qcustomplot.h
