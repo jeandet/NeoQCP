@@ -82,7 +82,7 @@ QRect QCPOverlay::computeRect() const
     constexpr int pad = 4;
     const bool horizontal = (mPosition == Top || mPosition == Bottom);
 
-    if (mSizeMode == FullWidget)
+    if (mSizeMode == FullWidget && !mCollapsed)
         return viewport;
 
     int contentSize = 0;
