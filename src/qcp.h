@@ -55,6 +55,7 @@
 #include "items/item-rspan.h"
 #include "items/item-vspan.h"
 #include "layer.h"
+#include "overlay.h"
 #include "layout.h"
 #include "layoutelements/layoutelement-axisrect.h"
 #include "layoutelements/layoutelement-colorscale.h"
