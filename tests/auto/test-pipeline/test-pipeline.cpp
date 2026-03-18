@@ -742,12 +742,21 @@ void TestPipeline::graph2HierarchicalResamplingActivates()
 
     QVERIFY(g->pipeline().hasTransform());
 
+    // Wait for async L1 build to finish
     QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 30000);
 
-    auto* result = g->pipeline().result();
-    QVERIFY(result);
-    QVERIFY(result->size() > 0);
-    QVERIFY(result->size() < N / 10);
+    // After L1 delivery, onL1Ready runs L2 synchronously.
+    // Trigger a replot to exercise the draw path with resampled data.
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // Pipeline result is nullptr (L1-only transform returns nullptr).
+    QVERIFY(g->pipeline().result() == nullptr);
+    QVERIFY(g->dataSource()->size() == N);
+
+    // Verify L2 was actually built and is much smaller than raw data.
+    QVERIFY(g->mL2Result);
+    QVERIFY(g->mL2Result->size() > 0);
+    QVERIFY(g->mL2Result->size() < N / 10);
 }
 
 void TestPipeline::graph2SmallDataNoResampling()
@@ -844,6 +853,144 @@ void TestPipeline::graphResamplerNonFiniteKeysSkipped()
     // Only finite keys (0, 2, 4) should contribute → min=10, max=50
     QCOMPARE(outVals[0], 10.0);
     QCOMPARE(outVals[1], 50.0);
+}
+
+void TestPipeline::graphResamplerParallelMatchesSingleThreaded()
+{
+    // Generate 2M points (above the 1M parallel threshold in binMinMaxParallel)
+    const int N = 2'000'000;
+    std::vector<double> keys(N), vals(N);
+    for (int i = 0; i < N; ++i)
+    {
+        keys[i] = i;
+        vals[i] = std::sin(i * 0.0001) * 100.0;
+    }
+
+    auto src = std::make_shared<QCPSoADataSource<
+        std::vector<double>, std::vector<double>>>(std::move(keys), std::move(vals));
+
+    QCPRange fullRange(0, N - 1);
+    int numBins = 1000;
+
+    auto sequential = qcp::algo::binMinMax(*src, 0, N, fullRange, numBins);
+    auto parallel = qcp::algo::binMinMaxParallel(*src, 0, N, fullRange, numBins);
+
+    QCOMPARE(parallel.keys.size(), sequential.keys.size());
+    QCOMPARE(parallel.values.size(), sequential.values.size());
+
+    for (size_t i = 0; i < sequential.keys.size(); ++i)
+        QCOMPARE(parallel.keys[i], sequential.keys[i]);
+
+    for (size_t i = 0; i < sequential.values.size(); ++i)
+    {
+        if (std::isnan(sequential.values[i]))
+            QVERIFY(std::isnan(parallel.values[i]));
+        else
+            QCOMPARE(parallel.values[i], sequential.values[i]);
+    }
+}
+
+// --- L2 lazy rebuild tests ---
+
+void TestPipeline::graph2L2RebuildDeferredToDraw()
+{
+    // Verify that changing the viewport does NOT immediately rebuild L2,
+    // but that L2 IS rebuilt when draw() runs (via replot).
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10'000'001;
+    auto source = std::make_shared<SyntheticLargeSource>(N);
+
+    QSignalSpy spy(&g->pipeline(), &QCPGraphPipeline::finished);
+    mPlot->xAxis->setRange(0, N - 1);
+    mPlot->yAxis->setRange(-1, 1);
+    g->setDataSource(source);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // Wait for L1 build
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 30000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+    QVERIFY(g->mL1Cache);
+    QVERIFY(g->mL2Result);
+
+    auto oldL2 = g->mL2Result;
+
+    // Change viewport — L2 should NOT be rebuilt yet (just flagged dirty)
+    mPlot->xAxis->setRange(0, N / 2);
+    QVERIFY(g->mL2Dirty);
+    QCOMPARE(g->mL2Result, oldL2); // still the old L2
+
+    // Now replot — draw() should rebuild L2
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+    QVERIFY(!g->mL2Dirty);
+    QVERIFY(g->mL2Result);
+    QVERIFY(g->mL2Result != oldL2); // rebuilt with new viewport
+}
+
+void TestPipeline::graph2L2CoalescesMultipleViewportChanges()
+{
+    // Simulate rapid pan: many range changes, one replot.
+    // L2 should only be built once (at draw time), not per range change.
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10'000'001;
+    auto source = std::make_shared<SyntheticLargeSource>(N);
+
+    QSignalSpy spy(&g->pipeline(), &QCPGraphPipeline::finished);
+    mPlot->xAxis->setRange(0, N - 1);
+    mPlot->yAxis->setRange(-1, 1);
+    g->setDataSource(source);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 30000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+    QVERIFY(g->mL2Result);
+
+    auto oldL2 = g->mL2Result;
+
+    // Simulate 10 rapid viewport changes (like 10 mouse move events during pan)
+    for (int i = 0; i < 10; ++i)
+    {
+        double offset = i * 1000.0;
+        mPlot->xAxis->setRange(offset, offset + N / 2);
+    }
+
+    // L2 should still be the old one — dirty flag set but not yet rebuilt
+    QVERIFY(g->mL2Dirty);
+    QCOMPARE(g->mL2Result, oldL2);
+
+    // Single replot rebuilds L2 once with the final viewport
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+    QVERIFY(!g->mL2Dirty);
+    QVERIFY(g->mL2Result != oldL2);
+}
+
+void TestPipeline::graph2L2DirtyAfterL1Ready()
+{
+    // When L1 finishes, L2 should be marked dirty (not built inline).
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10'000'001;
+    auto source = std::make_shared<SyntheticLargeSource>(N);
+
+    mPlot->xAxis->setRange(0, N - 1);
+    mPlot->yAxis->setRange(-1, 1);
+
+    QSignalSpy spy(&g->pipeline(), &QCPGraphPipeline::finished);
+    g->setDataSource(source);
+
+    // Before L1 finishes: no L1 cache, no L2, not dirty
+    QVERIFY(!g->mL1Cache);
+    QVERIFY(!g->mL2Result);
+    QVERIFY(!g->mL2Dirty);
+
+    // Wait for L1
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 30000);
+    // Process the queued replot from onL1Ready
+    QCoreApplication::processEvents();
+
+    // After L1 delivery: L1 cache exists, L2 dirty flag was set,
+    // and the queued replot should have rebuilt L2
+    QVERIFY(g->mL1Cache);
+    QVERIFY(g->mL2Result);
+    QVERIFY(!g->mL2Dirty); // cleared by draw()
 }
 
 // --- Histogram binner tests ---

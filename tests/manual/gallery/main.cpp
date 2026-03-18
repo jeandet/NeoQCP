@@ -1,6 +1,8 @@
 #include <QApplication>
 #include <QMainWindow>
+#include <QPushButton>
 #include <QTabWidget>
+#include <QThread>
 #include <QVBoxLayout>
 #include <QTimer>
 #include <cmath>
@@ -785,6 +787,64 @@ static QWidget* createRealtimeGraphTab()
     return wrapPlot(plot);
 }
 
+// ── Tab: Massive Graph2 (500M points) — lazy, allocates ~8GB on first show ──
+
+static QWidget* createMassiveGraphTab()
+{
+    auto* placeholder = new QWidget;
+    auto* layout = new QVBoxLayout(placeholder);
+    auto* btn = new QPushButton("Load 500M points (~8 GB RAM)");
+    btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    layout->addWidget(btn, 0, Qt::AlignCenter);
+
+    struct GeneratedData {
+        std::vector<double> keys, vals;
+    };
+
+    QObject::connect(btn, &QPushButton::clicked, placeholder, [layout, btn]() {
+        btn->setEnabled(false);
+        btn->setText("Generating 500M points...");
+
+        auto data = std::make_shared<GeneratedData>();
+        auto* thread = QThread::create([data]() {
+            constexpr int N = 500'000'000;
+            data->keys.resize(N);
+            data->vals.resize(N);
+            for (int i = 0; i < N; ++i)
+            {
+                double t = i * 1e-6;
+                data->keys[i] = t;
+                data->vals[i] = std::sin(t * 6.28 * 0.5)
+                              + 0.3 * std::sin(t * 6.28 * 50.0)
+                              + 0.1 * std::sin(t * 6.28 * 5000.0);
+            }
+        });
+
+        thread->setParent(btn->parentWidget());
+        QObject::connect(thread, &QThread::finished, btn->parentWidget(), [layout, btn, thread, data]() {
+            auto* plot = makePlot();
+            auto* g = new QCPGraph2(plot->xAxis, plot->yAxis);
+            g->setData(std::move(data->keys), std::move(data->vals));
+            g->setPen(QPen(QColor(31, 119, 180), 1));
+            g->setName("500M points");
+
+            plot->xAxis->setLabel("Time (s)");
+            plot->yAxis->setLabel("Amplitude");
+            plot->legend->setVisible(true);
+            plot->rescaleAxes();
+            plot->replot();
+
+            btn->deleteLater();
+            layout->addWidget(wrapPlot(plot));
+            thread->deleteLater();
+        });
+
+        thread->start();
+    });
+
+    return placeholder;
+}
+
 // ── Tab: Histogram2D ────────────────────────────────────────────────────────
 
 static QWidget* createHistogram2DTab()
@@ -900,6 +960,7 @@ int main(int argc, char* argv[])
     tabs->addTab(createRealtimeColorMapTab(), "Realtime ColorMap2");
     tabs->addTab(createRealtimeGraphTab(),   "Realtime Graph2");
     tabs->addTab(createThemeTab(),       "Dark Theme");
+    tabs->addTab(createMassiveGraphTab(), "Graph2 500M pts (~8GB)");
     tabs->addTab(createHistogram2DTab(),    "Histogram2D");
     tabs->addTab(createHistogram2DLogTab(), "Histogram2D (log)");
 
