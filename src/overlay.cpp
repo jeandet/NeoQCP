@@ -37,8 +37,10 @@ void QCPOverlay::setCollapsible(bool enabled)
     if (mCollapsible == enabled)
         return;
     mCollapsible = enabled;
-    if (!mCollapsible)
+    if (!mCollapsible && mCollapsed) {
         mCollapsed = false;
+        emit collapsedChanged(false);
+    }
     if (mParentPlot)
         mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
@@ -213,9 +215,12 @@ void QCPOverlay::draw(QCPPainter* painter)
         painter->restore();
     } else {
         QRect textRect = rect.adjusted(pad, pad, -pad, -pad);
-        if (mCollapsible && !horizontal) {
+        if (mCollapsible) {
             constexpr int handleSize = 20;
-            textRect.adjust(0, handleSize, 0, 0);
+            if (horizontal)
+                textRect.adjust(0, 0, -handleSize, 0);
+            else
+                textRect.adjust(0, handleSize, 0, 0);
         }
         int flags = Qt::AlignLeft | Qt::AlignVCenter;
         if (mSizeMode != Compact && !mCollapsed)
