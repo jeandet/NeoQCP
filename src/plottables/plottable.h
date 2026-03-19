@@ -26,6 +26,9 @@
 #ifndef QCP_PLOTTABLE_H
 #define QCP_PLOTTABLE_H
 
+#include <QTimer>
+#include <optional>
+
 #include "axis/axis.h"
 #include "axis/range.h"
 #include "global.h"
@@ -178,10 +181,33 @@ public:
     virtual bool removeFromLegend(QCPLegend* legend) const;
     bool removeFromLegend() const;
 
+    // busy indicator
+    bool busy() const;
+    bool visuallyBusy() const { return mVisuallyBusy; }
+    void setBusy(bool busy);
+
+    // per-plottable overrides (std::optional -- nullopt falls through to theme)
+    void setBusyIndicatorSymbol(const QString& symbol);
+    void resetBusyIndicatorSymbol();
+    void setBusyFadeAlpha(qreal alpha);
+    void resetBusyFadeAlpha();
+    void setBusyShowDelayMs(int ms);
+    void resetBusyShowDelayMs();
+    void setBusyHideDelayMs(int ms);
+    void resetBusyHideDelayMs();
+
+    // effective values (per-plottable override or theme fallback)
+    QString effectiveBusyIndicatorSymbol() const;
+    qreal effectiveBusyFadeAlpha() const;
+    int effectiveBusyShowDelayMs() const;
+    int effectiveBusyHideDelayMs() const;
+
 signals:
     void selectionChanged(bool selected);
     void selectionChanged(const QCPDataSelection& selection);
     void selectableChanged(QCP::SelectionType selectable);
+    void busyChanged(bool busy);
+    void visuallyBusyChanged(bool visuallyBusy);
 
 protected:
     // property members:
@@ -207,12 +233,28 @@ protected:
     // introduced virtual methods:
     virtual void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const = 0;
 
+    // busy indicator
+    virtual bool pipelineBusy() const { return false; }
+    void updateEffectiveBusy();
+
     // non-virtual methods:
     void applyFillAntialiasingHint(QCPPainter* painter) const;
     void applyScattersAntialiasingHint(QCPPainter* painter) const;
 
 private:
     Q_DISABLE_COPY(QCPAbstractPlottable)
+
+    bool mExternalBusy = false;
+    bool mVisuallyBusy = false;
+    bool mEffectiveBusy = false;
+    QTimer mBusyDebounceTimer;
+
+    std::optional<QString> mBusyIndicatorSymbol;
+    std::optional<qreal> mBusyFadeAlpha;
+    std::optional<int> mBusyShowDelayMs;
+    std::optional<int> mBusyHideDelayMs;
+
+    void onDebounceTimeout();
 
     friend class QCustomPlot;
     friend class QCPAxis;

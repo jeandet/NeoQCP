@@ -23,6 +23,7 @@
 #include "test-richtext/test-richtext.h"
 #include "test-data-locator/test-data-locator.h"
 #include "test-overlay/test-overlay.h"
+#include "test-busy-indicator/test-busy-indicator.h"
 
 #define QCPTEST(t) t t##instance; QTest::qExec(&t##instance)
 
@@ -55,6 +56,7 @@ int main(int argc, char **argv)
   QCPTEST(TestPipeline);
   QCPTEST(TestRichText);
   QCPTEST(TestOverlay);
+  QCPTEST(TestBusyIndicator);
 
   return 0;
 }

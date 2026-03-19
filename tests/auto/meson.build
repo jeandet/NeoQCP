@@ -26,6 +26,7 @@ test_srcs = [
     'test-richtext/test-richtext.cpp',
     'test-data-locator/test-data-locator.cpp',
     'test-overlay/test-overlay.cpp',
+    'test-busy-indicator/test-busy-indicator.cpp',
 ]
 
 test_headers = [
@@ -54,6 +55,7 @@ test_headers = [
     'test-richtext/test-richtext.h',
     'test-data-locator/test-data-locator.h',
     'test-overlay/test-overlay.h',
+    'test-busy-indicator/test-busy-indicator.h',
 ]
 test_moc_files = qtmod.compile_moc(headers : test_headers)
 

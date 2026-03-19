@@ -30,6 +30,7 @@
 #include "layoutelements/layoutelement-axisrect.h"
 #include "layoutelements/layoutelement-legend.h"
 #include "painting/painter.h"
+#include "theme.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPSelectionDecorator
@@ -453,6 +454,9 @@ QCPAbstractPlottable::QCPAbstractPlottable(QCPAxis* keyAxis, QCPAxis* valueAxis)
 
     mParentPlot->registerPlottable(this);
     setSelectionDecorator(new QCPSelectionDecorator);
+
+    mBusyDebounceTimer.setSingleShot(true);
+    connect(&mBusyDebounceTimer, &QTimer::timeout, this, &QCPAbstractPlottable::onDebounceTimeout);
 }
 
 QCPAbstractPlottable::~QCPAbstractPlottable()
@@ -1049,4 +1053,128 @@ void QCPAbstractPlottable::deselectEvent(bool* selectionStateChanged)
         if (selectionStateChanged)
             *selectionStateChanged = mSelection != selectionBefore;
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////// Busy indicator
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool QCPAbstractPlottable::busy() const
+{
+    return mEffectiveBusy;
+}
+
+void QCPAbstractPlottable::setBusy(bool busy)
+{
+    if (mExternalBusy != busy)
+    {
+        mExternalBusy = busy;
+        updateEffectiveBusy();
+    }
+}
+
+void QCPAbstractPlottable::updateEffectiveBusy()
+{
+    const bool newBusy = mExternalBusy || pipelineBusy();
+    if (newBusy == mEffectiveBusy)
+        return;
+
+    mEffectiveBusy = newBusy;
+    emit busyChanged(mEffectiveBusy);
+
+    mBusyDebounceTimer.stop();
+    const int delay = mEffectiveBusy ? effectiveBusyShowDelayMs() : effectiveBusyHideDelayMs();
+    mBusyDebounceTimer.start(delay);
+}
+
+void QCPAbstractPlottable::onDebounceTimeout()
+{
+    if (mVisuallyBusy == mEffectiveBusy)
+        return;
+
+    mVisuallyBusy = mEffectiveBusy;
+    emit visuallyBusyChanged(mVisuallyBusy);
+
+    if (mParentPlot)
+        mParentPlot->replot(QCustomPlot::rpQueuedReplot);
+}
+
+// per-plottable overrides
+
+void QCPAbstractPlottable::setBusyIndicatorSymbol(const QString& symbol)
+{
+    mBusyIndicatorSymbol = symbol;
+}
+
+void QCPAbstractPlottable::resetBusyIndicatorSymbol()
+{
+    mBusyIndicatorSymbol.reset();
+}
+
+void QCPAbstractPlottable::setBusyFadeAlpha(qreal alpha)
+{
+    mBusyFadeAlpha = alpha;
+}
+
+void QCPAbstractPlottable::resetBusyFadeAlpha()
+{
+    mBusyFadeAlpha.reset();
+}
+
+void QCPAbstractPlottable::setBusyShowDelayMs(int ms)
+{
+    mBusyShowDelayMs = ms;
+}
+
+void QCPAbstractPlottable::resetBusyShowDelayMs()
+{
+    mBusyShowDelayMs.reset();
+}
+
+void QCPAbstractPlottable::setBusyHideDelayMs(int ms)
+{
+    mBusyHideDelayMs = ms;
+}
+
+void QCPAbstractPlottable::resetBusyHideDelayMs()
+{
+    mBusyHideDelayMs.reset();
+}
+
+// effective values: per-plottable override, then theme, then hardcoded fallback
+
+QString QCPAbstractPlottable::effectiveBusyIndicatorSymbol() const
+{
+    if (mBusyIndicatorSymbol)
+        return *mBusyIndicatorSymbol;
+    if (mParentPlot && mParentPlot->theme())
+        return mParentPlot->theme()->busyIndicatorSymbol();
+    return QStringLiteral("\u27F3");
+}
+
+qreal QCPAbstractPlottable::effectiveBusyFadeAlpha() const
+{
+    if (mBusyFadeAlpha)
+        return *mBusyFadeAlpha;
+    if (mParentPlot && mParentPlot->theme())
+        return mParentPlot->theme()->busyFadeAlpha();
+    return 0.3;
+}
+
+int QCPAbstractPlottable::effectiveBusyShowDelayMs() const
+{
+    if (mBusyShowDelayMs)
+        return *mBusyShowDelayMs;
+    if (mParentPlot && mParentPlot->theme())
+        return mParentPlot->theme()->busyShowDelayMs();
+    return 500;
+}
+
+int QCPAbstractPlottable::effectiveBusyHideDelayMs() const
+{
+    if (mBusyHideDelayMs)
+        return *mBusyHideDelayMs;
+    if (mParentPlot && mParentPlot->theme())
+        return mParentPlot->theme()->busyHideDelayMs();
+    return 500;
 }
