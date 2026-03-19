@@ -112,3 +112,33 @@ void TestBusyIndicator::pipelineBusyContributesToEffective()
     QCOMPARE(g->busy(), true);
     QTRY_COMPARE_WITH_TIMEOUT(g->busy(), false, 10000);
 }
+
+void TestBusyIndicator::busyPlottableDrawsFaded()
+{
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    g->setData(std::vector<double>{1.0, 2.0, 3.0}, std::vector<double>{1.0, 2.0, 3.0});
+    g->setBusyShowDelayMs(0);
+    g->setBusyHideDelayMs(0);
+    g->setBusy(true);
+    QTest::qWait(50);
+    QCOMPARE(g->visuallyBusy(), true);
+
+    QPixmap busyPixmap = mPlot->toPixmap(200, 200);
+
+    g->setBusy(false);
+    QTest::qWait(50);
+
+    QPixmap normalPixmap = mPlot->toPixmap(200, 200);
+
+    QVERIFY(busyPixmap.toImage() != normalPixmap.toImage());
+}
+
+void TestBusyIndicator::notBusyPlottableDrawsFullOpacity()
+{
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    g->setData(std::vector<double>{1.0, 2.0, 3.0}, std::vector<double>{1.0, 2.0, 3.0});
+    QCOMPARE(g->visuallyBusy(), false);
+
+    QPixmap pix = mPlot->toPixmap(200, 200);
+    QVERIFY(!pix.isNull());
+}
