@@ -112,7 +112,11 @@ void QCPGroupLegendItem::draw(QCPPainter* painter)
         double segWidth = (n > 0) ? static_cast<double>(iconWidth) / n : iconWidth;
         double y = inRect.top() + rh / 2.0;
 
-        if (showBusy) painter->setOpacity(mMultiGraph->effectiveBusyFadeAlpha());
+        if (showBusy)
+        {
+            painter->save();
+            painter->setOpacity(mMultiGraph->effectiveBusyFadeAlpha());
+        }
         for (int i = 0; i < n; ++i) {
             if (!mMultiGraph->component(i).visible) continue;
             painter->setPen(mMultiGraph->component(i).pen);
@@ -120,14 +124,19 @@ void QCPGroupLegendItem::draw(QCPPainter* painter)
             double x1 = x0 + segWidth;
             painter->drawLine(QLineF(x0, y, x1, y));
         }
-        if (showBusy) painter->setOpacity(1.0);
+        if (showBusy)
+            painter->restore();
 
         painter->setPen(QPen(textColor));
         QRectF textRect(inRect.left() + padding + iconWidth + 6, inRect.top(),
                         inRect.width() - padding - iconWidth - 6, rh);
         QString collapsedText = QString::fromUtf8("\u25B8 ");
         if (showBusy)
-            collapsedText += mMultiGraph->effectiveBusyIndicatorSymbol() + QStringLiteral(" ");
+        {
+            const QString prefix = mMultiGraph->effectiveBusyIndicatorSymbol();
+            if (!prefix.isEmpty())
+                collapsedText += prefix + QStringLiteral(" ");
+        }
         collapsedText += headerName();
         painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, collapsedText);
     } else {
@@ -136,7 +145,11 @@ void QCPGroupLegendItem::draw(QCPPainter* painter)
                           inRect.width() - padding, rh);
         QString headerText = QString::fromUtf8("\u25BE ");
         if (showBusy)
-            headerText += mMultiGraph->effectiveBusyIndicatorSymbol() + QStringLiteral(" ");
+        {
+            const QString prefix = mMultiGraph->effectiveBusyIndicatorSymbol();
+            if (!prefix.isEmpty())
+                headerText += prefix + QStringLiteral(" ");
+        }
         headerText += headerName();
         painter->drawText(headerRect, Qt::AlignLeft | Qt::AlignVCenter, headerText);
 
@@ -150,12 +163,17 @@ void QCPGroupLegendItem::draw(QCPPainter* painter)
                 painter->drawRect(QRectF(inRect.left(), rowY, inRect.width(), rh));
             }
 
-            if (showBusy) painter->setOpacity(mMultiGraph->effectiveBusyFadeAlpha());
+            if (showBusy)
+            {
+                painter->save();
+                painter->setOpacity(mMultiGraph->effectiveBusyFadeAlpha());
+            }
             painter->setPen(comp.pen);
             double lineY = rowY + rh / 2.0;
             painter->drawLine(QLineF(inRect.left() + padding + indent, lineY,
                                      inRect.left() + padding + indent + iconWidth, lineY));
-            if (showBusy) painter->setOpacity(1.0);
+            if (showBusy)
+                painter->restore();
 
             painter->setPen(QPen(textColor));
             QRectF textRect(inRect.left() + padding + indent + iconWidth + 6, rowY,

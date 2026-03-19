@@ -40,15 +40,22 @@ void QCPAsyncPipelineBase::onDataChanged()
         if (!job) return;
         mJobRunning = true;
         mRunningGeneration = gen;
+        const bool shouldEmitBusy = !mWasBusy;
+        if (shouldEmitBusy)
+            mWasBusy = true;
         lock.unlock();
         mScheduler->submit(QCPPipelineScheduler::Heavy, std::move(job));
+        if (shouldEmitBusy)
+            Q_EMIT busyChanged(true);
+        return;
     }
 
-    if (!mWasBusy)
-    {
+    const bool shouldEmitBusy = !mWasBusy;
+    if (shouldEmitBusy)
         mWasBusy = true;
+    lock.unlock();
+    if (shouldEmitBusy)
         Q_EMIT busyChanged(true);
-    }
 }
 
 void QCPAsyncPipelineBase::onViewportChanged(const ViewportParams& vp)
@@ -78,15 +85,22 @@ void QCPAsyncPipelineBase::onViewportChanged(const ViewportParams& vp)
         if (!job) return;
         mJobRunning = true;
         mRunningGeneration = gen;
+        const bool shouldEmitBusy = !mWasBusy;
+        if (shouldEmitBusy)
+            mWasBusy = true;
         lock.unlock();
         mScheduler->submit(QCPPipelineScheduler::Fast, std::move(job));
+        if (shouldEmitBusy)
+            Q_EMIT busyChanged(true);
+        return;
     }
 
-    if (!mWasBusy)
-    {
+    const bool shouldEmitBusy = !mWasBusy;
+    if (shouldEmitBusy)
         mWasBusy = true;
+    lock.unlock();
+    if (shouldEmitBusy)
         Q_EMIT busyChanged(true);
-    }
 }
 
 void QCPAsyncPipelineBase::deliverResult(uint64_t generation, std::any cache, std::any result)
