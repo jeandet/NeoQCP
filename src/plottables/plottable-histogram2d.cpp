@@ -206,9 +206,24 @@ void QCPHistogram2D::draw(QCPPainter* painter)
     auto* binnedData = mPipeline.result();
     if (!binnedData)
     {
-        if (mDataSource && !mPipeline.isBusy())
-            mPipeline.onDataChanged();
-        return;
+        if (!mDataSource) return;
+        if (painter->modes().testFlag(QCPPainter::pmNoCaching))
+        {
+            // Export path: run transform synchronously since event loop is not pumped
+            ViewportParams vp;
+            vp.keyRange = mKeyAxis->range();
+            vp.valueRange = mValueAxis->range();
+            if (!mPipeline.runSynchronously(vp))
+                return;
+            binnedData = mPipeline.result();
+            if (!binnedData) return;
+        }
+        else
+        {
+            if (!mPipeline.isBusy())
+                mPipeline.onDataChanged();
+            return;
+        }
     }
 
     if (mRenderer.mapImageInvalidated())

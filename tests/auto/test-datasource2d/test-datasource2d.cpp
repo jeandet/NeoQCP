@@ -4,6 +4,7 @@
 #include <datasource/soa-datasource-2d.h>
 #include <datasource/resample.h>
 #include <QtTest/QtTest>
+#include <QTemporaryFile>
 #include <cmath>
 #include <span>
 
@@ -791,4 +792,65 @@ void TestDataSource2D::colormap2ColorScaleSync()
     cm->setDataRange(QCPRange(0, 10));
     QCOMPARE(cs->dataRange().lower, 0.0);
     QCOMPARE(cs->dataRange().upper, 10.0);
+}
+
+void TestDataSource2D::colormap2ExportToPixmap()
+{
+    // Regression test: toPixmap() must render QCPColorMap2 even when the async
+    // pipeline hasn't delivered yet (synchronous fallback path).
+    mPlot->resize(400, 300);
+    auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+
+    std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0};
+    std::vector<double> y = {0.0, 1.0, 2.0};
+    std::vector<double> z(15);
+    for (int i = 0; i < 5; ++i)
+        for (int j = 0; j < 3; ++j)
+            z[i * 3 + j] = i * 3.0 + j;
+    cm->setData(std::move(x), std::move(y), std::move(z));
+    cm->setGradient(QCPColorGradient(QCPColorGradient::gpJet));
+    cm->setDataRange(QCPRange(0, 14));
+    cm->rescaleAxes();
+
+    // Export immediately — no event loop pumping, so async pipeline has no result
+    QPixmap pix = mPlot->toPixmap(400, 300);
+    QVERIFY(!pix.isNull());
+
+    // Verify the colormap actually rendered: the center of the plot area should
+    // not be the default white background
+    QImage img = pix.toImage();
+    QColor center = img.pixelColor(img.width() / 2, img.height() / 2);
+    QVERIFY(center != Qt::white);
+}
+
+void TestDataSource2D::colormap2ExportToPdf()
+{
+    // Regression test: savePdf() must render QCPColorMap2 via synchronous fallback.
+    mPlot->resize(400, 300);
+    auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+
+    std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0};
+    std::vector<double> y = {0.0, 1.0, 2.0};
+    std::vector<double> z(15);
+    for (int i = 0; i < 5; ++i)
+        for (int j = 0; j < 3; ++j)
+            z[i * 3 + j] = i * 3.0 + j;
+    cm->setData(std::move(x), std::move(y), std::move(z));
+    cm->setGradient(QCPColorGradient(QCPColorGradient::gpJet));
+    cm->setDataRange(QCPRange(0, 14));
+    cm->rescaleAxes();
+
+    // Export to PDF immediately — no event loop pumping
+    QTemporaryFile tmpFile;
+    tmpFile.setFileTemplate(QDir::tempPath() + QStringLiteral("/neoqcp_test_XXXXXX.pdf"));
+    QVERIFY(tmpFile.open());
+    QString path = tmpFile.fileName();
+    tmpFile.close();
+
+    bool ok = mPlot->savePdf(path);
+    QVERIFY(ok);
+
+    QFileInfo fi(path);
+    // A PDF with rendered content should be substantially larger than an empty one
+    QVERIFY(fi.size() > 1000);
 }

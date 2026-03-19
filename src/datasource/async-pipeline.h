@@ -122,6 +122,28 @@ public:
 
     bool hasTransform() const { return !!mTransform; }
 
+    // Run the transform synchronously (blocking) and store the result.
+    // Use this during export (savePdf/toPixmap) where the event loop is not running.
+    bool runSynchronously(const ViewportParams& vp)
+    {
+        QMutexLocker lock(&mMutex);
+        if (!mSource || !mTransform) return false;
+        auto source = mSource;
+        auto transform = mTransform;
+        auto cache = std::move(mCache);
+        lock.unlock();
+
+        auto out = transform(*source, vp, cache);
+        if (!out) return false;
+
+        lock.relock();
+        mCache = std::move(cache);
+        lock.unlock();
+
+        mResult = std::move(out);
+        return true;
+    }
+
     void clearTransform()
     {
         mTransform = {};
