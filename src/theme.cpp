@@ -54,7 +54,7 @@ void QCPTheme::setBusyIndicatorSymbol(const QString& symbol)
 
 void QCPTheme::setBusyFadeAlpha(qreal alpha)
 {
-    if (!qFuzzyCompare(mBusyFadeAlpha, alpha)) { mBusyFadeAlpha = alpha; emit changed(); }
+    if (!qFuzzyCompare(1.0 + mBusyFadeAlpha, 1.0 + alpha)) { mBusyFadeAlpha = alpha; emit changed(); }
 }
 
 void QCPTheme::setBusyShowDelayMs(int ms)
