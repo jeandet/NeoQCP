@@ -134,12 +134,12 @@ public:
         lock.unlock();
 
         auto out = transform(*source, vp, cache);
-        if (!out) return false;
 
         lock.relock();
         mCache = std::move(cache);
         lock.unlock();
 
+        if (!out) return false;
         mResult = std::move(out);
         return true;
     }
