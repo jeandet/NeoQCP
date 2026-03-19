@@ -22,6 +22,8 @@ private slots:
     void qssProxyProperties();
     void coalescing();
     void applyThemePropagatesColorScaleAxis();
+    void busyIndicatorDefaults();
+    void busyIndicatorLightFactory();
 
 private:
     QCustomPlot* mPlot;

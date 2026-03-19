@@ -47,6 +47,26 @@ void QCPTheme::setLegendBorder(const QColor& color)
     if (mLegendBorder != color) { mLegendBorder = color; emit changed(); }
 }
 
+void QCPTheme::setBusyIndicatorSymbol(const QString& symbol)
+{
+    if (mBusyIndicatorSymbol != symbol) { mBusyIndicatorSymbol = symbol; emit changed(); }
+}
+
+void QCPTheme::setBusyFadeAlpha(qreal alpha)
+{
+    if (!qFuzzyCompare(mBusyFadeAlpha, alpha)) { mBusyFadeAlpha = alpha; emit changed(); }
+}
+
+void QCPTheme::setBusyShowDelayMs(int ms)
+{
+    if (mBusyShowDelayMs != ms) { mBusyShowDelayMs = ms; emit changed(); }
+}
+
+void QCPTheme::setBusyHideDelayMs(int ms)
+{
+    if (mBusyHideDelayMs != ms) { mBusyHideDelayMs = ms; emit changed(); }
+}
+
 QCPTheme* QCPTheme::light(QObject* parent)
 {
     return new QCPTheme(parent);

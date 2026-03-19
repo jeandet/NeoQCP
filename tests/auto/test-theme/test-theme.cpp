@@ -197,3 +197,22 @@ void TestTheme::applyThemePropagatesColorScaleAxis()
 
     delete theme;
 }
+
+void TestTheme::busyIndicatorDefaults()
+{
+    QCPTheme theme;
+    QCOMPARE(theme.busyIndicatorSymbol(), QStringLiteral("⟳"));
+    QCOMPARE(theme.busyFadeAlpha(), 0.3);
+    QCOMPARE(theme.busyShowDelayMs(), 500);
+    QCOMPARE(theme.busyHideDelayMs(), 500);
+}
+
+void TestTheme::busyIndicatorLightFactory()
+{
+    auto* theme = QCPTheme::light();
+    QCOMPARE(theme->busyIndicatorSymbol(), QStringLiteral("⟳"));
+    QCOMPARE(theme->busyFadeAlpha(), 0.3);
+    QCOMPARE(theme->busyShowDelayMs(), 500);
+    QCOMPARE(theme->busyHideDelayMs(), 500);
+    delete theme;
+}
