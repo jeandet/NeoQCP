@@ -20,6 +20,8 @@ private slots:
     void pipelineBusyContributesToEffective();
     void busyPlottableDrawsFaded();
     void notBusyPlottableDrawsFullOpacity();
+    void legendShowsPrefixWhenBusy();
+    void legendSizeHintAccountsForPrefix();
 
 private:
     QCustomPlot* mPlot = nullptr;

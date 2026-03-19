@@ -296,31 +296,42 @@ void QCPPlottableLegendItem::draw(QCPPainter* painter)
 {
     if (!mPlottable)
         return;
+
+    const bool showBusy = mPlottable->visuallyBusy()
+        && !painter->modes().testFlag(QCPPainter::pmVectorized);
+
     painter->setFont(getFont());
     painter->setPen(QPen(getTextColor()));
     QSize iconSize = mParentLegend->iconSize();
-    QRect textRect = painter->fontMetrics().boundingRect(0, 0, 0, iconSize.height(),
-                                                         Qt::TextDontClip, mPlottable->name());
+
+    QString displayName = mPlottable->name();
+    if (showBusy)
+    {
+        const QString prefix = mPlottable->effectiveBusyIndicatorSymbol();
+        if (!prefix.isEmpty())
+            displayName = prefix + QStringLiteral(" ") + displayName;
+    }
+
+    QRect textRect = painter->fontMetrics().boundingRect(
+        0, 0, 0, iconSize.height(), Qt::TextDontClip, displayName);
     QRect iconRect(mRect.topLeft(), iconSize);
-    int textHeight = qMax(textRect.height(),
-                          iconSize.height()); // if text has smaller height than icon, center text
-                                              // vertically in icon height, else align tops
+    int textHeight = qMax(textRect.height(), iconSize.height());
     painter->drawText(mRect.x() + iconSize.width() + mParentLegend->iconTextPadding(), mRect.y(),
-                      textRect.width(), textHeight, Qt::TextDontClip, mPlottable->name());
-    // draw icon:
+                      textRect.width(), textHeight, Qt::TextDontClip, displayName);
+
     painter->save();
     painter->setClipRect(iconRect, Qt::IntersectClip);
+    if (showBusy)
+        painter->setOpacity(mPlottable->effectiveBusyFadeAlpha());
     mPlottable->drawLegendIcon(painter, iconRect);
     painter->restore();
-    // draw icon border:
+
     if (getIconBorderPen().style() != Qt::NoPen)
     {
         painter->setPen(getIconBorderPen());
         painter->setBrush(Qt::NoBrush);
         int halfPen = qCeil(painter->pen().widthF() * 0.5) + 1;
-        painter->setClipRect(mOuterRect.adjusted(
-            -halfPen, -halfPen, halfPen, halfPen)); // extend default clip rect so thicker pens
-                                                    // (especially during selection) are not clipped
+        painter->setClipRect(mOuterRect.adjusted(-halfPen, -halfPen, halfPen, halfPen));
         painter->drawRect(iconRect);
     }
 }
@@ -336,12 +347,20 @@ QSize QCPPlottableLegendItem::minimumOuterSizeHint() const
 {
     if (!mPlottable)
         return {};
+
+    QString displayName = mPlottable->name();
+    if (mPlottable->visuallyBusy())
+    {
+        const QString prefix = mPlottable->effectiveBusyIndicatorSymbol();
+        if (!prefix.isEmpty())
+            displayName = prefix + QStringLiteral(" ") + displayName;
+    }
+
     QSize result(0, 0);
     QRect textRect;
     QFontMetrics fontMetrics(getFont());
     QSize iconSize = mParentLegend->iconSize();
-    textRect = fontMetrics.boundingRect(0, 0, 0, iconSize.height(), Qt::TextDontClip,
-                                        mPlottable->name());
+    textRect = fontMetrics.boundingRect(0, 0, 0, iconSize.height(), Qt::TextDontClip, displayName);
     result.setWidth(iconSize.width() + mParentLegend->iconTextPadding() + textRect.width());
     result.setHeight(qMax(textRect.height(), iconSize.height()));
     result.rwidth() += mMargins.left() + mMargins.right();
