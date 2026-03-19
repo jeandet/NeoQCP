@@ -183,3 +183,37 @@ void TestBusyIndicator::legendSizeHintAccountsForPrefix()
 
     QVERIFY(busySize.width() > normalSize.width());
 }
+
+void TestBusyIndicator::fullLifecycleExternalBusy()
+{
+    // Simulate SciQLopPlots usage: download starts, data arrives, resampling finishes
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    g->setName("Magnetic Field Bx");
+    g->addToLegend();
+    g->setBusyShowDelayMs(50);
+    g->setBusyHideDelayMs(50);
+
+    QSignalSpy busySpy(g, &QCPAbstractPlottable::busyChanged);
+    QSignalSpy visualSpy(g, &QCPAbstractPlottable::visuallyBusyChanged);
+
+    // 1. Download starts
+    g->setBusy(true);
+    QCOMPARE(busySpy.count(), 1);
+    QCOMPARE(g->busy(), true);
+    QCOMPARE(g->visuallyBusy(), false); // debounce not yet fired
+
+    // 2. Wait for visual busy to show
+    QTest::qWait(100);
+    QCOMPARE(g->visuallyBusy(), true);
+    QCOMPARE(visualSpy.count(), 1);
+
+    // 3. Data arrives — set data and clear external busy
+    g->setData(std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0}, std::vector<double>{10.0, 20.0, 15.0, 25.0, 30.0});
+    g->setBusy(false);
+
+    // 4. Visual should stay busy for hide delay
+    QCOMPARE(g->visuallyBusy(), true);
+    QTest::qWait(100);
+    QCOMPARE(g->visuallyBusy(), false);
+    QCOMPARE(visualSpy.count(), 2);
+}
