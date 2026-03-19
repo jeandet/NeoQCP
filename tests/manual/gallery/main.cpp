@@ -1070,6 +1070,134 @@ static QWidget* createOverlayTab()
     return splitter;
 }
 
+// ── Tab: Busy Indicator ──────────────────────────────────────────────────────
+
+static QWidget* createBusyIndicatorTab()
+{
+    auto* splitter = new QSplitter(Qt::Horizontal);
+
+    auto* plot = makePlot();
+    plot->setTheme(QCPTheme::dark(plot));
+    plot->legend->setVisible(true);
+
+    auto* g1 = new QCPGraph2(plot->xAxis, plot->yAxis);
+    auto* g2 = new QCPGraph2(plot->xAxis, plot->yAxis);
+    g1->setName("Magnetic Field Bx");
+    g1->setPen(QPen(QColor("#e74c3c"), 2));
+    g2->setName("Magnetic Field By");
+    g2->setPen(QPen(QColor("#3498db"), 2));
+
+    auto* mg = new QCPMultiGraph(plot->xAxis, plot->yAxis);
+    mg->setName("Plasma Velocity");
+
+    {
+        std::vector<double> x(500), y1(500), y2(500);
+        for (int i = 0; i < 500; ++i)
+        {
+            x[i] = i * 0.02;
+            y1[i] = qSin(x[i] * 3.0) * qExp(-x[i] * 0.3);
+            y2[i] = qCos(x[i] * 2.0) * qExp(-x[i] * 0.2);
+        }
+        g1->setData(x, y1);
+        g2->setData(std::move(x), std::move(y2));
+    }
+    {
+        std::vector<double> x(500);
+        std::vector<std::vector<double>> vals(3, std::vector<double>(500));
+        for (int i = 0; i < 500; ++i)
+        {
+            x[i] = i * 0.02;
+            vals[0][i] = 400 + 50 * qSin(x[i] * 1.5);
+            vals[1][i] = 20 * qCos(x[i] * 2.0);
+            vals[2][i] = 10 * qSin(x[i] * 3.0);
+        }
+        mg->setData(std::move(x), std::move(vals));
+        mg->setComponentNames({"Vx", "Vy", "Vz"});
+        mg->setComponentColors({QColor("#2ecc71"), QColor("#e67e22"), QColor("#9b59b6")});
+    }
+    mg->addToLegend();
+    plot->rescaleAxes();
+    plot->replot();
+    splitter->addWidget(plot);
+
+    // Control panel
+    auto* panel = new QWidget;
+    auto* layout = new QVBoxLayout(panel);
+
+    auto simulateDownload = [](QCPAbstractPlottable* p, int durationMs) {
+        p->setBusy(true);
+        QTimer::singleShot(durationMs, p, [p] { p->setBusy(false); });
+    };
+
+    auto* btnBx = new QPushButton("Download Bx (2s)");
+    auto* btnBy = new QPushButton("Download By (4s)");
+    auto* btnMg = new QPushButton("Download Plasma V (3s)");
+    auto* btnAll = new QPushButton("Download All");
+
+    QObject::connect(btnBx, &QPushButton::clicked, [=] { simulateDownload(g1, 2000); });
+    QObject::connect(btnBy, &QPushButton::clicked, [=] { simulateDownload(g2, 4000); });
+    QObject::connect(btnMg, &QPushButton::clicked, [=] { simulateDownload(mg, 3000); });
+    QObject::connect(btnAll, &QPushButton::clicked, [=] {
+        simulateDownload(g1, 2000);
+        simulateDownload(g2, 4000);
+        simulateDownload(mg, 3000);
+    });
+
+    layout->addWidget(btnBx);
+    layout->addWidget(btnBy);
+    layout->addWidget(btnMg);
+    layout->addWidget(btnAll);
+
+    // Configuration
+    auto* configGroup = new QGroupBox("Configuration");
+    auto* configLayout = new QVBoxLayout(configGroup);
+
+    auto* symbolLabel = new QLabel("Busy symbol:");
+    auto* symbolCombo = new QComboBox;
+    symbolCombo->addItems({QString::fromUtf8("\u27F3"), QString::fromUtf8("\u2026"),
+                           QString::fromUtf8("\u23F3"), QString::fromUtf8("\u26A0"), ""});
+    configLayout->addWidget(symbolLabel);
+    configLayout->addWidget(symbolCombo);
+
+    auto* alphaLabel = new QLabel("Fade alpha:");
+    auto* alphaSpin = new QDoubleSpinBox;
+    alphaSpin->setRange(0.0, 1.0);
+    alphaSpin->setSingleStep(0.05);
+    alphaSpin->setValue(0.3);
+    configLayout->addWidget(alphaLabel);
+    configLayout->addWidget(alphaSpin);
+
+    auto* showDelayLabel = new QLabel("Show delay (ms):");
+    auto* showDelaySpin = new QDoubleSpinBox;
+    showDelaySpin->setRange(0, 5000);
+    showDelaySpin->setSingleStep(100);
+    showDelaySpin->setValue(500);
+    showDelaySpin->setDecimals(0);
+    configLayout->addWidget(showDelayLabel);
+    configLayout->addWidget(showDelaySpin);
+
+    layout->addWidget(configGroup);
+
+    auto applyConfig = [=]() {
+        auto* theme = plot->theme();
+        if (!theme) return;
+        theme->setBusyIndicatorSymbol(symbolCombo->currentText());
+        theme->setBusyFadeAlpha(alphaSpin->value());
+        theme->setBusyShowDelayMs(static_cast<int>(showDelaySpin->value()));
+    };
+
+    QObject::connect(symbolCombo, &QComboBox::currentTextChanged, [=](const QString&) { applyConfig(); });
+    QObject::connect(alphaSpin, qOverload<double>(&QDoubleSpinBox::valueChanged), [=](double) { applyConfig(); });
+    QObject::connect(showDelaySpin, qOverload<double>(&QDoubleSpinBox::valueChanged), [=](double) { applyConfig(); });
+
+    layout->addStretch();
+    splitter->addWidget(panel);
+    splitter->setStretchFactor(0, 3);
+    splitter->setStretchFactor(1, 1);
+
+    return splitter;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[])
@@ -1100,6 +1228,7 @@ int main(int argc, char* argv[])
     tabs->addTab(createHistogram2DTab(),    "Histogram2D");
     tabs->addTab(createHistogram2DLogTab(), "Histogram2D (log)");
     tabs->addTab(createOverlayTab(),       "Overlay");
+    tabs->addTab(createBusyIndicatorTab(), "Busy Indicator");
 
     window.setCentralWidget(tabs);
     window.show();
