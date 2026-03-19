@@ -22,6 +22,7 @@ private slots:
     void notBusyPlottableDrawsFullOpacity();
     void legendShowsPrefixWhenBusy();
     void legendSizeHintAccountsForPrefix();
+    void groupLegendShowsBusyPrefix();
     void fullLifecycleExternalBusy();
 
 private:

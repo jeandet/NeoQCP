@@ -184,6 +184,27 @@ void TestBusyIndicator::legendSizeHintAccountsForPrefix()
     QVERIFY(busySize.width() > normalSize.width());
 }
 
+void TestBusyIndicator::groupLegendShowsBusyPrefix()
+{
+    mPlot->legend->setVisible(true);
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    mg->setData(std::vector<double>{1.0, 2.0, 3.0},
+                std::vector<std::vector<double>>{{10.0, 20.0, 30.0}, {-1.0, -2.0, -3.0}});
+    mg->addToLegend();
+    mPlot->replot();
+
+    QPixmap normalPix = mPlot->toPixmap(400, 300);
+
+    mg->setBusyShowDelayMs(0);
+    mg->setBusy(true);
+    QTest::qWait(50);
+    QCOMPARE(mg->visuallyBusy(), true);
+    mPlot->replot();
+
+    QPixmap busyPix = mPlot->toPixmap(400, 300);
+    QVERIFY(normalPix.toImage() != busyPix.toImage());
+}
+
 void TestBusyIndicator::fullLifecycleExternalBusy()
 {
     // Simulate SciQLopPlots usage: download starts, data arrives, resampling finishes
