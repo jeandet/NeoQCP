@@ -18,6 +18,8 @@ private slots:
     void perPlottableOverridesTheme();
     void resetFallsBackToTheme();
     void pipelineBusyContributesToEffective();
+    void busyPlottableDrawsFaded();
+    void notBusyPlottableDrawsFullOpacity();
 
 private:
     QCustomPlot* mPlot = nullptr;
