@@ -95,3 +95,20 @@ void TestBusyIndicator::resetFallsBackToTheme()
     g->resetBusyFadeAlpha();
     QCOMPARE(g->effectiveBusyFadeAlpha(), 0.3);
 }
+
+void TestBusyIndicator::pipelineBusyContributesToEffective()
+{
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    g->setBusyShowDelayMs(10);
+
+    const int N = 10'000'000;
+    std::vector<double> keys(N), values(N);
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i;
+        values[i] = i * 0.01;
+    }
+    g->setData(std::move(keys), std::move(values));
+
+    QCOMPARE(g->busy(), true);
+    QTRY_COMPARE_WITH_TIMEOUT(g->busy(), false, 10000);
+}

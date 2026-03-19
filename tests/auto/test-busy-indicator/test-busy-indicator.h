@@ -17,6 +17,7 @@ private slots:
     void fastToggleNoVisualChange();
     void perPlottableOverridesTheme();
     void resetFallsBackToTheme();
+    void pipelineBusyContributesToEffective();
 
 private:
     QCustomPlot* mPlot = nullptr;

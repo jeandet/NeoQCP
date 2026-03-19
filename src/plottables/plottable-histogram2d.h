@@ -86,6 +86,7 @@ Q_SIGNALS:
 protected:
     void draw(QCPPainter* painter) override;
     void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
+    bool pipelineBusy() const override { return mPipeline.isBusy(); }
 
 private:
     std::shared_ptr<QCPAbstractDataSource> mDataSource;
