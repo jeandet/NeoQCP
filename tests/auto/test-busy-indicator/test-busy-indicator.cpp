@@ -142,3 +142,44 @@ void TestBusyIndicator::notBusyPlottableDrawsFullOpacity()
     QPixmap pix = mPlot->toPixmap(200, 200);
     QVERIFY(!pix.isNull());
 }
+
+void TestBusyIndicator::legendShowsPrefixWhenBusy()
+{
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    g->setName("TestGraph");
+    g->setData(std::vector<double>{1.0, 2.0}, std::vector<double>{1.0, 2.0});
+    g->addToLegend();
+    mPlot->replot();
+
+    QPixmap normalPix = mPlot->toPixmap(400, 300);
+
+    g->setBusyShowDelayMs(0);
+    g->setBusy(true);
+    QTest::qWait(50);
+    QCOMPARE(g->visuallyBusy(), true);
+    mPlot->replot();
+
+    QPixmap busyPix = mPlot->toPixmap(400, 300);
+
+    QVERIFY(normalPix.toImage() != busyPix.toImage());
+}
+
+void TestBusyIndicator::legendSizeHintAccountsForPrefix()
+{
+    auto* g = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    g->setName("TestGraph");
+    g->addToLegend();
+
+    QCPLayoutElement* legendItem = mPlot->legend->itemWithPlottable(g);
+    QVERIFY(legendItem);
+
+    QSize normalSize = legendItem->minimumOuterSizeHint();
+
+    g->setBusyShowDelayMs(0);
+    g->setBusy(true);
+    QTest::qWait(50);
+
+    QSize busySize = legendItem->minimumOuterSizeHint();
+
+    QVERIFY(busySize.width() > normalSize.width());
+}
