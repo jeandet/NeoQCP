@@ -87,6 +87,8 @@ QCPColorMap2::QCPColorMap2(QCPAxis* keyAxis, QCPAxis* valueAxis)
                 if (parentPlot())
                     parentPlot()->replot(QCustomPlot::rpQueuedReplot);
             });
+    connect(&mPipeline, &QCPColormapPipeline::busyChanged,
+            this, [this](bool) { updateEffectiveBusy(); });
 }
 
 QCPColorMap2::~QCPColorMap2()

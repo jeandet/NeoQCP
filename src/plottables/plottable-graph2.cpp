@@ -28,6 +28,8 @@ QCPGraph2::QCPGraph2(QCPAxis* keyAxis, QCPAxis* valueAxis)
 
     connect(&mPipeline, &QCPGraphPipeline::finished,
             this, [this](uint64_t) { onL1Ready(); });
+    connect(&mPipeline, &QCPGraphPipeline::busyChanged,
+            this, [this](bool) { updateEffectiveBusy(); });
 }
 
 QCPGraph2::~QCPGraph2() = default;

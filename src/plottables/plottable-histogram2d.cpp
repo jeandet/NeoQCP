@@ -22,6 +22,8 @@ QCPHistogram2D::QCPHistogram2D(QCPAxis* keyAxis, QCPAxis* valueAxis)
                 if (parentPlot())
                     parentPlot()->replot(QCustomPlot::rpQueuedReplot);
             });
+    connect(&mPipeline, &QCPHistogramPipeline::busyChanged,
+            this, [this](bool) { updateEffectiveBusy(); });
 }
 
 QCPHistogram2D::~QCPHistogram2D()

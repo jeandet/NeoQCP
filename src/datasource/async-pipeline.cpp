@@ -43,6 +43,12 @@ void QCPAsyncPipelineBase::onDataChanged()
         lock.unlock();
         mScheduler->submit(QCPPipelineScheduler::Heavy, std::move(job));
     }
+
+    if (!mWasBusy)
+    {
+        mWasBusy = true;
+        Q_EMIT busyChanged(true);
+    }
 }
 
 void QCPAsyncPipelineBase::onViewportChanged(const ViewportParams& vp)
@@ -74,6 +80,12 @@ void QCPAsyncPipelineBase::onViewportChanged(const ViewportParams& vp)
         mRunningGeneration = gen;
         lock.unlock();
         mScheduler->submit(QCPPipelineScheduler::Fast, std::move(job));
+    }
+
+    if (!mWasBusy)
+    {
+        mWasBusy = true;
+        Q_EMIT busyChanged(true);
     }
 }
 
