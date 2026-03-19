@@ -51,6 +51,8 @@ private slots:
     void colormap2Render();
     void colormap2AxisRescale();
     void colormap2ColorScaleSync();
+    void colormap2ExportToPixmap();
+    void colormap2ExportToPdf();
 
 private:
     QCustomPlot* mPlot = nullptr;

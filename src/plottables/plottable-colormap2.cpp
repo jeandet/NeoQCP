@@ -216,9 +216,28 @@ void QCPColorMap2::draw(QCPPainter* painter)
     auto* resampledData = mPipeline.result();
     if (!resampledData)
     {
-        if (mDataSource)
+        if (!mDataSource) return;
+        if (painter->modes().testFlag(QCPPainter::pmNoCaching))
+        {
+            // Export path: run transform synchronously since event loop is not pumped
+            ViewportParams vp;
+            vp.keyRange = mKeyAxis->range();
+            vp.valueRange = mValueAxis->range();
+            auto* axisRect = mKeyAxis->axisRect();
+            vp.plotWidthPx = axisRect ? axisRect->width() : 800;
+            vp.plotHeightPx = axisRect ? axisRect->height() : 600;
+            vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
+            vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
+            if (!mPipeline.runSynchronously(vp))
+                return;
+            resampledData = mPipeline.result();
+            if (!resampledData) return;
+        }
+        else
+        {
             onViewportChanged();
-        return;
+            return;
+        }
     }
 
     if (mRenderer.mapImageInvalidated())
