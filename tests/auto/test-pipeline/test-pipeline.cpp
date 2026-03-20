@@ -4,6 +4,7 @@
 #include <datasource/async-pipeline.h>
 #include <datasource/soa-datasource.h>
 #include <datasource/soa-datasource-2d.h>
+#include <datasource/soa-multi-datasource.h>
 #include <plottables/plottable-graph2.h>
 #include <plottables/plottable-colormap2.h>
 #include <plottables/plottable-colormap.h>
@@ -888,6 +889,70 @@ void TestPipeline::graphResamplerParallelMatchesSingleThreaded()
         else
             QCOMPARE(parallel.values[i], sequential.values[i]);
     }
+}
+
+// --- Multi-column resampler tests ---
+
+void TestPipeline::multiGraphBinMinMaxMulti()
+{
+    // 3 columns, 6 data points, 3 bins
+    // Keys: 0,1,2,3,4,5  →  bin0=[0,1], bin1=[2,3], bin2=[4,5]
+    std::vector<double> keys = {0, 1, 2, 3, 4, 5};
+    std::vector<std::vector<double>> cols = {
+        {10, 20, 30, 40, 50, 60},  // col 0
+        {60, 50, 40, 30, 20, 10},  // col 1
+        {1, 1, 1, 1, 1, 1}         // col 2 (constant)
+    };
+
+    auto src = std::make_shared<QCPSoAMultiDataSource<
+        std::vector<double>, std::vector<double>>>(keys, cols);
+
+    QCPRange keyRange(0, 6);
+    auto result = qcp::algo::binMinMaxMulti(*src, 0, 6, keyRange, 3);
+
+    QCOMPARE(result.numColumns, 3);
+    QCOMPARE(static_cast<int>(result.keys.size()), 6); // 3 bins * 2
+
+    int s = result.stride();
+    QCOMPARE(s, 6);
+
+    // Col 0, bin 0: min=10, max=20
+    QCOMPARE(result.values[0 * s + 0], 10.0);
+    QCOMPARE(result.values[0 * s + 1], 20.0);
+    // Col 0, bin 1: min=30, max=40
+    QCOMPARE(result.values[0 * s + 2], 30.0);
+    QCOMPARE(result.values[0 * s + 3], 40.0);
+
+    // Col 1, bin 0: min=50, max=60
+    QCOMPARE(result.values[1 * s + 0], 50.0);
+    QCOMPARE(result.values[1 * s + 1], 60.0);
+    // Col 1, bin 2: min=10, max=20
+    QCOMPARE(result.values[1 * s + 4], 10.0);
+    QCOMPARE(result.values[1 * s + 5], 20.0);
+
+    // Col 2: all bins should be (1,1)
+    for (int b = 0; b < 3; ++b) {
+        QCOMPARE(result.values[2 * s + b * 2], 1.0);
+        QCOMPARE(result.values[2 * s + b * 2 + 1], 1.0);
+    }
+}
+
+void TestPipeline::multiGraphBinMinMaxMultiNaN()
+{
+    std::vector<double> keys = {0, 1, 2, 3};
+    std::vector<std::vector<double>> cols = {
+        {10, std::numeric_limits<double>::quiet_NaN(), 30, 40},
+        {1, 2, 3, 4}
+    };
+    auto src = std::make_shared<QCPSoAMultiDataSource<
+        std::vector<double>, std::vector<double>>>(keys, cols);
+
+    auto result = qcp::algo::binMinMaxMulti(*src, 0, 4, QCPRange(0, 4), 2);
+    int s = result.stride();
+
+    // Col 0, bin 0: NaN at index 1 should be skipped → min=max=10
+    QCOMPARE(result.values[0 * s + 0], 10.0);
+    QCOMPARE(result.values[0 * s + 1], 10.0);
 }
 
 // --- L2 lazy rebuild tests ---

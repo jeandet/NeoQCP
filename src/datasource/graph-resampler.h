@@ -1,5 +1,6 @@
 #pragma once
 #include "abstract-datasource.h"
+#include "abstract-multi-datasource.h"
 #include "soa-datasource.h"
 #include "async-pipeline.h"
 #include "../Profiling.hpp"
@@ -201,6 +202,70 @@ struct GraphResamplerCache {
     QCPRange cachedKeyRange;
     int sourceSize = 0;
 };
+
+struct MultiColumnBinResult {
+    std::vector<double> keys;    // 2 * numBins (shared across columns)
+    std::vector<double> values;  // N * 2 * numBins, column-major
+    int numColumns = 0;
+    int stride() const { return static_cast<int>(keys.size()); }
+};
+
+struct MultiGraphResamplerCache {
+    MultiColumnBinResult level1;
+    QCPRange cachedKeyRange;
+    int sourceSize = 0;
+    int columnCount = 0;
+};
+
+inline MultiColumnBinResult binMinMaxMulti(
+    const QCPAbstractMultiDataSource& src,
+    int begin, int end,
+    const QCPRange& keyRange,
+    int numBins)
+{
+    MultiColumnBinResult out;
+    int N = src.columnCount();
+    if (numBins <= 0 || keyRange.size() <= 0 || N <= 0)
+        return out;
+
+    out.numColumns = N;
+    out.keys.resize(numBins * 2);
+    out.values.resize(N * numBins * 2, std::numeric_limits<double>::quiet_NaN());
+
+    const double binWidth = keyRange.size() / numBins;
+    const double halfWidth = binWidth * 0.5;
+    const double keyLo = keyRange.lower;
+    const int s = numBins * 2;
+
+    for (int b = 0; b < numBins; ++b)
+    {
+        double binCenter = keyLo + (b + 0.5) * binWidth;
+        out.keys[b * 2 + 0] = binCenter;
+        out.keys[b * 2 + 1] = binCenter + halfWidth;
+    }
+
+    for (int i = begin; i < end; ++i)
+    {
+        double k = src.keyAt(i);
+        if (!std::isfinite(k)) continue;
+
+        int bin = static_cast<int>((k - keyLo) / binWidth);
+        bin = std::clamp(bin, 0, numBins - 1);
+
+        for (int c = 0; c < N; ++c)
+        {
+            double v = src.valueAt(c, i);
+            if (std::isnan(v)) continue;
+
+            double& mn = out.values[c * s + bin * 2 + 0];
+            double& mx = out.values[c * s + bin * 2 + 1];
+            if (std::isnan(mn) || v < mn) mn = v;
+            if (std::isnan(mx) || v > mx) mx = v;
+        }
+    }
+
+    return out;
+}
 
 constexpr int kLevel1TargetBins = 100'000;
 constexpr int kResampleThreshold = 10'000'000;
