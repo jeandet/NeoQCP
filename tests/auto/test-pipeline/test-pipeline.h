@@ -56,6 +56,10 @@ private slots:
     void graphResamplerNonFiniteKeysSkipped();
     void graphResamplerParallelMatchesSingleThreaded();
 
+    // Multi-column resampler
+    void multiGraphBinMinMaxMulti();
+    void multiGraphBinMinMaxMultiNaN();
+
     // L2 lazy rebuild (deferred to draw)
     void graph2L2RebuildDeferredToDraw();
     void graph2L2CoalescesMultipleViewportChanges();
