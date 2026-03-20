@@ -114,6 +114,7 @@ protected:
     void deselectEvent(bool* selectionStateChanged) override;
 
     friend class TestMultiGraph;
+    friend class TestPipeline;
 
 protected:
     std::shared_ptr<QCPAbstractMultiDataSource> mDataSource;
