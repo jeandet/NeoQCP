@@ -1,6 +1,8 @@
 #include "plottable-multigraph.h"
 #include "../axis/axis.h"
 #include "../core.h"
+#include "../datasource/graph-resampler.h"
+#include "../datasource/resampled-multi-datasource.h"
 #include "../layoutelements/layoutelement-axisrect.h"
 #include "../layoutelements/layoutelement-legend-group.h"
 #include "../painting/painter.h"
@@ -26,6 +28,7 @@ static const QList<QColor> sDefaultColors = {
 
 QCPMultiGraph::QCPMultiGraph(QCPAxis* keyAxis, QCPAxis* valueAxis)
     : QCPAbstractPlottable(keyAxis, valueAxis)
+    , mPipeline(parentPlot() ? parentPlot()->pipelineScheduler() : nullptr, this)
 {
     // Base constructor auto-adds a QCPPlottableLegendItem (vtable not yet set up
     // for virtual addToLegend). Replace it with our group legend item.
@@ -33,6 +36,17 @@ QCPMultiGraph::QCPMultiGraph(QCPAxis* keyAxis, QCPAxis* valueAxis)
         QCPAbstractPlottable::removeFromLegend(mParentPlot->legend);
         addToLegend();
     }
+
+    if (keyAxis)
+    {
+        connect(keyAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged),
+                this, &QCPMultiGraph::onViewportChanged);
+    }
+
+    connect(&mPipeline, &QCPMultiGraphPipeline::finished,
+            this, [this](uint64_t) { onL1Ready(); });
+    connect(&mPipeline, &QCPMultiGraphPipeline::busyChanged,
+            this, [this](bool) { updateEffectiveBusy(); });
 }
 
 QCPMultiGraph::~QCPMultiGraph() = default;
@@ -42,16 +56,100 @@ void QCPMultiGraph::setDataSource(std::unique_ptr<QCPAbstractMultiDataSource> so
     setDataSource(std::shared_ptr<QCPAbstractMultiDataSource>(std::move(source)));
 }
 
+static void ensureL1TransformMulti(QCPMultiGraphPipeline& pipeline, int sourceSize, int colCount)
+{
+    const bool needsResampling = colCount > 0 && sourceSize >= qcp::algo::kResampleThreshold
+        && static_cast<int64_t>(sourceSize) * colCount >= qcp::algo::kResampleThreshold;
+    if (needsResampling)
+    {
+        if (!pipeline.hasTransform())
+        {
+            pipeline.setTransform(TransformKind::ViewportIndependent,
+                [](const QCPAbstractMultiDataSource& src,
+                   const ViewportParams& vp,
+                   std::any& cache) -> std::shared_ptr<QCPAbstractMultiDataSource> {
+                    return qcp::algo::buildL1CacheMulti(src, vp, cache);
+                });
+        }
+    }
+    else if (pipeline.hasTransform())
+    {
+        pipeline.clearTransform();
+    }
+}
+
 void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> source)
 {
     mDataSource = std::move(source);
     syncComponentCount();
+    mL1Cache.reset();
+    mL2Result.reset();
+    mL2Dirty = false;
+
+    if (mDataSource)
+    {
+        mNeedsResampling = mDataSource->columnCount() > 0
+            && mDataSource->size() >= qcp::algo::kResampleThreshold
+            && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
+               >= qcp::algo::kResampleThreshold;
+        ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
+    }
+    else
+    {
+        mNeedsResampling = false;
+    }
+    mPipeline.setSource(mDataSource);
 }
 
 void QCPMultiGraph::dataChanged()
 {
-    if (mParentPlot)
+    if (mDataSource)
+    {
+        bool wasResampling = mNeedsResampling;
+        mNeedsResampling = mDataSource->columnCount() > 0
+            && mDataSource->size() >= qcp::algo::kResampleThreshold
+            && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
+               >= qcp::algo::kResampleThreshold;
+
+        if (mNeedsResampling != wasResampling)
+            ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
+    }
+
+    if (mPipeline.hasTransform())
+    {
+        mL1Cache.reset();
+        mL2Result.reset();
+        mL2Dirty = false;
+        mPipeline.onDataChanged();
+    }
+    else if (mParentPlot)
         mParentPlot->replot();
+}
+
+void QCPMultiGraph::onL1Ready()
+{
+    auto& pipelineCache = mPipeline.cache();
+    auto* c = std::any_cast<qcp::algo::MultiGraphResamplerCache>(&pipelineCache);
+    if (c && c->sourceSize > 0)
+    {
+        mL1Cache = std::make_shared<qcp::algo::MultiGraphResamplerCache>(std::move(*c));
+        pipelineCache = std::any{};
+        mL2Dirty = true;
+    }
+    if (parentPlot())
+        parentPlot()->replot(QCustomPlot::rpQueuedReplot);
+}
+
+void QCPMultiGraph::rebuildL2(const ViewportParams& vp)
+{
+    if (!mL1Cache) return;
+    mL2Result = qcp::algo::resampleL2Multi(*mL1Cache, vp);
+}
+
+void QCPMultiGraph::onViewportChanged()
+{
+    if (mL1Cache)
+        mL2Dirty = true;
 }
 
 void QCPMultiGraph::syncComponentCount()
@@ -375,8 +473,44 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     if (mKeyAxis->range().size() <= 0)
         return;
 
-    int begin = mDataSource->findBegin(mKeyAxis->range().lower);
-    int end = mDataSource->findEnd(mKeyAxis->range().upper);
+    // Lazy L2 rebuild from L1 cache
+    if (mL2Dirty && mL1Cache)
+    {
+        auto* axisRect = mKeyAxis->axisRect();
+        if (axisRect)
+        {
+            ViewportParams vp;
+            vp.keyRange = mKeyAxis->range();
+            vp.valueRange = mValueAxis->range();
+            vp.plotWidthPx = axisRect->width();
+            vp.plotHeightPx = axisRect->height();
+            vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
+            rebuildL2(vp);
+        }
+        mL2Dirty = false;
+    }
+
+    // Export path: synchronous fallback when no L2 result yet
+    if (!mL2Result && mNeedsResampling
+        && painter->modes().testFlag(QCPPainter::pmNoCaching))
+    {
+        ViewportParams vp;
+        vp.keyRange = mKeyAxis->range();
+        vp.valueRange = mValueAxis->range();
+        auto* axisRect = mKeyAxis->axisRect();
+        vp.plotWidthPx = axisRect ? axisRect->width() : 800;
+        vp.plotHeightPx = axisRect ? axisRect->height() : 600;
+        vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
+        if (mPipeline.runSynchronously(vp))
+            onL1Ready();
+        if (mL1Cache)
+            rebuildL2(vp);
+    }
+
+    const QCPAbstractMultiDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
+
+    int begin = ds->findBegin(mKeyAxis->range().lower);
+    int end = ds->findEnd(mKeyAxis->range().upper);
     if (begin >= end)
         return;
 
@@ -391,11 +525,13 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         if (mLineStyle == lsNone && comp.scatterStyle.isNone()) continue;
 
         QVector<QPointF> lines;
-        if (mAdaptiveSampling)
-            lines = mDataSource->getOptimizedLineData(c, begin, end, pixelWidth,
-                                                       mKeyAxis.data(), mValueAxis.data());
+        if (mL2Result)
+            lines = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+        else if (mAdaptiveSampling)
+            lines = ds->getOptimizedLineData(c, begin, end, pixelWidth,
+                                              mKeyAxis.data(), mValueAxis.data());
         else
-            lines = mDataSource->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+            lines = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
 
         if (lines.isEmpty()) continue;
 
