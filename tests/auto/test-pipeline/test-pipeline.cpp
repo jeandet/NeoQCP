@@ -9,6 +9,7 @@
 #include <plottables/plottable-colormap2.h>
 #include <plottables/plottable-colormap.h>
 #include <datasource/graph-resampler.h>
+#include <datasource/resampled-multi-datasource.h>
 #include <datasource/histogram-binner.h>
 #include <plottables/plottable-histogram2d.h>
 #include <QSignalSpy>
@@ -1226,4 +1227,66 @@ void TestPipeline::histogram2dRenderSmokeTest()
     mPlot->rescaleAxes();
     mPlot->replot();
     QCoreApplication::processEvents();
+}
+
+void TestPipeline::resampledMultiDataSourceInterface()
+{
+    qcp::algo::MultiColumnBinResult bins;
+    bins.numColumns = 2;
+    bins.keys = {1.0, 1.5, 3.0, 3.5, 5.0, 5.5};
+    int s = 6;
+    bins.values.resize(2 * s);
+    bins.values[0*s+0]=10; bins.values[0*s+1]=20;
+    bins.values[0*s+2]=30; bins.values[0*s+3]=40;
+    bins.values[0*s+4]=50; bins.values[0*s+5]=60;
+    bins.values[1*s+0]=5; bins.values[1*s+1]=15;
+    bins.values[1*s+2]=25; bins.values[1*s+3]=35;
+    bins.values[1*s+4]=std::numeric_limits<double>::quiet_NaN();
+    bins.values[1*s+5]=std::numeric_limits<double>::quiet_NaN();
+
+    QCPResampledMultiDataSource ds(std::move(bins));
+
+    QCOMPARE(ds.columnCount(), 2);
+    QCOMPARE(ds.size(), 6);
+    QCOMPARE(ds.keyAt(0), 1.0);
+    QCOMPARE(ds.keyAt(3), 3.5);
+    QCOMPARE(ds.valueAt(0, 0), 10.0);
+    QCOMPARE(ds.valueAt(0, 5), 60.0);
+    QCOMPARE(ds.valueAt(1, 1), 15.0);
+    QVERIFY(std::isnan(ds.valueAt(1, 4)));
+    QVERIFY(ds.findBegin(2.0) <= 2);
+    QVERIFY(ds.findEnd(4.0) >= 4);
+    QVERIFY(!ds.empty());
+}
+
+void TestPipeline::multiGraphL1AndL2()
+{
+    const int N = 100;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> cols = {
+        std::vector<double>(N), std::vector<double>(N)
+    };
+    for (int i = 0; i < N; ++i) {
+        keys[i] = static_cast<double>(i);
+        cols[0][i] = std::sin(i * 0.1);
+        cols[1][i] = std::cos(i * 0.1);
+    }
+    auto src = std::make_shared<QCPSoAMultiDataSource<
+        std::vector<double>, std::vector<double>>>(keys, cols);
+
+    std::any cache;
+    qcp::algo::buildL1CacheMulti(*src, ViewportParams{}, cache);
+    auto* c = std::any_cast<qcp::algo::MultiGraphResamplerCache>(&cache);
+    QVERIFY(c != nullptr);
+    QCOMPARE(c->columnCount, 2);
+    QVERIFY(c->level1.keys.size() > 0);
+
+    ViewportParams vp;
+    vp.keyRange = QCPRange(20, 80);
+    vp.plotWidthPx = 200;
+    auto l2 = qcp::algo::resampleL2Multi(*c, vp);
+    QVERIFY(l2 != nullptr);
+    QCOMPARE(l2->columnCount(), 2);
+    QVERIFY(l2->size() > 0);
+    QVERIFY(l2->keyAt(0) >= 19.0);
 }
