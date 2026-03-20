@@ -60,6 +60,8 @@ private slots:
     void multiGraphBinMinMaxMulti();
     void multiGraphBinMinMaxMultiNaN();
     void multiGraphBinMinMaxMultiParallelMatchesSingleThreaded();
+    void resampledMultiDataSourceInterface();
+    void multiGraphL1AndL2();
 
     // L2 lazy rebuild (deferred to draw)
     void graph2L2RebuildDeferredToDraw();

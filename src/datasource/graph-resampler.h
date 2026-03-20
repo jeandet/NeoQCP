@@ -435,6 +435,38 @@ inline std::shared_ptr<QCPAbstractDataSource> resampleL2(
         std::move(outKeys), std::move(outVals));
 }
 
+// L1 build for multi-column sources — heavy, meant for async pipeline.
+// Stores the L1 cache in the std::any; returns nullptr (L2 is done synchronously).
+inline std::shared_ptr<QCPAbstractMultiDataSource> buildL1CacheMulti(
+    const QCPAbstractMultiDataSource& src,
+    const ViewportParams& /*vp*/,
+    std::any& cache)
+{
+    PROFILE_HERE_N("buildL1CacheMulti");
+    const int srcSize = src.size();
+    const int N = src.columnCount();
+    if (srcSize == 0 || N == 0)
+        return nullptr;
+
+    auto* c = std::any_cast<MultiGraphResamplerCache>(&cache);
+    if (c && c->sourceSize == srcSize && c->columnCount == N)
+        return nullptr;
+
+    bool foundRange = false;
+    QCPRange fullKeyRange = src.keyRange(foundRange);
+    if (!foundRange || fullKeyRange.size() <= 0)
+        return nullptr;
+    int numBins = std::min(kLevel1TargetBins, srcSize / 2);
+
+    MultiGraphResamplerCache newCache;
+    newCache.level1 = binMinMaxMultiParallel(src, 0, srcSize, fullKeyRange, numBins);
+    newCache.cachedKeyRange = fullKeyRange;
+    newCache.sourceSize = srcSize;
+    newCache.columnCount = N;
+    cache = std::move(newCache);
+    return nullptr;
+}
+
 // Legacy combined function (kept for tests) — delegates to the two-phase functions.
 inline std::shared_ptr<QCPAbstractDataSource> hierarchicalResample(
     const QCPAbstractDataSource& src,
