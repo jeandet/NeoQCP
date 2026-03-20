@@ -267,6 +267,90 @@ inline MultiColumnBinResult binMinMaxMulti(
     return out;
 }
 
+inline MultiColumnBinResult binMinMaxMultiParallel(
+    const QCPAbstractMultiDataSource& src,
+    int begin, int end,
+    const QCPRange& keyRange,
+    int numBins)
+{
+    PROFILE_HERE_N("binMinMaxMultiParallel");
+    int threadCount = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2);
+    if (threadCount <= 1 || (end - begin) < 1'000'000)
+        return binMinMaxMulti(src, begin, end, keyRange, numBins);
+
+    int N = src.columnCount();
+    MultiColumnBinResult out;
+    if (numBins <= 0 || keyRange.size() <= 0 || N <= 0)
+        return out;
+
+    out.numColumns = N;
+    out.keys.resize(numBins * 2);
+    out.values.resize(N * numBins * 2, std::numeric_limits<double>::quiet_NaN());
+
+    const double binWidth = keyRange.size() / numBins;
+    const double halfWidth = binWidth * 0.5;
+    const double keyLo = keyRange.lower;
+    const int s = numBins * 2;
+
+    for (int b = 0; b < numBins; ++b)
+    {
+        double binCenter = keyLo + (b + 0.5) * binWidth;
+        out.keys[b * 2 + 0] = binCenter;
+        out.keys[b * 2 + 1] = binCenter + halfWidth;
+    }
+
+    threadCount = std::min(threadCount, numBins);
+
+    auto worker = [&](int srcBegin, int srcEnd, int binBegin, int binEnd) {
+        for (int i = srcBegin; i < srcEnd; ++i)
+        {
+            double k = src.keyAt(i);
+            if (!std::isfinite(k)) continue;
+
+            int bin = static_cast<int>((k - keyLo) / binWidth);
+            bin = std::clamp(bin, binBegin, binEnd - 1);
+
+            for (int c = 0; c < N; ++c)
+            {
+                double v = src.valueAt(c, i);
+                if (std::isnan(v)) continue;
+
+                double& mn = out.values[c * s + bin * 2 + 0];
+                double& mx = out.values[c * s + bin * 2 + 1];
+                if (std::isnan(mn) || v < mn) mn = v;
+                if (std::isnan(mx) || v > mx) mx = v;
+            }
+        }
+    };
+
+    int binsPerChunk = numBins / threadCount;
+    std::vector<std::thread> threads;
+    threads.reserve(threadCount - 1);
+
+    for (int t = 0; t < threadCount; ++t)
+    {
+        int binBegin = t * binsPerChunk;
+        int binEnd = (t == threadCount - 1) ? numBins : (t + 1) * binsPerChunk;
+
+        double chunkKeyLo = keyLo + binBegin * binWidth;
+        double chunkKeyHi = keyLo + binEnd * binWidth;
+        int srcBegin_ = (t == 0) ? begin : src.findBegin(chunkKeyLo, false);
+        int srcEnd_ = (t == threadCount - 1) ? end : src.findEnd(chunkKeyHi, false);
+        srcBegin_ = std::clamp(srcBegin_, begin, end);
+        srcEnd_ = std::clamp(srcEnd_, begin, end);
+
+        if (t < threadCount - 1)
+            threads.emplace_back(worker, srcBegin_, srcEnd_, binBegin, binEnd);
+        else
+            worker(srcBegin_, srcEnd_, binBegin, binEnd);
+    }
+
+    for (auto& t : threads)
+        t.join();
+
+    return out;
+}
+
 constexpr int kLevel1TargetBins = 100'000;
 constexpr int kResampleThreshold = 10'000'000;
 constexpr int kLevel2PixelMultiplier = 4;
