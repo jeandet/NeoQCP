@@ -3,6 +3,8 @@
 #include "plottable1d.h"
 #include "datasource/abstract-multi-datasource.h"
 #include "datasource/soa-multi-datasource.h"
+#include "datasource/async-pipeline.h"
+#include "datasource/graph-resampler.h"
 #include <memory>
 #include <span>
 
@@ -29,6 +31,9 @@ public:
     virtual void setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> source);
     QCPAbstractMultiDataSource* dataSource() const { return mDataSource.get(); }
     void dataChanged();
+
+    QCPMultiGraphPipeline& pipeline() { return mPipeline; }
+    const QCPMultiGraphPipeline& pipeline() const { return mPipeline; }
 
     // Convenience: owning
     template <IndexableNumericRange KC, IndexableNumericRange VC>
@@ -117,6 +122,16 @@ protected:
     LineStyle mLineStyle = lsLine;
     bool mAdaptiveSampling = true;
     int mScatterSkip = 0;
+    QCPMultiGraphPipeline mPipeline;
+    std::shared_ptr<qcp::algo::MultiGraphResamplerCache> mL1Cache;
+    std::shared_ptr<QCPAbstractMultiDataSource> mL2Result;
+    bool mL2Dirty = false;
+    bool mNeedsResampling = false;
+
+    void onL1Ready();
+    void rebuildL2(const ViewportParams& vp);
+    void onViewportChanged();
+    bool pipelineBusy() const override { return mPipeline.isBusy(); }
 
     void syncComponentCount();
     void updateBaseSelection();
