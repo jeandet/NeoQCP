@@ -58,7 +58,7 @@ void QCPMultiGraph::setDataSource(std::unique_ptr<QCPAbstractMultiDataSource> so
 
 static void ensureL1TransformMulti(QCPMultiGraphPipeline& pipeline, int sourceSize, int colCount)
 {
-    const bool needsResampling = colCount > 0 && sourceSize >= qcp::algo::kResampleThreshold
+    const bool needsResampling = colCount > 0 && sourceSize >= 100'000
         && static_cast<int64_t>(sourceSize) * colCount >= qcp::algo::kResampleThreshold;
     if (needsResampling)
     {
@@ -89,7 +89,7 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
     if (mDataSource)
     {
         mNeedsResampling = mDataSource->columnCount() > 0
-            && mDataSource->size() >= qcp::algo::kResampleThreshold
+            && mDataSource->size() >= 100'000
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
@@ -107,7 +107,7 @@ void QCPMultiGraph::dataChanged()
     {
         bool wasResampling = mNeedsResampling;
         mNeedsResampling = mDataSource->columnCount() > 0
-            && mDataSource->size() >= qcp::algo::kResampleThreshold
+            && mDataSource->size() >= 100'000
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
 

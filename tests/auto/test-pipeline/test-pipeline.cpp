@@ -1383,19 +1383,25 @@ void TestPipeline::multiGraphLargeDataL1L2()
 
 void TestPipeline::multiGraphThresholdScalesWithColumnCount()
 {
-    // Small dataset (5 points): no resampling regardless of column count
+    // 200K points * 2 columns = 400K < 10M threshold → no resampling
     auto* mg1 = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
-    std::vector<double> keys5 = {0, 1, 2, 3, 4};
-    std::vector<std::vector<double>> cols2 = {{0,1,2,3,4}, {5,6,7,8,9}};
-    mg1->setData(std::move(keys5), std::move(cols2));
+    const int N = 200'000;
+    auto src1 = std::make_shared<SyntheticLargeMultiSource>(N, 2);
+    mg1->setDataSource(src1);
     QVERIFY(!mg1->pipeline().hasTransform());
 
-    // 10M+1 points * 1 column: above threshold → resampling
+    // 200K points * 100 columns = 20M > 10M threshold → resampling
+    // This tests that column count scales the threshold (200K < 10M alone)
     auto* mg2 = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
-    const int N = 10'000'001;
-    auto source = std::make_shared<SyntheticLargeMultiSource>(N, 1);
-    mg2->setDataSource(source);
+    auto src2 = std::make_shared<SyntheticLargeMultiSource>(N, 100);
+    mg2->setDataSource(src2);
     QVERIFY(mg2->pipeline().hasTransform());
+
+    // 50K points * 200 columns = 10M but 50K < 100K floor → no resampling
+    auto* mg3 = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    auto src3 = std::make_shared<SyntheticLargeMultiSource>(50'000, 200);
+    mg3->setDataSource(src3);
+    QVERIFY(!mg3->pipeline().hasTransform());
 }
 
 void TestPipeline::multiGraphRapidSetDataSource()
@@ -1425,16 +1431,26 @@ void TestPipeline::multiGraphRapidSetDataSource()
 
 void TestPipeline::multiGraphExportSynchronousFallback()
 {
+    mPlot->resize(400, 300);
     auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
 
-    std::vector<double> keys = {0, 1, 2, 3, 4};
-    std::vector<std::vector<double>> cols = {{10,20,30,40,50}, {5,15,25,35,45}};
-    mg->setData(std::move(keys), std::move(cols));
-    mg->rescaleAxes();
+    // Large data above threshold — pipeline has transform but no async result yet
+    const int N = 5'000'000;
+    auto source = std::make_shared<SyntheticLargeMultiSource>(N, 3);
+    mg->setDataSource(source);
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(-1, 1);
 
-    // Export immediately — pipeline has no async transform, raw data rendered directly
+    QVERIFY(mg->pipeline().hasTransform());
+
+    // Export immediately — no event loop, synchronous fallback path
     QPixmap pix = mPlot->toPixmap(400, 300);
     QVERIFY(!pix.isNull());
+
+    // Center should not be white (data was rendered via synchronous fallback)
+    QImage img = pix.toImage();
+    QColor center = img.pixelColor(img.width() / 2, img.height() / 2);
+    QVERIFY(center != Qt::white);
 }
 
 void TestPipeline::multiGraphLogScaleFallback()
