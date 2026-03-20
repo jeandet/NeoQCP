@@ -955,6 +955,39 @@ void TestPipeline::multiGraphBinMinMaxMultiNaN()
     QCOMPARE(result.values[0 * s + 1], 10.0);
 }
 
+void TestPipeline::multiGraphBinMinMaxMultiParallelMatchesSingleThreaded()
+{
+    const int N = 1'100'000;
+    const int cols = 3;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> valueCols(cols, std::vector<double>(N));
+    for (int i = 0; i < N; ++i) {
+        keys[i] = static_cast<double>(i);
+        for (int c = 0; c < cols; ++c)
+            valueCols[c][i] = std::sin(i * 0.01 + c);
+    }
+    auto src = std::make_shared<QCPSoAMultiDataSource<
+        std::vector<double>, std::vector<double>>>(keys, valueCols);
+
+    QCPRange range(0, N);
+    int numBins = 1000;
+
+    auto single = qcp::algo::binMinMaxMulti(*src, 0, N, range, numBins);
+    auto parallel = qcp::algo::binMinMaxMultiParallel(*src, 0, N, range, numBins);
+
+    QCOMPARE(parallel.numColumns, single.numColumns);
+    QCOMPARE(parallel.keys.size(), single.keys.size());
+    QCOMPARE(parallel.values.size(), single.values.size());
+
+    for (size_t i = 0; i < single.values.size(); ++i)
+    {
+        if (std::isnan(single.values[i]))
+            QVERIFY(std::isnan(parallel.values[i]));
+        else
+            QCOMPARE(parallel.values[i], single.values[i]);
+    }
+}
+
 // --- L2 lazy rebuild tests ---
 
 void TestPipeline::graph2L2RebuildDeferredToDraw()
