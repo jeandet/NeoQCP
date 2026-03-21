@@ -29,17 +29,18 @@
 #include "axis/axis.h"
 #include "axis/range.h"
 #include "global.h"
-#include "item-creation-state.h"
 #include "painting/paintbuffer.h"
 #include "plottables/plottable.h"
 #include "neoqcp_config.h"
 
 #include <QPointer>
 #include <QRhiWidget>
+#include <functional>
 
 class QCPPainter;
 class QCPLayer;
 class QCPAbstractItem;
+class QCPAxis;
 class QCPGraph;
 class QCPLegend;
 class QCPAbstractLegendItem;
@@ -54,6 +55,9 @@ class QCPColormapRhiLayer;
 class QCPTheme;
 class QCPPipelineScheduler;
 class QCPOverlay;
+class QCPItemCreationState;
+
+using ItemCreator = std::function<QCPAbstractItem*(QCustomPlot* plot, QCPAxis* keyAxis, QCPAxis* valueAxis)>;
 
 class QCP_LIB_DECL QCustomPlot : public QRhiWidget
 {
@@ -160,7 +164,7 @@ public:
 
     // Item creation mode
     void setItemCreator(ItemCreator creator);
-    ItemCreator itemCreator() const { return mItemCreator; }
+    const ItemCreator& itemCreator() const { return mItemCreator; }
     void setCreationModeEnabled(bool enabled);
     bool creationModeEnabled() const { return mCreationModeEnabled; }
     void setCreationModifier(Qt::KeyboardModifier mod);
