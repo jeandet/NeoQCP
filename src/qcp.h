@@ -54,6 +54,7 @@
 #include "items/item-hspan.h"
 #include "items/item-rspan.h"
 #include "items/item-vspan.h"
+#include "item-creation-state.h"
 #include "layer.h"
 #include "overlay.h"
 #include "layout.h"

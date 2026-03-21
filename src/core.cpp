@@ -26,6 +26,7 @@
 /*! \file */
 
 #include "core.h"
+#include "item-creation-state.h"
 #include "overlay.h"
 
 #include "Profiling.hpp"
@@ -983,6 +984,37 @@ void QCustomPlot::setSelectionRect(QCPSelectionRect* selectionRect)
         else if (mSelectionRectMode == QCP::srmZoom)
             connect(mSelectionRect, &QCPSelectionRect::accepted, this, &QCustomPlot::processRectZoom);
     }
+}
+
+void QCustomPlot::setItemCreator(ItemCreator creator)
+{
+    mItemCreator = std::move(creator);
+    if (!mCreationState) {
+        mCreationState = new QCPItemCreationState(this);
+        connect(mCreationState, &QCPItemCreationState::itemCreated,
+                this, &QCustomPlot::itemCreated);
+        connect(mCreationState, &QCPItemCreationState::itemCanceled,
+                this, &QCustomPlot::itemCanceled);
+    }
+}
+
+void QCustomPlot::setCreationModeEnabled(bool enabled)
+{
+    if (mCreationModeEnabled == enabled) return;
+    mCreationModeEnabled = enabled;
+    if (enabled)
+        setCursor(Qt::CrossCursor);
+    else {
+        setCursor(Qt::ArrowCursor);
+        if (mCreationState)
+            mCreationState->cancel();
+    }
+    replot(rpQueuedReplot);
+}
+
+void QCustomPlot::setCreationModifier(Qt::KeyboardModifier mod)
+{
+    mCreationModifier = mod;
 }
 
 /*!
