@@ -56,8 +56,10 @@ class QCPTheme;
 class QCPPipelineScheduler;
 class QCPOverlay;
 class QCPItemCreationState;
+class QCustomPlot;
 
 using ItemCreator = std::function<QCPAbstractItem*(QCustomPlot* plot, QCPAxis* keyAxis, QCPAxis* valueAxis)>;
+using ItemPositioner = std::function<void(QCPAbstractItem* item, double anchorKey, double anchorValue, double currentKey, double currentValue)>;
 
 class QCP_LIB_DECL QCustomPlot : public QRhiWidget
 {
@@ -165,6 +167,8 @@ public:
     // Item creation mode
     void setItemCreator(ItemCreator creator);
     const ItemCreator& itemCreator() const { return mItemCreator; }
+    void setItemPositioner(ItemPositioner positioner);
+    const ItemPositioner& itemPositioner() const { return mItemPositioner; }
     void setCreationModeEnabled(bool enabled);
     bool creationModeEnabled() const { return mCreationModeEnabled; }
     void setCreationModifier(Qt::KeyboardModifier mod);
@@ -380,6 +384,7 @@ protected:
     QCPPipelineScheduler* mPipelineScheduler = nullptr;
     QCPOverlay* mOverlay = nullptr;
     ItemCreator mItemCreator;
+    ItemPositioner mItemPositioner;
     bool mCreationModeEnabled = false;
     Qt::KeyboardModifier mCreationModifier = Qt::ShiftModifier;
     QCPItemCreationState* mCreationState = nullptr;

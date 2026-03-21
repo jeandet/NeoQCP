@@ -4,9 +4,6 @@
 #include "layoutelements/layoutelement-axisrect.h"
 #include "axis/axis.h"
 #include "items/item.h"
-#include "items/item-vspan.h"
-#include "items/item-hspan.h"
-#include "items/item-rspan.h"
 
 QCPItemCreationState::QCPItemCreationState(QCustomPlot* plot)
     : QCPLayerable(plot, QLatin1String("overlay"))
@@ -57,7 +54,9 @@ bool QCPItemCreationState::handleMousePress(QMouseEvent* event)
 
         double key = mKeyAxis->pixelToCoord(event->pos().x());
         double value = mValueAxis->pixelToCoord(event->pos().y());
-        initItemPosition(key, value);
+        mAnchorKey = key;
+        mAnchorValue = value;
+        applyPositioner(key, value);
 
         mState = Drawing;
         mPlot->setCursor(Qt::CrossCursor);
@@ -102,32 +101,28 @@ void QCPItemCreationState::cancel()
         cancelItem();
 }
 
-void QCPItemCreationState::initItemPosition(double key, double value)
+void QCPItemCreationState::applyPositioner(double key, double value)
 {
-    mAnchorKey = key;
-    mAnchorValue = value;
+    if (!mCurrentItem) return;
 
-    if (auto* vs = qobject_cast<QCPItemVSpan*>(mCurrentItem)) {
-        vs->setRange(QCPRange(key, key));
-    } else if (auto* hs = qobject_cast<QCPItemHSpan*>(mCurrentItem)) {
-        hs->setRange(QCPRange(value, value));
-    } else if (auto* rs = qobject_cast<QCPItemRSpan*>(mCurrentItem)) {
-        rs->setKeyRange(QCPRange(key, key));
-        rs->setValueRange(QCPRange(value, value));
-    } else {
-        auto positions = mCurrentItem->positions();
-        if (positions.size() == 2) {
-            positions[0]->setType(QCPItemPosition::ptPlotCoords);
-            positions[0]->setCoords(key, value);
-            positions[1]->setType(QCPItemPosition::ptPlotCoords);
-            positions[1]->setCoords(key, value);
-        }
+    const auto& positioner = mPlot->itemPositioner();
+    if (positioner) {
+        positioner(mCurrentItem, mAnchorKey, mAnchorValue, key, value);
+        return;
+    }
+    // Default fallback: 2-position items (e.g. QCPItemLine)
+    auto positions = mCurrentItem->positions();
+    if (positions.size() == 2) {
+        positions[0]->setType(QCPItemPosition::ptPlotCoords);
+        positions[0]->setCoords(mAnchorKey, mAnchorValue);
+        positions[1]->setType(QCPItemPosition::ptPlotCoords);
+        positions[1]->setCoords(key, value);
     }
 }
 
 void QCPItemCreationState::commitItem()
 {
-    auto* item = mCurrentItem;
+    auto* item = mCurrentItem.data();
     mCurrentItem = nullptr;
     mKeyAxis = nullptr;
     mValueAxis = nullptr;
@@ -135,7 +130,8 @@ void QCPItemCreationState::commitItem()
     if (!mPlot->creationModeEnabled())
         mPlot->setCursor(Qt::ArrowCursor);
     mPlot->replot(QCustomPlot::rpQueuedReplot);
-    emit itemCreated(item);
+    if (item)
+        emit itemCreated(item);
 }
 
 void QCPItemCreationState::cancelItem()
@@ -159,20 +155,7 @@ void QCPItemCreationState::updateItemPosition(const QPointF& pixelPos)
 
     double key = mKeyAxis->pixelToCoord(pixelPos.x());
     double value = mValueAxis->pixelToCoord(pixelPos.y());
-
-    if (auto* vs = qobject_cast<QCPItemVSpan*>(mCurrentItem)) {
-        vs->setRange(QCPRange(mAnchorKey, key));
-    } else if (auto* hs = qobject_cast<QCPItemHSpan*>(mCurrentItem)) {
-        hs->setRange(QCPRange(mAnchorValue, value));
-    } else if (auto* rs = qobject_cast<QCPItemRSpan*>(mCurrentItem)) {
-        rs->setKeyRange(QCPRange(mAnchorKey, key));
-        rs->setValueRange(QCPRange(mAnchorValue, value));
-    } else {
-        auto positions = mCurrentItem->positions();
-        if (positions.size() == 2) {
-            positions[1]->setCoords(key, value);
-        }
-    }
+    applyPositioner(key, value);
 }
 
 void QCPItemCreationState::rebindPositions(QCPAbstractItem* item, QCPAxis* keyAxis,

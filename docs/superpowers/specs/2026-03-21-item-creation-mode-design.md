@@ -91,9 +91,11 @@ NeoQCP positions the item automatically during the click-move-click gesture. The
 - **HSpan** (`lowerEdge`, `upperEdge`): first click sets `lowerEdge` value coord, mouse move updates `upperEdge` value coord
 - **RSpan** (`leftEdge`, `rightEdge`, `topEdge`, `bottomEdge`): first click sets `leftEdge`+`topEdge`, mouse move updates `rightEdge`+`bottomEdge`
 
-Detection: check which named positions exist on the item (via `QCPAbstractItem::positions()`). The position names (`lowerEdge`/`upperEdge` for VSpan/HSpan, `leftEdge`/`rightEdge`/`topEdge`/`bottomEdge` for RSpan) determine the update strategy.
+Detection: try `qobject_cast<QCPItemVSpan*>`, `qobject_cast<QCPItemHSpan*>`, then `qobject_cast<QCPItemRSpan*>` in that order. If one cast succeeds, the corresponding strategy above is used.
 
-Fallback for unknown items: if the item has exactly 2 positions, treat the first as the anchor and the second as the tracking point (set both to `ptPlotCoords`).
+Fallback for other items: if `item->positions().size() == 2`, treat the first position as the anchor and the second as the tracking point. On the first click, both positions are set to the click's plot coordinates; during mouse move, only the second position is updated to follow the cursor.
+
+Items that do not match any of the above cases are not repositioned automatically by the creation mode.
 
 ## Implementation
 
@@ -110,7 +112,7 @@ Fallback for unknown items: if the item has exactly 2 positions, treat the first
 |---|---|
 | `src/core.h` | Add `ItemCreator`, creation mode members, signals, new methods |
 | `src/core.cpp` | Wire mouse/key events through creation state machine |
-| `src/qcp.h` | Add `#include "item-creation-state.h"` |
+| `src/qcp.h` | Not modified — `item-creation-state.h` is internal, not in the umbrella header |
 | `meson.build` | Add new source files |
 
 ### QCPItemCreationState
@@ -165,9 +167,9 @@ In batch mode (creation mode toggled ON), clicking on an existing item while in 
 
 ### Badge Rendering
 
-When creation mode is enabled (toggle mode), each `QCPAxisRect` draws a small "Create" badge in its bottom-right corner during `draw()`. This is done via a check on `parentPlot()->creationModeEnabled()` in `QCPAxisRect::draw()`.
+When creation mode is enabled (toggle mode), the `QCPItemCreationState` (which inherits `QCPLayerable` and lives on the "overlay" layer) draws a small "Create" badge in the bottom-right corner of each `QCPAxisRect` from its `draw()` method.
 
-The badge is purely decorative — not a layerable, not interactive.
+The badge is purely decorative and non-interactive (no hit-testing or event handling).
 
 ## Usage Example
 
