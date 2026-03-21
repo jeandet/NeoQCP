@@ -692,6 +692,28 @@ void QCPAxisRect::applyDefaultAntialiasingHint(QCPPainter* painter) const
 void QCPAxisRect::draw(QCPPainter* painter)
 {
     drawBackground(painter);
+    if (mParentPlot && mParentPlot->creationModeEnabled())
+    {
+        painter->save();
+        QFont badgeFont = painter->font();
+        badgeFont.setPointSize(8);
+        painter->setFont(badgeFont);
+        QString label = QStringLiteral("Create");
+        QFontMetrics fm(badgeFont);
+        QRect textRect = fm.boundingRect(label);
+        int padding = 4;
+        int margin = 6;
+        QRect badge(mRect.right() - textRect.width() - 2 * padding - margin,
+                    mRect.bottom() - textRect.height() - 2 * padding - margin,
+                    textRect.width() + 2 * padding,
+                    textRect.height() + 2 * padding);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QColor(255, 159, 67, 40));
+        painter->drawRoundedRect(badge, 4, 4);
+        painter->setPen(QColor(255, 159, 67));
+        painter->drawText(badge, Qt::AlignCenter, label);
+        painter->restore();
+    }
 }
 
 /*!

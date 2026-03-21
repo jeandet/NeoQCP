@@ -222,3 +222,47 @@ void TestCreationMode::batchModeStaysActiveAfterCommit()
     QCOMPARE(created.count(), 2);
     QCOMPARE(mPlot->itemCount(), 2);
 }
+
+void TestCreationMode::creationTakesPriorityOverSelectionRect()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setSelectionRectMode(QCP::srmZoom);
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy created(mPlot, &QCustomPlot::itemCreated);
+
+    QPoint p1 = QPoint(mPlot->xAxis->coordToPixel(3), mPlot->axisRect()->center().y());
+    QPoint p2 = QPoint(mPlot->xAxis->coordToPixel(7), mPlot->axisRect()->center().y());
+
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p1);
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p2);
+
+    // Creation should have taken priority — item created, not a zoom rect
+    QCOMPARE(created.count(), 1);
+    QCOMPARE(mPlot->itemCount(), 1);
+}
+
+void TestCreationMode::fallbackTwoPositionItem()
+{
+    // Use QCPItemLine (has 2 positions: start, end)
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemLine(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy created(mPlot, &QCustomPlot::itemCreated);
+
+    QPoint p1 = QPoint(mPlot->xAxis->coordToPixel(2), mPlot->yAxis->coordToPixel(3));
+    QPoint p2 = QPoint(mPlot->xAxis->coordToPixel(8), mPlot->yAxis->coordToPixel(7));
+
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p1);
+    QTest::mouseMove(mPlot, p2);
+    QApplication::processEvents();
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p2);
+
+    QCOMPARE(created.count(), 1);
+    auto* line = qobject_cast<QCPItemLine*>(created.at(0).at(0).value<QCPAbstractItem*>());
+    QVERIFY(line);
+}
