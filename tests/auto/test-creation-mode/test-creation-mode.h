@@ -28,6 +28,10 @@ private slots:
     void modifierNotHeldDoesNothing();
     void batchModeStaysActiveAfterCommit();
 
+    // Priority and fallback
+    void creationTakesPriorityOverSelectionRect();
+    void fallbackTwoPositionItem();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };
