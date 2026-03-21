@@ -29,6 +29,7 @@
 #include "axis/axis.h"
 #include "axis/range.h"
 #include "global.h"
+#include "item-creation-state.h"
 #include "painting/paintbuffer.h"
 #include "plottables/plottable.h"
 #include "neoqcp_config.h"
@@ -156,6 +157,14 @@ public:
     QCP::SelectionRectMode selectionRectMode() const { return mSelectionRectMode; }
 
     QCPSelectionRect* selectionRect() const { return mSelectionRect; }
+
+    // Item creation mode
+    void setItemCreator(ItemCreator creator);
+    ItemCreator itemCreator() const { return mItemCreator; }
+    void setCreationModeEnabled(bool enabled);
+    bool creationModeEnabled() const { return mCreationModeEnabled; }
+    void setCreationModifier(Qt::KeyboardModifier mod);
+    Qt::KeyboardModifier creationModifier() const { return mCreationModifier; }
 
     // setters:
     void setViewport(const QRect& rect);
@@ -311,6 +320,9 @@ signals:
     void afterLayout();
     void afterReplot();
 
+    void itemCreated(QCPAbstractItem* item);
+    void itemCanceled();
+
 protected:
     // property members:
     QRect mViewport;
@@ -363,6 +375,10 @@ protected:
     QSet<QCPColormapRhiLayer*> mColormapRhiLayers;
     QCPPipelineScheduler* mPipelineScheduler = nullptr;
     QCPOverlay* mOverlay = nullptr;
+    ItemCreator mItemCreator;
+    bool mCreationModeEnabled = false;
+    Qt::KeyboardModifier mCreationModifier = Qt::ShiftModifier;
+    QCPItemCreationState* mCreationState = nullptr;
     // reimplemented virtual methods:
     virtual QSize minimumSizeHint() const override;
     virtual QSize sizeHint() const override;
