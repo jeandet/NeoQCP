@@ -1,16 +1,12 @@
 #pragma once
-#include "global.h"
-#include <QObject>
-#include <functional>
+#include "layer.h"
 
-class QCustomPlot;
 class QCPAbstractItem;
 class QCPAxis;
 class QCPAxisRect;
+class QCPPainter;
 
-using ItemCreator = std::function<QCPAbstractItem*(QCustomPlot* plot, QCPAxis* keyAxis, QCPAxis* valueAxis)>;
-
-class QCPItemCreationState : public QObject {
+class QCPItemCreationState : public QCPLayerable {
     Q_OBJECT
 public:
     enum State { Idle, Drawing };
@@ -29,6 +25,10 @@ signals:
     void itemCreated(QCPAbstractItem* item);
     void itemCanceled();
 
+protected:
+    void applyDefaultAntialiasingHint(QCPPainter* painter) const override;
+    void draw(QCPPainter* painter) override;
+
 private:
     QCustomPlot* mPlot;
     State mState = Idle;
@@ -42,5 +42,8 @@ private:
     void commitItem();
     void cancelItem();
     void updateItemPosition(const QPointF& pixelPos);
+    void drawBadge(QCPPainter* painter, const QRect& axisRectArea);
+    static void rebindPositions(QCPAbstractItem* item, QCPAxis* keyAxis,
+                                QCPAxis* valueAxis, QCPAxisRect* axisRect);
     QCPAxisRect* axisRectAt(const QPointF& pos) const;
 };

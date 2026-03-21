@@ -1,5 +1,6 @@
 #include "test-creation-mode.h"
 #include "../../../src/qcp.h"
+#include "../../../src/item-creation-state.h"
 
 void TestCreationMode::init()
 {

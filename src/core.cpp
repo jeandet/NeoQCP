@@ -988,7 +988,6 @@ void QCustomPlot::setSelectionRect(QCPSelectionRect* selectionRect)
 
 void QCustomPlot::setItemCreator(ItemCreator creator)
 {
-    mItemCreator = std::move(creator);
     if (!mCreationState) {
         mCreationState = new QCPItemCreationState(this);
         connect(mCreationState, &QCPItemCreationState::itemCreated,
@@ -996,6 +995,9 @@ void QCustomPlot::setItemCreator(ItemCreator creator)
         connect(mCreationState, &QCPItemCreationState::itemCanceled,
                 this, &QCustomPlot::itemCanceled);
     }
+    mItemCreator = std::move(creator);
+    if (!mItemCreator && mCreationState->state() == QCPItemCreationState::Drawing)
+        mCreationState->cancel();
 }
 
 void QCustomPlot::setCreationModeEnabled(bool enabled)

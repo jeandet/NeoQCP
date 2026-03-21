@@ -1,5 +1,6 @@
 #include "item-creation-state.h"
 #include "core.h"
+#include "painting/painter.h"
 #include "layoutelements/layoutelement-axisrect.h"
 #include "axis/axis.h"
 #include "items/item.h"
@@ -8,9 +9,22 @@
 #include "items/item-rspan.h"
 
 QCPItemCreationState::QCPItemCreationState(QCustomPlot* plot)
-    : QObject(plot)
+    : QCPLayerable(plot, QLatin1String("overlay"))
     , mPlot(plot)
 {
+}
+
+void QCPItemCreationState::applyDefaultAntialiasingHint(QCPPainter* painter) const
+{
+    painter->setAntialiasing(false);
+}
+
+void QCPItemCreationState::draw(QCPPainter* painter)
+{
+    if (!mPlot->creationModeEnabled())
+        return;
+    for (auto* axisRect : mPlot->axisRects())
+        drawBadge(painter, axisRect->rect());
 }
 
 bool QCPItemCreationState::handleMousePress(QMouseEvent* event)
@@ -18,12 +32,12 @@ bool QCPItemCreationState::handleMousePress(QMouseEvent* event)
     if (event->button() != Qt::LeftButton)
         return false;
 
-    const auto& creator = mPlot->itemCreator();
-    if (!creator)
-        return false;
-
     if (mState == Idle)
     {
+        const auto& creator = mPlot->itemCreator();
+        if (!creator)
+            return false;
+
         auto* axisRect = axisRectAt(event->pos());
         if (!axisRect)
             return false;
@@ -38,6 +52,8 @@ bool QCPItemCreationState::handleMousePress(QMouseEvent* event)
         mCurrentItem = creator(mPlot, mKeyAxis, mValueAxis);
         if (!mCurrentItem)
             return false;
+
+        rebindPositions(mCurrentItem, mKeyAxis, mValueAxis, axisRect);
 
         double key = mKeyAxis->pixelToCoord(event->pos().x());
         double value = mValueAxis->pixelToCoord(event->pos().y());
@@ -159,7 +175,44 @@ void QCPItemCreationState::updateItemPosition(const QPointF& pixelPos)
     }
 }
 
+void QCPItemCreationState::rebindPositions(QCPAbstractItem* item, QCPAxis* keyAxis,
+                                            QCPAxis* valueAxis, QCPAxisRect* axisRect)
+{
+    const auto positions = item->positions();
+    for (QCPItemPosition* pos : positions)
+    {
+        if (pos)
+        {
+            pos->setAxes(keyAxis, valueAxis);
+            pos->setAxisRect(axisRect);
+        }
+    }
+}
+
 QCPAxisRect* QCPItemCreationState::axisRectAt(const QPointF& pos) const
 {
     return mPlot->axisRectAt(pos);
+}
+
+void QCPItemCreationState::drawBadge(QCPPainter* painter, const QRect& axisRectArea)
+{
+    painter->save();
+    QFont badgeFont = painter->font();
+    badgeFont.setPointSize(8);
+    painter->setFont(badgeFont);
+    QString label = QStringLiteral("Create");
+    QFontMetrics fm(badgeFont);
+    QRect textRect = fm.boundingRect(label);
+    int padding = 4;
+    int margin = 6;
+    QRect badge(axisRectArea.right() - textRect.width() - 2 * padding - margin,
+                axisRectArea.bottom() - textRect.height() - 2 * padding - margin,
+                textRect.width() + 2 * padding,
+                textRect.height() + 2 * padding);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(255, 159, 67, 40));
+    painter->drawRoundedRect(badge, 4, 4);
+    painter->setPen(QColor(255, 159, 67));
+    painter->drawText(badge, Qt::AlignCenter, label);
+    painter->restore();
 }
