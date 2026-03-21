@@ -1,5 +1,7 @@
 #pragma once
 #include <QtTest/QtTest>
+#include <QtTest/qtestmouse.h>
+#include <QtTest/qtestkeyboard.h>
 
 class QCustomPlot;
 
