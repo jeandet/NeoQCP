@@ -35,6 +35,8 @@ private:
     QCPAbstractItem* mCurrentItem = nullptr;
     QCPAxis* mKeyAxis = nullptr;
     QCPAxis* mValueAxis = nullptr;
+    double mAnchorKey = 0;
+    double mAnchorValue = 0;
 
     void initItemPosition(double key, double value);
     void commitItem();
