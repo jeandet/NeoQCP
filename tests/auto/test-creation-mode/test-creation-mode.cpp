@@ -266,3 +266,135 @@ void TestCreationMode::fallbackTwoPositionItem()
     auto* line = qobject_cast<QCPItemLine*>(created.at(0).at(0).value<QCPAbstractItem*>());
     QVERIFY(line);
 }
+
+void TestCreationMode::cursorChangesInCreationMode()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+
+    // Entering creation mode sets crosshair
+    mPlot->setCreationModeEnabled(true);
+    QCOMPARE(mPlot->cursor().shape(), Qt::CrossCursor);
+
+    // During drawing, cursor should be crosshair
+    QPoint center = mPlot->axisRect()->rect().center();
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center);
+    QCOMPARE(mPlot->cursor().shape(), Qt::CrossCursor);
+
+    // After commit, cursor stays crosshair (still in batch mode)
+    QPoint p2 = QPoint(center.x() + 50, center.y());
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p2);
+    QCOMPARE(mPlot->cursor().shape(), Qt::CrossCursor);
+
+    // Exiting creation mode restores arrow
+    mPlot->setCreationModeEnabled(false);
+    QCOMPARE(mPlot->cursor().shape(), Qt::ArrowCursor);
+}
+
+void TestCreationMode::clickOutsideAxisRectDoesNothing()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    // Click outside the axis rect (top-left corner of widget)
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, QPoint(2, 2));
+    QCOMPARE(mPlot->itemCount(), 0);
+}
+
+void TestCreationMode::creatorReturnsNullDoesNotCrash()
+{
+    mPlot->setItemCreator([](QCustomPlot*, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return nullptr;
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QPoint center = mPlot->axisRect()->rect().center();
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center);
+    QCOMPARE(mPlot->itemCount(), 0);
+    // Should not crash or enter Drawing state
+}
+
+void TestCreationMode::disableCreationModeDuringDrawingCancels()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy canceled(mPlot, &QCustomPlot::itemCanceled);
+
+    QPoint center = mPlot->axisRect()->rect().center();
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center);
+    QCOMPARE(mPlot->itemCount(), 1);
+
+    // Disabling creation mode while drawing should cancel
+    mPlot->setCreationModeEnabled(false);
+    QCOMPARE(canceled.count(), 1);
+    QCOMPARE(mPlot->itemCount(), 0);
+}
+
+void TestCreationMode::batchModeIgnoresExistingItems()
+{
+    // Pre-create an existing VSpan
+    auto* existing = new QCPItemVSpan(mPlot);
+    existing->setRange(QCPRange(4, 6));
+    existing->setSelectable(true);
+    mPlot->replot();
+    QCOMPARE(mPlot->itemCount(), 1);
+
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy created(mPlot, &QCustomPlot::itemCreated);
+
+    // Click right on the existing span — should start a NEW creation, not select/drag it
+    double midPx = mPlot->xAxis->coordToPixel(5);
+    QPoint onExisting = QPoint(midPx, mPlot->axisRect()->center().y());
+    QPoint p2 = QPoint(mPlot->xAxis->coordToPixel(8), mPlot->axisRect()->center().y());
+
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, onExisting);
+    QCOMPARE(mPlot->itemCount(), 2); // existing + new in-progress
+
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p2);
+    QCOMPARE(created.count(), 1);
+    QCOMPARE(mPlot->itemCount(), 2);
+}
+
+void TestCreationMode::multiAxisRectCreation()
+{
+    // Add a second axis rect (subplot)
+    auto* layout = mPlot->plotLayout();
+    auto* axisRect2 = new QCPAxisRect(mPlot);
+    layout->addElement(1, 0, axisRect2);
+    axisRect2->axis(QCPAxis::atBottom)->setRange(0, 100);
+    axisRect2->axis(QCPAxis::atLeft)->setRange(0, 100);
+    mPlot->replot();
+
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis* keyAxis, QCPAxis* /*valueAxis*/) -> QCPAbstractItem* {
+        auto* span = new QCPItemVSpan(p);
+        span->setClipAxisRect(keyAxis->axisRect());
+        span->setClipToAxisRect(true);
+        return span;
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy created(mPlot, &QCustomPlot::itemCreated);
+
+    // Click inside the second axis rect
+    QPoint center2 = axisRect2->rect().center();
+    QPoint right2 = QPoint(center2.x() + 50, center2.y());
+
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center2);
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, right2);
+
+    QCOMPARE(created.count(), 1);
+    auto* span = qobject_cast<QCPItemVSpan*>(created.at(0).at(0).value<QCPAbstractItem*>());
+    QVERIFY(span);
+    // The span's range should be in the second axis rect's coordinate system (0-100)
+    QVERIFY(span->range().lower > 10); // rough sanity check — not in 0-10 range of first rect
+}

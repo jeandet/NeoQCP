@@ -32,6 +32,14 @@ private slots:
     void creationTakesPriorityOverSelectionRect();
     void fallbackTwoPositionItem();
 
+    // Cursor and edge cases
+    void cursorChangesInCreationMode();
+    void clickOutsideAxisRectDoesNothing();
+    void creatorReturnsNullDoesNotCrash();
+    void disableCreationModeDuringDrawingCancels();
+    void batchModeIgnoresExistingItems();
+    void multiAxisRectCreation();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };
