@@ -27,15 +27,17 @@ public:
     }
 
     QCPRange valueRange(int column, bool& found, QCP::SignDomain sd = QCP::sdBoth,
-                        const QCPRange& /*inKeyRange*/ = QCPRange()) const override
+                        const QCPRange& inKeyRange = QCPRange()) const override
     {
         found = false;
         if (column < 0 || column >= mBins.numColumns) return {};
         int s = mBins.stride();
+        const bool filterByKey = (inKeyRange.lower != 0 || inKeyRange.upper != 0);
         double lo = std::numeric_limits<double>::max();
         double hi = std::numeric_limits<double>::lowest();
         for (int i = 0; i < s; ++i)
         {
+            if (filterByKey && !inKeyRange.contains(mBins.keys[i])) continue;
             double v = mBins.values[column * s + i];
             if (std::isnan(v)) continue;
             if (sd == QCP::sdPositive && v <= 0) continue;
@@ -68,15 +70,16 @@ public:
     {
         if (column < 0 || column >= mBins.numColumns) return {};
         int s = mBins.stride();
+        const bool keyIsVertical = keyAxis->orientation() == Qt::Vertical;
         QVector<QPointF> lines;
         lines.reserve(end - begin);
         for (int i = begin; i < end; ++i)
         {
             double v = mBins.values[column * s + i];
             if (std::isnan(v)) continue;
-            double px = keyAxis->coordToPixel(mBins.keys[i]);
-            double py = valueAxis->coordToPixel(v);
-            lines.append(QPointF(px, py));
+            double keyPx = keyAxis->coordToPixel(mBins.keys[i]);
+            double valPx = valueAxis->coordToPixel(v);
+            lines.append(keyIsVertical ? QPointF(valPx, keyPx) : QPointF(keyPx, valPx));
         }
         return lines;
     }
