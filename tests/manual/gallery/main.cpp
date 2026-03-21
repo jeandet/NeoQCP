@@ -38,6 +38,8 @@ static QWidget* wrapPlot(QCustomPlot* plot)
 
 static QWidget* createSpansTab()
 {
+    auto* splitter = new QSplitter(Qt::Horizontal);
+
     auto* plot = makePlot();
     plot->xAxis->setRange(0, 100);
     plot->yAxis->setRange(0, 100);
@@ -82,11 +84,81 @@ static QWidget* createSpansTab()
     label->setPositionAlignment(Qt::AlignTop | Qt::AlignLeft);
     label->position->setType(QCPItemPosition::ptAxisRectRatio);
     label->position->setCoords(0.02, 0.02);
-    label->setText("Drag edges/fill. Select + Delete to remove.");
+    label->setText("Drag edges/fill. Select + Delete to remove.\nShift+click to draw a span.");
     label->setSelectable(false);
 
     plot->replot();
-    return wrapPlot(plot);
+    splitter->addWidget(plot);
+
+    // Control panel for interactive creation
+    auto* panel = new QWidget;
+    auto* layout = new QVBoxLayout(panel);
+
+    auto* typeLabel = new QLabel("Create type:");
+    auto* typeCombo = new QComboBox;
+    typeCombo->addItem("VSpan", 0);
+    typeCombo->addItem("HSpan", 1);
+    typeCombo->addItem("RSpan", 2);
+    layout->addWidget(typeLabel);
+    layout->addWidget(typeCombo);
+
+    auto* toggleBtn = new QPushButton("Batch Create Mode");
+    toggleBtn->setCheckable(true);
+    layout->addWidget(toggleBtn);
+
+    auto* countLabel = new QLabel("Created: 0");
+    layout->addWidget(countLabel);
+
+    layout->addWidget(new QLabel("Shift+click also works\n(without batch mode)."));
+    layout->addStretch();
+
+    splitter->addWidget(panel);
+    splitter->setStretchFactor(0, 4);
+    splitter->setStretchFactor(1, 1);
+
+    // Wire up creator based on combo selection
+    auto updateCreator = [plot, typeCombo]() {
+        int type = typeCombo->currentData().toInt();
+        plot->setItemCreator([plot, type](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+            QCPAbstractItem* item = nullptr;
+            if (type == 0) {
+                auto* s = new QCPItemVSpan(p);
+                s->setBrush(QBrush(QColor(0, 100, 255, 50)));
+                s->setBorderPen(QPen(QColor(0, 100, 255), 2));
+                item = s;
+            } else if (type == 1) {
+                auto* s = new QCPItemHSpan(p);
+                s->setBrush(QBrush(QColor(255, 100, 0, 50)));
+                s->setBorderPen(QPen(QColor(255, 100, 0), 2));
+                item = s;
+            } else {
+                auto* s = new QCPItemRSpan(p);
+                s->setBrush(QBrush(QColor(0, 180, 0, 50)));
+                s->setBorderPen(QPen(QColor(0, 180, 0), 2));
+                item = s;
+            }
+            QObject::connect(item, &QCPAbstractItem::deleteRequested, plot, [plot, item]() {
+                plot->removeItem(item);
+                plot->replot();
+            });
+            return item;
+        });
+    };
+    updateCreator();
+    QObject::connect(typeCombo, qOverload<int>(&QComboBox::currentIndexChanged),
+                     [updateCreator](int) { updateCreator(); });
+
+    QObject::connect(toggleBtn, &QPushButton::toggled,
+                     plot, &QCustomPlot::setCreationModeEnabled);
+
+    auto created = std::make_shared<int>(0);
+    QObject::connect(plot, &QCustomPlot::itemCreated, countLabel,
+                     [countLabel, created](QCPAbstractItem*) {
+                         ++(*created);
+                         countLabel->setText(QString("Created: %1").arg(*created));
+                     });
+
+    return splitter;
 }
 
 // ── Tab 2: Graph + Graph2 ────────────────────────────────────────────────────
@@ -477,6 +549,14 @@ static QWidget* createItemsTab()
     tracer->setPen(QPen(Qt::red, 2));
     tracer->setBrush(Qt::red);
     tracer->setSize(8);
+
+    // Shift+click to draw a line item
+    plot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        auto* l = new QCPItemLine(p);
+        l->setPen(QPen(QColor(200, 50, 50), 2));
+        l->setHead(QCPLineEnding::esSpikeArrow);
+        return l;
+    });
 
     plot->replot();
     return wrapPlot(plot);
