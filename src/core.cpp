@@ -2849,6 +2849,28 @@ void QCustomPlot::mousePressEvent(QMouseEvent* event)
     mMouseHasMoved = false;
     mMousePressPos = event->pos();
 
+    // Right-click cancels in-progress creation
+    if (event->button() == Qt::RightButton && mCreationState
+        && mCreationState->state() == QCPItemCreationState::Drawing)
+    {
+        mCreationState->cancel();
+        event->accept();
+        return;
+    }
+
+    // Item creation intercept (highest priority)
+    if (mCreationState)
+    {
+        bool creationActive = (mCreationState->state() == QCPItemCreationState::Drawing)
+            || (mCreationModeEnabled && mItemCreator)
+            || ((event->modifiers() & mCreationModifier) && mItemCreator);
+        if (creationActive && mCreationState->handleMousePress(event))
+        {
+            event->accept();
+            return;
+        }
+    }
+
     if (mSelectionRect && mSelectionRectMode != QCP::srmNone)
     {
         if (mSelectionRectMode != QCP::srmZoom
@@ -2907,6 +2929,12 @@ void QCustomPlot::mouseMoveEvent(QMouseEvent* event)
     if (!mMouseHasMoved && (mMousePressPos - event->pos()).manhattanLength() > 3)
         mMouseHasMoved = true; // moved too far from mouse press position, don't handle as click on
                                // mouse release
+
+    if (mCreationState && mCreationState->handleMouseMove(event))
+    {
+        event->accept();
+        return;
+    }
 
     if (mSelectionRect && mSelectionRect->isActive())
         mSelectionRect->moveSelection(event);
@@ -3018,6 +3046,12 @@ void QCustomPlot::wheelEvent(QWheelEvent* event)
 */
 void QCustomPlot::keyPressEvent(QKeyEvent* event)
 {
+    if (mCreationState && mCreationState->handleKeyPress(event))
+    {
+        event->accept();
+        return;
+    }
+
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace)
     {
         for (auto* item : mItems)

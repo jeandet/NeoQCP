@@ -13,6 +13,11 @@ private slots:
     void initialStateIsIdle();
     void noCreatorSetClickDoesNothing();
 
+    // Click-move-click creation
+    void vspanCreationClickMoveClick();
+    void hspanCreationClickMoveClick();
+    void rspanCreationClickMoveClick();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };
