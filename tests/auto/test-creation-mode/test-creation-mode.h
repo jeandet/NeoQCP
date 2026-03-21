@@ -18,6 +18,16 @@ private slots:
     void hspanCreationClickMoveClick();
     void rspanCreationClickMoveClick();
 
+    // Cancellation
+    void cancelWithEscape();
+    void cancelWithRightClick();
+    void cancelCleansUpItem();
+
+    // Modifier trigger and batch mode
+    void modifierTriggerCreatesItem();
+    void modifierNotHeldDoesNothing();
+    void batchModeStaysActiveAfterCommit();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };
