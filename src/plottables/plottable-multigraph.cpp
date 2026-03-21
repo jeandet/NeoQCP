@@ -115,13 +115,12 @@ void QCPMultiGraph::dataChanged()
             ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
     }
 
+    mL1Cache.reset();
+    mL2Result.reset();
+    mL2Dirty = false;
+
     if (mPipeline.hasTransform())
-    {
-        mL1Cache.reset();
-        mL2Result.reset();
-        mL2Dirty = false;
         mPipeline.onDataChanged();
-    }
     else if (mParentPlot)
         mParentPlot->replot();
 }
@@ -501,8 +500,8 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         vp.plotWidthPx = axisRect ? axisRect->width() : 800;
         vp.plotHeightPx = axisRect ? axisRect->height() : 600;
         vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
-        if (mPipeline.runSynchronously(vp))
-            onL1Ready();
+        mPipeline.runSynchronously(vp);
+        onL1Ready();
         if (mL1Cache)
             rebuildL2(vp);
     }
