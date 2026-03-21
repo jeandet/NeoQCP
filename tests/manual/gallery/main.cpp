@@ -116,7 +116,7 @@ static QWidget* createSpansTab()
     splitter->setStretchFactor(0, 4);
     splitter->setStretchFactor(1, 1);
 
-    // Wire up creator based on combo selection
+    // Wire up creator and positioner based on combo selection
     auto updateCreator = [plot, typeCombo]() {
         int type = typeCombo->currentData().toInt();
         plot->setItemCreator([plot, type](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
@@ -143,6 +143,21 @@ static QWidget* createSpansTab()
             });
             return item;
         });
+        if (type == 0) {
+            plot->setItemPositioner([](QCPAbstractItem* item, double ak, double, double ck, double) {
+                static_cast<QCPItemVSpan*>(item)->setRange(QCPRange(ak, ck));
+            });
+        } else if (type == 1) {
+            plot->setItemPositioner([](QCPAbstractItem* item, double, double av, double, double cv) {
+                static_cast<QCPItemHSpan*>(item)->setRange(QCPRange(av, cv));
+            });
+        } else {
+            plot->setItemPositioner([](QCPAbstractItem* item, double ak, double av, double ck, double cv) {
+                auto* rs = static_cast<QCPItemRSpan*>(item);
+                rs->setKeyRange(QCPRange(ak, ck));
+                rs->setValueRange(QCPRange(av, cv));
+            });
+        }
     };
     updateCreator();
     QObject::connect(typeCombo, qOverload<int>(&QComboBox::currentIndexChanged),

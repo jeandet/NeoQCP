@@ -1019,6 +1019,11 @@ void QCustomPlot::setCreationModifier(Qt::KeyboardModifier mod)
     mCreationModifier = mod;
 }
 
+void QCustomPlot::setItemPositioner(ItemPositioner positioner)
+{
+    mItemPositioner = std::move(positioner);
+}
+
 /*!
   Sets the viewport of this QCustomPlot. Usually users of QCustomPlot don't need to change the
   viewport manually.

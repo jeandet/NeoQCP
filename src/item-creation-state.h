@@ -1,5 +1,6 @@
 #pragma once
 #include "layer.h"
+#include <QPointer>
 
 class QCPAbstractItem;
 class QCPAxis;
@@ -32,13 +33,13 @@ protected:
 private:
     QCustomPlot* mPlot;
     State mState = Idle;
-    QCPAbstractItem* mCurrentItem = nullptr;
+    QPointer<QCPAbstractItem> mCurrentItem;
     QCPAxis* mKeyAxis = nullptr;
     QCPAxis* mValueAxis = nullptr;
     double mAnchorKey = 0;
     double mAnchorValue = 0;
 
-    void initItemPosition(double key, double value);
+    void applyPositioner(double key, double value);
     void commitItem();
     void cancelItem();
     void updateItemPosition(const QPointF& pixelPos);
