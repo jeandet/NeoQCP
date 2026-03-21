@@ -105,3 +105,120 @@ void TestCreationMode::rspanCreationClickMoveClick()
     QVERIFY(qAbs(rspan->keyRange().lower - 2.0) < 0.5);
     QVERIFY(qAbs(rspan->keyRange().upper - 8.0) < 0.5);
 }
+
+void TestCreationMode::cancelWithEscape()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy canceled(mPlot, &QCustomPlot::itemCanceled);
+
+    QPoint center = mPlot->axisRect()->rect().center();
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center);
+    QCOMPARE(mPlot->itemCount(), 1);
+
+    QTest::keyClick(mPlot, Qt::Key_Escape);
+    QCOMPARE(canceled.count(), 1);
+    QCOMPARE(mPlot->itemCount(), 0);
+}
+
+void TestCreationMode::cancelWithRightClick()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy canceled(mPlot, &QCustomPlot::itemCanceled);
+
+    QPoint center = mPlot->axisRect()->rect().center();
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center);
+    QCOMPARE(mPlot->itemCount(), 1);
+
+    QTest::mouseClick(mPlot, Qt::RightButton, Qt::NoModifier, center);
+    QCOMPARE(canceled.count(), 1);
+    QCOMPARE(mPlot->itemCount(), 0);
+}
+
+void TestCreationMode::cancelCleansUpItem()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy canceled(mPlot, &QCustomPlot::itemCanceled);
+
+    QPoint center = mPlot->axisRect()->rect().center();
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center);
+    QCOMPARE(mPlot->itemCount(), 1);
+
+    // Programmatic cancel via disabling creation mode
+    mPlot->setCreationModeEnabled(false);
+    QCOMPARE(canceled.count(), 1);
+    QCOMPARE(mPlot->itemCount(), 0);
+}
+
+void TestCreationMode::modifierTriggerCreatesItem()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    // NOT in creation mode — using modifier instead
+    QVERIFY(!mPlot->creationModeEnabled());
+
+    QSignalSpy created(mPlot, &QCustomPlot::itemCreated);
+
+    QPoint p1 = QPoint(mPlot->xAxis->coordToPixel(3), mPlot->axisRect()->center().y());
+    QPoint p2 = QPoint(mPlot->xAxis->coordToPixel(7), mPlot->axisRect()->center().y());
+
+    // Shift+click starts creation
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::ShiftModifier, p1);
+    QCOMPARE(mPlot->itemCount(), 1);
+
+    // Second click commits (no modifier needed for commit)
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p2);
+    QCOMPARE(created.count(), 1);
+}
+
+void TestCreationMode::modifierNotHeldDoesNothing()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    QVERIFY(!mPlot->creationModeEnabled());
+
+    QPoint center = mPlot->axisRect()->rect().center();
+    // Click without modifier — should not create
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, center);
+    QCOMPARE(mPlot->itemCount(), 0);
+}
+
+void TestCreationMode::batchModeStaysActiveAfterCommit()
+{
+    mPlot->setItemCreator([](QCustomPlot* p, QCPAxis*, QCPAxis*) -> QCPAbstractItem* {
+        return new QCPItemVSpan(p);
+    });
+    mPlot->setCreationModeEnabled(true);
+
+    QSignalSpy created(mPlot, &QCustomPlot::itemCreated);
+
+    QPoint p1 = QPoint(mPlot->xAxis->coordToPixel(2), mPlot->axisRect()->center().y());
+    QPoint p2 = QPoint(mPlot->xAxis->coordToPixel(4), mPlot->axisRect()->center().y());
+    QPoint p3 = QPoint(mPlot->xAxis->coordToPixel(6), mPlot->axisRect()->center().y());
+    QPoint p4 = QPoint(mPlot->xAxis->coordToPixel(8), mPlot->axisRect()->center().y());
+
+    // Create first span
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p1);
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p2);
+    QCOMPARE(created.count(), 1);
+    QCOMPARE(mPlot->itemCount(), 1);
+
+    // Should still be in creation mode — create second span
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p3);
+    QTest::mouseClick(mPlot, Qt::LeftButton, Qt::NoModifier, p4);
+    QCOMPARE(created.count(), 2);
+    QCOMPARE(mPlot->itemCount(), 2);
+}
