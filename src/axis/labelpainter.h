@@ -29,6 +29,8 @@
 #include "../global.h"
 #include "../vector2d.h"
 
+#include <array>
+
 class QCPPainter;
 class QCustomPlot;
 
@@ -174,6 +176,9 @@ protected:
     QCache<QString, CachedLabel> mLabelCache;
     QRect mAxisSelectionBox, mTickLabelsSelectionBox, mLabelSelectionBox;
     int mLetterCapHeight, mLetterDescent;
+    mutable std::array<QFont, 2> mCachedMetricsFonts;
+    mutable std::array<QFontMetrics, 2> mCachedFontMetrics {QFontMetrics(QFont()), QFontMetrics(QFont())};
+    mutable int mMetricsCacheSlot = 0;
 
     // introduced virtual methods:
     virtual void drawLabelMaybeCached(QCPPainter* painter, const QFont& font, const QColor& color,
@@ -187,6 +192,7 @@ protected:
     void drawText(QCPPainter* painter, const QPointF& pos, const LabelData& labelData) const;
     LabelData getTickLabelData(const QFont& font, const QColor& color, double rotation,
                                AnchorSide side, const QString& text) const;
+    const QFontMetrics& fontMetricsFor(const QFont& font) const;
     void applyAnchorTransform(LabelData& labelData) const;
     // void getMaxTickLabelSize(const QFont &font, const QString &text, QSize *tickLabelsSize)
     // const;

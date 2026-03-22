@@ -35,6 +35,7 @@ Q_MOC_INCLUDE(
 #include "../lineending.h"
 #include "../vector2d.h"
 #include "axisticker.h"
+#include <array>
 #include "range.h"
 
 class QCPPainter;
@@ -544,8 +545,14 @@ protected:
                                     // changed parameters
     QCache<QString, CachedLabel> mLabelCache;
     QRect mAxisSelectionBox, mTickLabelsSelectionBox, mLabelSelectionBox;
+    // 2-entry font metrics cache: slot 0 for base font, slot 1 for exponent font.
+    // Avoids repeated QFontMetrics construction (expensive on macOS CoreText).
+    mutable std::array<QFont, 2> mCachedMetricsFonts;
+    mutable std::array<QFontMetrics, 2> mCachedFontMetrics {QFontMetrics(QFont()), QFontMetrics(QFont())};
+    mutable int mMetricsCacheSlot = 0;
 
     virtual QByteArray generateLabelParameterHash() const;
+    const QFontMetrics& fontMetricsFor(const QFont& font) const;
 
     virtual void placeTickLabel(QCPPainter* painter, double position, int distanceToAxis,
                                 const QString& text, QSize* tickLabelsSize);

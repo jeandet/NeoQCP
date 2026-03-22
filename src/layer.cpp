@@ -200,24 +200,43 @@ void QCPLayer::setMode(QCPLayer::LayerMode mode)
 void QCPLayer::draw(QCPPainter* painter)
 {
     PROFILE_HERE_N("QCPLayer::draw");
+    QRect currentClip;
+    bool clipActive = false;
+
     for (QCPLayerable* child : mChildren)
     {
-        if (child->realVisibility())
+        if (!child->realVisibility())
+            continue;
+
+        const QRect clipRect = child->clipRect().translated(0, -1);
+        if (!clipActive || clipRect != currentClip)
+        {
+            painter->setClipRect(clipRect);
+            currentClip = clipRect;
+            clipActive = true;
+        }
+
+        // Busy-fade plottables need save/restore for the opacity change
+        bool needsOpacity = false;
+        if (!painter->modes().testFlag(QCPPainter::pmVectorized))
+        {
+            if (auto* plottable = qobject_cast<QCPAbstractPlottable*>(child))
+                needsOpacity = plottable->visuallyBusy();
+        }
+
+        if (needsOpacity)
         {
             painter->save();
-            painter->setClipRect(child->clipRect().translated(0, -1));
-            // Apply busy fade for plottables (suppress during vector export)
-            if (!painter->modes().testFlag(QCPPainter::pmVectorized))
-            {
-                if (auto* plottable = qobject_cast<QCPAbstractPlottable*>(child))
-                {
-                    if (plottable->visuallyBusy())
-                        painter->setOpacity(plottable->effectiveBusyFadeAlpha());
-                }
-            }
+            painter->setOpacity(
+                qobject_cast<QCPAbstractPlottable*>(child)->effectiveBusyFadeAlpha());
             child->applyDefaultAntialiasingHint(painter);
             child->draw(painter);
             painter->restore();
+        }
+        else
+        {
+            child->applyDefaultAntialiasingHint(painter);
+            child->draw(painter);
         }
     }
 }
