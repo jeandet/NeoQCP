@@ -8,6 +8,7 @@
 #include "../painting/line-extruder.h"
 #include "../painting/painter.h"
 #include "../painting/plottable-rhi-layer.h"
+#include "../painting/viewport-offset.h"
 #include "../vector2d.h"
 
 static QPen defaultSelectedPen(const QPen& pen)
@@ -530,6 +531,20 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         ? static_cast<int>(mKeyAxis->axisRect()->height())
         : static_cast<int>(mKeyAxis->axisRect()->width());
 
+    // GPU translation: compute offset if pipeline is busy (stale data)
+    QPointF gpuOffset;
+    if (mPipeline.isBusy() && mHasRenderedRange)
+    {
+        gpuOffset = qcp::computeViewportOffset(
+            mKeyAxis.data(), mValueAxis.data(),
+            mRenderedRange.key, mRenderedRange.value);
+    }
+    else if (!mPipeline.isBusy())
+    {
+        mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
+        mHasRenderedRange = true;
+    }
+
     for (int c = 0; c < mComponents.size(); ++c) {
         const auto& comp = mComponents[c];
         if (!comp.visible) continue;
@@ -578,6 +593,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
                     {
                         if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
                         {
+                            prl->setPixelOffset(gpuOffset);
                             const double dpr = mParentPlot->bufferDevicePixelRatio();
                             // Cosmetic pens (widthF==0) = 1 device pixel, independent of DPR
                             const float penWidth = (pen.isCosmetic() || qFuzzyIsNull(pen.widthF()))

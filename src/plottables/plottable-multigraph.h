@@ -34,6 +34,7 @@ public:
 
     QCPMultiGraphPipeline& pipeline() { return mPipeline; }
     const QCPMultiGraphPipeline& pipeline() const { return mPipeline; }
+    bool hasRenderedRange() const { return mHasRenderedRange; }
 
     // Convenience: owning
     template <IndexableNumericRange KC, IndexableNumericRange VC>
@@ -128,6 +129,8 @@ protected:
     std::shared_ptr<QCPAbstractMultiDataSource> mL2Result;
     bool mL2Dirty = false;
     bool mNeedsResampling = false;
+    struct { QCPRange key, value; } mRenderedRange {};
+    bool mHasRenderedRange = false;
 
     void onL1Ready();
     void rebuildL2(const ViewportParams& vp);

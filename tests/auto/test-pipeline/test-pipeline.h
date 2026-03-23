@@ -99,6 +99,7 @@ private slots:
     // GPU translation fast path
     void graph2TranslationOffsetWhenBusy();
     void graph2TranslationResetsOnFreshData();
+    void multiGraphTranslationOffsetWhenBusy();
 
 private:
     QCustomPlot* mPlot = nullptr;
