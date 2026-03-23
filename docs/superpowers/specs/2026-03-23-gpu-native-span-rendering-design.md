@@ -89,16 +89,32 @@ Detection: `draw()` checks `painter->modes().testFlag(QCPPainter::pmVectorized) 
 
 ```cpp
 struct SpanVertex {
-    float coordX;       // data-space X (±FLT_MAX for infinite edges)
-    float coordY;       // data-space Y (±FLT_MAX for infinite edges)
+    float coordX;       // data-space X or logical pixel X (see isPixelX/Y)
+    float coordY;       // data-space Y or logical pixel Y
     float r, g, b, a;   // premultiplied alpha color
     float extrudeDirX;  // border extrusion direction in pixel space (0 for fill)
     float extrudeDirY;
-    float extrudeWidth;  // border half-width in pixels (0 for fill)
+    float extrudeWidth;  // border half-width in logical pixels (0 for fill)
+    float isPixelX;     // 0.0 = coordX is data-space, 1.0 = coordX is logical pixels
+    float isPixelY;     // 0.0 = coordY is data-space, 1.0 = coordY is logical pixels
 };
 ```
 
-**Stride:** 9 floats = 36 bytes per vertex.
+**Stride:** 11 floats = 44 bytes per vertex.
+
+### Position types: data-space vs pixel-space
+
+VSpan and HSpan have one "infinite" dimension that spans the full axis rect:
+
+- **VSpan**: X edges are `ptPlotCoords` (data-space), Y edges are `ptAxisRectRatio` (full axis rect height)
+- **HSpan**: Y edges are `ptPlotCoords` (data-space), X edges are `ptAxisRectRatio` (full axis rect width)
+- **RSpan**: all four edges are `ptPlotCoords` (data-space)
+
+At vertex buffer build time, the infinite dimension is resolved to **logical pixel coordinates** (axis rect top/bottom or left/right). These are stored in the vertex with `isPixelX=1.0` or `isPixelY=1.0`, telling the vertex shader to skip `coordToPixel` and use the value directly.
+
+Data-space coordinates are stored with `isPixelX/Y=0.0` and transformed by the shader's `coordToPixel` function.
+
+Pixel-space vertices only change on widget **resize** (axis rect bounds change), not on pan/zoom. Resize sets `mGeometryDirty`, triggering a rebuild — this is infrequent.
 
 ### Geometry per span
 
@@ -108,11 +124,11 @@ struct SpanVertex {
 | HSpan     | 6 (1 quad)    | 2 × 6 = 12  | 18             |
 | RSpan     | 6 (1 quad)    | 4 × 6 = 24  | 30             |
 
-For 100 spans (worst case all RSpan): 3000 vertices × 36 bytes = ~108 KB. Trivially small.
+For 100 spans (worst case all RSpan): 3000 vertices × 44 bytes = ~132 KB. Trivially small.
 
 ### Fill quad geometry
 
-2 triangles covering the span rectangle in data coordinates. For VSpan, Y coordinates use `±FLT_MAX` (clamped by scissor). For HSpan, X coordinates use `±FLT_MAX`. For RSpan, all four edges are data coordinates.
+2 triangles covering the span rectangle. For VSpan, X coordinates are data-space and Y coordinates are axis rect pixel bounds. For HSpan, Y coordinates are data-space and X coordinates are axis rect pixel bounds. For RSpan, all four edges are data coordinates.
 
 ### Border line geometry
 
@@ -130,28 +146,34 @@ The vertex shader applies the extrusion after the coord-to-pixel transform, ensu
 ```glsl
 layout(std140, binding = 0) uniform SpanParams {
     // Viewport
-    float width;          // output pixel width
-    float height;         // output pixel height
+    float width;          // output physical pixel width
+    float height;         // output physical pixel height
     float yFlip;          // -1.0 or +1.0 (NDC convention)
     float dpr;            // device pixel ratio
 
     // Key axis (X) transform
     float keyRangeLower;
     float keyRangeUpper;
-    float keyAxisOffset;  // pixel position of axis start
-    float keyAxisLength;  // pixel length of axis
+    float keyAxisOffset;  // logical pixel position of axis start
+    float keyAxisLength;  // logical pixel length of axis
     float keyLogScale;    // 0.0 = linear, 1.0 = log
 
     // Value axis (Y) transform
     float valRangeLower;
     float valRangeUpper;
-    float valAxisOffset;
-    float valAxisLength;
+    float valAxisOffset;  // logical pixel position of axis start
+    float valAxisLength;  // logical pixel length of axis
     float valLogScale;
+
+    float _pad;           // std140 requires total size multiple of 16 bytes (16 floats = 64 bytes)
 };
 ```
 
+16 floats × 4 bytes = 64 bytes, aligned to std140 requirements.
+
 ### Vertex shader (`span.vert`)
+
+All positions (both data-space and pixel-space) are in **logical pixels** after the coord-to-pixel transform. The single `* dpr / width` in the NDC conversion handles the logical→physical→NDC mapping, matching the convention in `plottable.vert`.
 
 ```glsl
 #version 440
@@ -160,6 +182,7 @@ layout(location = 0) in vec2 dataCoord;
 layout(location = 1) in vec4 color;
 layout(location = 2) in vec2 extrudeDir;
 layout(location = 3) in float extrudeWidth;
+layout(location = 4) in vec2 isPixel;      // (isPixelX, isPixelY): 0.0 = data-space, 1.0 = pixel-space
 
 layout(location = 0) out vec4 v_color;
 
@@ -182,23 +205,36 @@ layout(std140, binding = 0) uniform SpanParams {
 
 float coordToPixel(float coord, float lower, float upper,
                    float offset, float length, float isLog) {
-    float t = isLog > 0.5
-        ? (log(coord) - log(lower)) / (log(upper) - log(lower))
-        : (coord - lower) / (upper - lower);
+    float t;
+    if (isLog > 0.5) {
+        // Clamp to small positive value to avoid log(0) or log(negative)
+        float safeCoord = max(coord, 1e-30);
+        float safeLower = max(lower, 1e-30);
+        float safeUpper = max(upper, 1e-30);
+        t = (log(safeCoord) - log(safeLower)) / (log(safeUpper) - log(safeLower));
+    } else {
+        t = (coord - lower) / (upper - lower);
+    }
     return t * length + offset;
 }
 
 void main() {
-    float px = coordToPixel(dataCoord.x, keyRangeLower, keyRangeUpper,
-                            keyAxisOffset, keyAxisLength, keyLogScale);
-    float py = coordToPixel(dataCoord.y, valRangeLower, valRangeUpper,
-                            valAxisOffset, valAxisLength, valLogScale);
+    // For data-space coords: transform via coordToPixel to logical pixels
+    // For pixel-space coords: use directly (already logical pixels)
+    float px = isPixel.x > 0.5
+        ? dataCoord.x
+        : coordToPixel(dataCoord.x, keyRangeLower, keyRangeUpper,
+                        keyAxisOffset, keyAxisLength, keyLogScale);
+    float py = isPixel.y > 0.5
+        ? dataCoord.y
+        : coordToPixel(dataCoord.y, valRangeLower, valRangeUpper,
+                        valAxisOffset, valAxisLength, valLogScale);
 
-    // Extrude border lines in pixel space
-    px += extrudeDir.x * extrudeWidth * dpr;
-    py += extrudeDir.y * extrudeWidth * dpr;
+    // Extrude border lines in logical pixel space
+    px += extrudeDir.x * extrudeWidth;
+    py += extrudeDir.y * extrudeWidth;
 
-    // To NDC
+    // Logical pixels → NDC (matches plottable.vert convention)
     float ndcX = (px * dpr / width) * 2.0 - 1.0;
     float ndcY = yFlip * ((py * dpr / height) * 2.0 - 1.0);
     gl_Position = vec4(ndcX, ndcY, 0.0, 1.0);
@@ -206,18 +242,9 @@ void main() {
 }
 ```
 
-### Fragment shader (`span.frag`)
+### Fragment shader
 
-```glsl
-#version 440
-
-layout(location = 0) in vec4 v_color;
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-    fragColor = v_color;
-}
-```
+Reuses the existing `plottable.frag` (pass-through premultiplied alpha color). No new fragment shader file needed.
 
 ## Dirty tracking
 
@@ -225,20 +252,30 @@ A single `mGeometryDirty` boolean flag on `QCPSpanRhiLayer`.
 
 **Set dirty when:**
 - `registerSpan()` / `unregisterSpan()` called (span added/removed)
-- Span edge positions change (drag interaction calls `markGeometryDirty()`)
-- Span colors/pen change
+- Span edge positions change (drag interaction)
+- Span colors/pen/brush change via setters (`setPen`, `setBrush`, `setBorderPen`, `setSelectedPen`, `setSelectedBrush`, `setSelectedBorderPen` — 6 setters × 3 span types = 18 callsites)
+- Selection state changes (switches between normal/selected colors)
+- Widget resize (pixel-space vertices for infinite edges need rebuilding)
+
+All span property setters must call `mParentPlot->spanRhiLayer()->markGeometryDirty()`.
 
 **On render:**
 - If dirty: iterate registered spans, rebuild vertex buffer, upload, clear flag
 - If clean: skip vertex buffer — only update uniform buffer with current axis ranges
 
-The uniform buffer is always updated (axis ranges change on every pan/zoom). This is 60 bytes per axis rect — negligible.
+The uniform buffer is always updated (axis ranges change on every pan/zoom). This is 64 bytes per axis rect — negligible.
 
 ## Hit testing and interaction
 
 No changes to the existing CPU-side hit testing. Spans keep their `selectTest()`, `mousePressEvent()`, `mouseMoveEvent()`, `mouseReleaseEvent()` implementations, which operate on data coordinates via `coordToPixel()` math.
 
 When a drag moves a span edge, the span calls `mParentPlot->spanRhiLayer()->markGeometryDirty()` to trigger vertex buffer rebuild on next render.
+
+## Span lifecycle
+
+**Construction:** Span constructor calls `mParentPlot->spanRhiLayer()->registerSpan(this)`.
+
+**Destruction:** Span destructor calls `mParentPlot->spanRhiLayer()->unregisterSpan(this)`. Must be safe during `QCustomPlot` destruction (check `mParentPlot` and span RHI layer are still valid). The existing pattern: if `mParentPlot` is being destroyed, it clears items before destroying the span RHI layer.
 
 ## Axis rect grouping and scissor clipping
 
@@ -264,13 +301,19 @@ QCPSpanRhiLayer* spanRhiLayer();            // accessor, creates on first call
 
 ### Changes to `QCustomPlot::render()`
 
-After plottable and colormap RHI layer rendering, before paint buffer compositing:
+The span RHI layer is a single global object, not per-layer. It renders once, after all plottable and colormap RHI layers, but before the paint buffer composite loop. This means all spans render at the same Z-order — on top of all GPU plottables/colormaps, below all paint buffer content (axes, labels, legend). Span layer assignment in the `QCPLayer` system is ignored for on-screen rendering (only matters for the export QPainter path).
 
+Resource upload phase (before `beginPass`):
 ```cpp
 if (mSpanRhiLayer && mSpanRhiLayer->hasSpans()) {
     mSpanRhiLayer->ensurePipeline(rpDesc, sampleCount);
     mSpanRhiLayer->uploadResources(updates, outputSize, dpr, isYUpInNDC);
-    // ... in render pass:
+}
+```
+
+Draw phase (inside render pass, after plottable/colormap draws, before composite loop):
+```cpp
+if (mSpanRhiLayer && mSpanRhiLayer->hasSpans()) {
     mSpanRhiLayer->render(cb, outputSize);
 }
 ```
@@ -281,10 +324,10 @@ Register with span RHI layer:
 
 ```cpp
 QCPItemVSpan::QCPItemVSpan(QCustomPlot* parentPlot)
-    : QCPAbstractItem(parentPlot, QLatin1String(""))  // empty layer name
+    : QCPAbstractItem(parentPlot)
 {
+    // ... existing position/anchor initialization ...
     parentPlot->spanRhiLayer()->registerSpan(this);
-    // ... existing initialization
 }
 ```
 
@@ -301,7 +344,7 @@ Span `draw(QCPPainter*)` checks context:
 | `src/painting/span-rhi-layer.h` | **New** — `QCPSpanRhiLayer` class |
 | `src/painting/span-rhi-layer.cpp` | **New** — implementation |
 | `src/painting/shaders/span.vert` | **New** — vertex shader |
-| `src/painting/shaders/span.frag` | **New** — fragment shader (can reuse `plottable.frag` if identical) |
+| `src/painting/shaders/span.frag` | **Not needed** — reuses existing `plottable.frag` |
 | `src/painting/shaders/embed_shaders.py` | **Modify** — add span shader compilation |
 | `src/painting/shaders/embedded_shaders.h` | **Regenerated** — includes span shaders |
 | `src/core.h` | **Modify** — add `mSpanRhiLayer`, `spanRhiLayer()` |
