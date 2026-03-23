@@ -135,16 +135,22 @@ plottable_frag_qsb = custom_target('plottable_frag_qsb',
     output: 'plottable.frag.qsb',
     command: [qsb, '--qt6', '-o', '@OUTPUT@', '@INPUT@'])
 
+span_vert_qsb = custom_target('span_vert_qsb',
+    input: 'src/painting/shaders/span.vert',
+    output: 'span.vert.qsb',
+    command: [qsb, '--qt6', '-o', '@OUTPUT@', '@INPUT@'])
+
 python3 = find_program('python3')
 embedded_shaders = custom_target('embedded_shaders',
-    input: [composite_vert_qsb, composite_frag_qsb, plottable_vert_qsb, plottable_frag_qsb],
+    input: [composite_vert_qsb, composite_frag_qsb, plottable_vert_qsb, plottable_frag_qsb, span_vert_qsb],
     output: 'embedded_shaders.h',
     command: [python3, files('src/painting/shaders/embed_shaders.py'),
               '@OUTPUT@',
               'composite_vert_qsb_data:@INPUT0@',
               'composite_frag_qsb_data:@INPUT1@',
               'plottable_vert_qsb_data:@INPUT2@',
-              'plottable_frag_qsb_data:@INPUT3@'])
+              'plottable_frag_qsb_data:@INPUT3@',
+              'span_vert_qsb_data:@INPUT4@'])
 
 NeoQCP = static_library('NeoQCP',
            'src/colorgradient.cpp',
