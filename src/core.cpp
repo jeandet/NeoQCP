@@ -453,6 +453,7 @@ QCustomPlot::QCustomPlot(QWidget* parent)
     updateLayerIndices();
     setCurrentLayer(QLatin1String("main"));
     layer(QLatin1String("overlay"))->setMode(QCPLayer::lmBuffered);
+    layer(QLatin1String("main"))->setMode(QCPLayer::lmBuffered);
 
     // create initial layout, axis rect and legend:
     mPlotLayout = new QCPLayoutGrid;
