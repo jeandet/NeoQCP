@@ -5,7 +5,9 @@
 #include "../axis/axis.h"
 #include "../core.h"
 #include "../layoutelements/layoutelement-axisrect.h"
+#include "../painting/line-extruder.h"
 #include "../painting/painter.h"
+#include "../painting/plottable-rhi-layer.h"
 #include "../vector2d.h"
 
 QCPGraph2::QCPGraph2(QCPAxis* keyAxis, QCPAxis* valueAxis)
@@ -470,6 +472,14 @@ void QCPGraph2::draw(QCPPainter* painter)
         mL2Dirty = false;
     }
 
+    // When the async pipeline is active but hasn't delivered results yet,
+    // skip drawing raw data.  Drawing 100K+ points through QPainter is
+    // extremely slow on macOS (Core Graphics), causing multi-second stalls.
+    // The pipeline will trigger a replot when L1 is ready.
+    if (mNeedsResampling && !mL2Result
+        && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        return;
+
     // Use L2 resampled data if available, otherwise fall back to raw data.
     // Raw data is used for small datasets (below threshold), log-scale keys,
     // or while L1 is still building asynchronously.
@@ -509,35 +519,50 @@ void QCPGraph2::draw(QCPPainter* painter)
     // Draw lines
     if (mLineStyle != lsNone && mPen.style() != Qt::NoPen && mPen.color().alpha() != 0)
     {
-        applyDefaultAntialiasingHint(painter);
-        painter->setPen(mPen);
-        painter->setBrush(Qt::NoBrush);
+        // Helper: try GPU path for a polyline, fall back to QPainter
+        auto drawPoly = [&](const QVector<QPointF>& pts) {
+            if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
+                rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
+                    && mPen.style() == Qt::SolidLine)
+            {
+                if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
+                {
+                    const QColor penColor = mPen.color();
+                    const float penWidth = qMax(1.0f, static_cast<float>(mPen.widthF()));
+                    auto strokeVerts = QCPLineExtruder::extrudePolyline(pts, penWidth, penColor);
+                    if (!strokeVerts.isEmpty())
+                    {
+                        const double dpr = mParentPlot->bufferDevicePixelRatio();
+                        const QSize outputSize = mParentPlot->rhiOutputSize();
+                        prl->addPlottable({}, strokeVerts, clipRect(), dpr,
+                                           outputSize.height(), rhi->isYUpInNDC());
+                        return;
+                    }
+                }
+            }
+            // Software fallback
+            applyDefaultAntialiasingHint(painter);
+            painter->setPen(mPen);
+            painter->setBrush(Qt::NoBrush);
+            painter->drawPolyline(pts.constData(), pts.size());
+        };
 
         switch (mLineStyle)
         {
             case lsNone:
                 break;
             case lsLine:
-                painter->drawPolyline(lines.constData(), lines.size());
+                drawPoly(lines);
                 break;
             case lsStepLeft:
-            {
-                auto stepped = toStepLeftLines(lines, keyIsVertical);
-                painter->drawPolyline(stepped.constData(), stepped.size());
+                drawPoly(toStepLeftLines(lines, keyIsVertical));
                 break;
-            }
             case lsStepRight:
-            {
-                auto stepped = toStepRightLines(lines, keyIsVertical);
-                painter->drawPolyline(stepped.constData(), stepped.size());
+                drawPoly(toStepRightLines(lines, keyIsVertical));
                 break;
-            }
             case lsStepCenter:
-            {
-                auto stepped = toStepCenterLines(lines, keyIsVertical);
-                painter->drawPolyline(stepped.constData(), stepped.size());
+                drawPoly(toStepCenterLines(lines, keyIsVertical));
                 break;
-            }
             case lsImpulse:
             {
                 auto impulse = toImpulseLines(lines, keyIsVertical);
