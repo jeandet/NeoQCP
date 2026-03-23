@@ -476,8 +476,12 @@ void QCPGraph2::draw(QCPPainter* painter)
     // skip drawing raw data.  Drawing 100K+ points through QPainter is
     // extremely slow on macOS (Core Graphics), causing multi-second stalls.
     // The pipeline will trigger a replot when L1 is ready.
+    // Exception: log-scale axes never produce L2 results (rebuildL2 resets
+    // mL2Result), so we must not skip or the graph stays permanently blank.
+    // Exception: export mode (pmNoCaching) must always draw.
     if (mNeedsResampling && !mL2Result
-        && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        && !painter->modes().testFlag(QCPPainter::pmNoCaching)
+        && (!mKeyAxis || mKeyAxis->scaleType() != QCPAxis::stLogarithmic))
         return;
 
     // Use L2 resampled data if available, otherwise fall back to raw data.
@@ -519,10 +523,13 @@ void QCPGraph2::draw(QCPPainter* painter)
     // Draw lines
     if (mLineStyle != lsNone && mPen.style() != Qt::NoPen && mPen.color().alpha() != 0)
     {
-        // Helper: try GPU path for a polyline, fall back to QPainter
+        // Helper: try GPU path for a polyline, fall back to QPainter.
+        // Disabled for export: pmVectorized (SVG/PDF) and pmNoCaching (raster
+        // export via toPixmap/saveRastered) don't composite plottable RHI layers.
         auto drawPoly = [&](const QVector<QPointF>& pts) {
             if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
                 rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
+                    && !painter->modes().testFlag(QCPPainter::pmNoCaching)
                     && mPen.style() == Qt::SolidLine)
             {
                 if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
