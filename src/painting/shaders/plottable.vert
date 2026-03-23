@@ -10,12 +10,14 @@ layout(std140, binding = 0) uniform ViewportParams {
     float height;
     float yFlip;
     float dpr;
+    float translateX;
+    float translateY;
 } pc;
 
 void main()
 {
-    float ndcX = (position.x * pc.dpr / pc.width) * 2.0 - 1.0;
-    float ndcY = pc.yFlip * ((position.y * pc.dpr / pc.height) * 2.0 - 1.0);
+    float ndcX = ((position.x + pc.translateX) * pc.dpr / pc.width) * 2.0 - 1.0;
+    float ndcY = pc.yFlip * (((position.y + pc.translateY) * pc.dpr / pc.height) * 2.0 - 1.0);
     gl_Position = vec4(ndcX, ndcY, 0.0, 1.0);
     v_color = color;
 }

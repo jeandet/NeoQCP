@@ -35,6 +35,9 @@ public:
                           const QSize& outputSize, float dpr, bool isYUpInNDC);
     void render(QRhiCommandBuffer* cb, const QSize& outputSize);
 
+    void setPixelOffset(QPointF offset) { mPixelOffset = offset; }
+    QPointF pixelOffset() const { return mPixelOffset; }
+
     bool isDirty() const { return mDirty; }
     bool hasGeometry() const { return !mDrawEntries.isEmpty(); }
 
@@ -50,4 +53,5 @@ private:
     int mVertexBufferSize = 0;
     int mLastSampleCount = 0;
     bool mDirty = false;
+    QPointF mPixelOffset;
 };
