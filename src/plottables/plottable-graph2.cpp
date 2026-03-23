@@ -481,7 +481,7 @@ void QCPGraph2::draw(QCPPainter* painter)
     // Exception: export mode (pmNoCaching) must always draw.
     if (mNeedsResampling && !mL2Result
         && !painter->modes().testFlag(QCPPainter::pmNoCaching)
-        && (!mKeyAxis || mKeyAxis->scaleType() != QCPAxis::stLogarithmic))
+        && mKeyAxis->scaleType() != QCPAxis::stLogarithmic)
         return;
 
     // Use L2 resampled data if available, otherwise fall back to raw data.
@@ -535,11 +535,14 @@ void QCPGraph2::draw(QCPPainter* painter)
                 if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
                 {
                     const QColor penColor = mPen.color();
-                    const float penWidth = qMax(1.0f, static_cast<float>(mPen.widthF()));
+                    const double dpr = mParentPlot->bufferDevicePixelRatio();
+                    // Cosmetic pens (widthF==0) = 1 device pixel, independent of DPR
+                    const float penWidth = (mPen.isCosmetic() || qFuzzyIsNull(mPen.widthF()))
+                        ? static_cast<float>(1.0 / dpr)
+                        : qMax(1.0f, static_cast<float>(mPen.widthF()));
                     auto strokeVerts = QCPLineExtruder::extrudePolyline(pts, penWidth, penColor);
                     if (!strokeVerts.isEmpty())
                     {
-                        const double dpr = mParentPlot->bufferDevicePixelRatio();
                         const QSize outputSize = mParentPlot->rhiOutputSize();
                         prl->addPlottable({}, strokeVerts, clipRect(), dpr,
                                            outputSize.height(), rhi->isYUpInNDC());
@@ -573,6 +576,7 @@ void QCPGraph2::draw(QCPPainter* painter)
             case lsImpulse:
             {
                 auto impulse = toImpulseLines(lines, keyIsVertical);
+                applyDefaultAntialiasingHint(painter);
                 QPen impulsePen = mPen;
                 impulsePen.setCapStyle(Qt::FlatCap);
                 painter->setPen(impulsePen);

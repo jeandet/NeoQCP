@@ -9,7 +9,6 @@
 #include "../painting/painter.h"
 #include "../painting/plottable-rhi-layer.h"
 #include "../vector2d.h"
-#include <cmath>
 
 static QPen defaultSelectedPen(const QPen& pen)
 {
@@ -516,7 +515,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     // Exception: export mode (pmNoCaching) must always draw.
     if (mNeedsResampling && !mL2Result
         && !painter->modes().testFlag(QCPPainter::pmNoCaching)
-        && (!mKeyAxis || mKeyAxis->scaleType() != QCPAxis::stLogarithmic))
+        && mKeyAxis->scaleType() != QCPAxis::stLogarithmic)
         return;
 
     const QCPAbstractMultiDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
@@ -568,36 +567,38 @@ void QCPMultiGraph::draw(QCPPainter* painter)
                 painter->setPen(impulsePen);
                 painter->drawLines(lines);
             } else {
-                // GPU path: extrude polyline into a triangle-list vertex buffer and render via RHI.
+                // Try GPU path, fall back to QPainter.
                 // Disabled for export: pmVectorized (SVG/PDF) and pmNoCaching (raster
                 // export via toPixmap/saveRastered) don't composite plottable RHI layers.
-                bool drawnOnGpu = false;
-                if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
-                    rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
-                        && !painter->modes().testFlag(QCPPainter::pmNoCaching)
-                        && activePen.style() == Qt::SolidLine)
-                {
-                    if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
+                auto drawPoly = [&](const QVector<QPointF>& pts, const QPen& pen) {
+                    if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
+                        rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
+                            && !painter->modes().testFlag(QCPPainter::pmNoCaching)
+                            && pen.style() == Qt::SolidLine)
                     {
-                        const QColor penColor = activePen.color();
-                        const float penWidth = qMax(1.0f, static_cast<float>(activePen.widthF()));
-                        auto strokeVerts = QCPLineExtruder::extrudePolyline(lines, penWidth, penColor);
-                        if (!strokeVerts.isEmpty())
+                        if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
                         {
                             const double dpr = mParentPlot->bufferDevicePixelRatio();
-                            const QSize outputSize = mParentPlot->rhiOutputSize();
-                            prl->addPlottable({}, strokeVerts, clipRect(), dpr,
-                                               outputSize.height(), rhi->isYUpInNDC());
-                            drawnOnGpu = true;
+                            // Cosmetic pens (widthF==0) = 1 device pixel, independent of DPR
+                            const float penWidth = (pen.isCosmetic() || qFuzzyIsNull(pen.widthF()))
+                                ? static_cast<float>(1.0 / dpr)
+                                : qMax(1.0f, static_cast<float>(pen.widthF()));
+                            auto strokeVerts = QCPLineExtruder::extrudePolyline(pts, penWidth, pen.color());
+                            if (!strokeVerts.isEmpty())
+                            {
+                                const QSize outputSize = mParentPlot->rhiOutputSize();
+                                prl->addPlottable({}, strokeVerts, clipRect(), dpr,
+                                                   outputSize.height(), rhi->isYUpInNDC());
+                                return;
+                            }
                         }
                     }
-                }
-                if (!drawnOnGpu) {
                     applyDefaultAntialiasingHint(painter);
-                    painter->setPen(activePen);
+                    painter->setPen(pen);
                     painter->setBrush(Qt::NoBrush);
-                    painter->drawPolyline(lines.constData(), lines.size());
-                }
+                    painter->drawPolyline(pts.constData(), pts.size());
+                };
+                drawPoly(lines, activePen);
             }
         }
 

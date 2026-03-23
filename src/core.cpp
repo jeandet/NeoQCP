@@ -426,9 +426,10 @@ QCustomPlot::QCustomPlot(QWidget* parent)
         , mReplotTimeAverage(0)
 {
     setAttribute(Qt::WA_NoMousePropagation);
-    // Default MSAA off — HiDPI displays already provide sub-pixel smoothness, and 4x
-    // MSAA quadruples memory bandwidth. Users can override via setSampleCount() if needed.
-    setSampleCount(1);
+    // HiDPI displays (DPR >= 2) already provide sub-pixel smoothness, so MSAA=1 saves
+    // bandwidth. Non-HiDPI gets 4x MSAA for proper antialiasing of GPU-rendered lines.
+    // Users can override via setSampleCount() after construction.
+    setSampleCount(devicePixelRatioF() >= 2.0 ? 1 : 4);
     setFocusPolicy(Qt::ClickFocus);
     setMouseTracking(true);
     QLocale currentLocale = locale();
@@ -2569,10 +2570,15 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
     if (!mRhiInitialized || !mRhi)
         return;
 
-    // Detect DPR changes
+    // Detect DPR changes (e.g. window moved between Retina and non-Retina displays)
     if (const auto newDpr = devicePixelRatioF(); !qFuzzyCompare(mBufferDevicePixelRatio, newDpr))
     {
+        // Only update MSAA if the user hasn't overridden it (still matches auto-selected value)
+        const int autoSample = mBufferDevicePixelRatio >= 2.0 ? 1 : 4;
+        const bool userOverrode = sampleCount() != autoSample;
         setBufferDevicePixelRatio(newDpr);
+        if (!userOverrode)
+            setSampleCount(newDpr >= 2.0 ? 1 : 4);
         replot(QCustomPlot::rpQueuedRefresh);
         return;
     }
