@@ -2615,19 +2615,20 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
                               mRhi->isYUpInNDC());
     }
 
-    // Upload colormap GPU resources
-    for (auto* crl : mColormapRhiLayers)
-    {
-        crl->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
-        crl->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
-                              mRhi->isYUpInNDC());
-    }
-
-    // Create pipeline lazily (needs renderPassDescriptor from the first render call)
+    // Ensure composite UBO exists before any pipeline that shares the composite shader
     if (!mCompositeUbo)
     {
         mCompositeUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 32);
         mCompositeUbo->create();
+    }
+
+    // Upload colormap GPU resources
+    for (auto* crl : mColormapRhiLayers)
+    {
+        crl->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount(),
+                            mCompositeUbo);
+        crl->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
+                              mRhi->isYUpInNDC(), mCompositeUbo);
     }
 
     if (!mCompositePipeline)

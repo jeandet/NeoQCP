@@ -22,9 +22,11 @@ public:
 
     // Called during render (GPU side)
     void invalidatePipeline();
-    bool ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampleCount);
+    bool ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampleCount,
+                        QRhiBuffer* compositeUbo);
     void uploadResources(QRhiResourceUpdateBatch* updates,
-                         const QSize& outputSize, float dpr, bool isYUpInNDC);
+                         const QSize& outputSize, float dpr, bool isYUpInNDC,
+                         QRhiBuffer* compositeUbo);
     void render(QRhiCommandBuffer* cb, const QSize& outputSize);
 
     bool hasContent() const { return !mStagingImage.isNull(); }

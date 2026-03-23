@@ -47,7 +47,8 @@ void QCPColormapRhiLayer::setScissorRect(const QRect& scissor)
 }
 
 bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
-                                          int sampleCount)
+                                          int sampleCount,
+                                          QRhiBuffer* compositeUbo)
 {
     PROFILE_HERE_N("QCPColormapRhiLayer::ensurePipeline");
     if (mPipeline && mLastSampleCount == sampleCount)
@@ -55,9 +56,9 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
 
     invalidatePipeline();
 
-    // Reuse composite shaders: position(float2) + texcoord(float2),
-    // combined image sampler at binding 1, no uniform buffer.
-    // We pre-compute NDC positions on the CPU.
+    // Reuse composite shaders: position(float2) + texcoord(float2).
+    // The shader requires a LayerParams UBO at binding 1 (always zero
+    // translation for colormaps since they pre-compute NDC on the CPU).
     QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
         reinterpret_cast<const char*>(composite_vert_qsb_data), composite_vert_qsb_data_len));
     QShader fragShader = QShader::fromSerialized(QByteArray::fromRawData(
@@ -83,7 +84,10 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
     layoutSrb->setBindings({
         QRhiShaderResourceBinding::sampledTexture(
             0, QRhiShaderResourceBinding::FragmentStage,
-            nullptr, mSampler)
+            nullptr, mSampler),
+        QRhiShaderResourceBinding::uniformBuffer(
+            1, QRhiShaderResourceBinding::VertexStage,
+            compositeUbo)
     });
     layoutSrb->create();
 
@@ -133,7 +137,8 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
 
 void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
                                             const QSize& outputSize, float dpr,
-                                            bool isYUpInNDC)
+                                            bool isYUpInNDC,
+                                            QRhiBuffer* compositeUbo)
 {
     PROFILE_HERE_N("QCPColormapRhiLayer::uploadResources");
     if (mStagingImage.isNull())
@@ -171,7 +176,10 @@ void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
         mSrb->setBindings({
             QRhiShaderResourceBinding::sampledTexture(
                 0, QRhiShaderResourceBinding::FragmentStage,
-                mTexture, mSampler)
+                mTexture, mSampler),
+            QRhiShaderResourceBinding::uniformBuffer(
+                1, QRhiShaderResourceBinding::VertexStage,
+                compositeUbo)
         });
         mSrb->create();
     }
