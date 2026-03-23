@@ -90,6 +90,10 @@ private slots:
     void histogram2dNormalizationToggleNoRebind();
     void histogram2dRenderSmokeTest();
 
+    // Layer-level GPU translation
+    void stallPixelOffsetGraph2Busy();
+    void stallPixelOffsetIdleIsZero();
+
     // GPU translation offset
     void viewportOffsetLinearHorizontal();
     void viewportOffsetLinearVertical();

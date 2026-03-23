@@ -449,6 +449,14 @@ QVector<QPointF> QCPGraph2::toImpulseLines(const QVector<QPointF>& lines, bool k
 
 // --- Drawing ---
 
+QPointF QCPGraph2::stallPixelOffset() const
+{
+    if (mPipeline.isBusy() && mHasRenderedRange)
+        return qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
+                                          mRenderedRange.key, mRenderedRange.value);
+    return {};
+}
+
 void QCPGraph2::draw(QCPPainter* painter)
 {
     PROFILE_HERE_N("QCPGraph2::draw");
@@ -521,15 +529,8 @@ void QCPGraph2::draw(QCPPainter* painter)
 
     const bool keyIsVertical = mKeyAxis->orientation() == Qt::Vertical;
 
-    // GPU translation: compute offset if pipeline is busy (stale data)
-    QPointF gpuOffset;
-    if (mPipeline.isBusy() && mHasRenderedRange)
-    {
-        gpuOffset = qcp::computeViewportOffset(
-            mKeyAxis.data(), mValueAxis.data(),
-            mRenderedRange.key, mRenderedRange.value);
-    }
-    else if (!mPipeline.isBusy())
+    QPointF gpuOffset = stallPixelOffset();
+    if (!mPipeline.isBusy())
     {
         mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
         mHasRenderedRange = true;

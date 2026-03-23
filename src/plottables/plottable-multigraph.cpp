@@ -467,6 +467,14 @@ void QCPMultiGraph::deselectEvent(bool* selectionStateChanged)
 
 // --- Drawing ---
 
+QPointF QCPMultiGraph::stallPixelOffset() const
+{
+    if (mPipeline.isBusy() && mHasRenderedRange)
+        return qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
+                                          mRenderedRange.key, mRenderedRange.value);
+    return {};
+}
+
 void QCPMultiGraph::draw(QCPPainter* painter)
 {
     if (!mKeyAxis || !mValueAxis || !mDataSource || mDataSource->empty())
@@ -531,15 +539,8 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         ? static_cast<int>(mKeyAxis->axisRect()->height())
         : static_cast<int>(mKeyAxis->axisRect()->width());
 
-    // GPU translation: compute offset if pipeline is busy (stale data)
-    QPointF gpuOffset;
-    if (mPipeline.isBusy() && mHasRenderedRange)
-    {
-        gpuOffset = qcp::computeViewportOffset(
-            mKeyAxis.data(), mValueAxis.data(),
-            mRenderedRange.key, mRenderedRange.value);
-    }
-    else if (!mPipeline.isBusy())
+    QPointF gpuOffset = stallPixelOffset();
+    if (!mPipeline.isBusy())
     {
         mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
         mHasRenderedRange = true;

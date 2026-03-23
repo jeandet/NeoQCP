@@ -61,6 +61,7 @@ public:
     QCPGraphPipeline& pipeline() { return mPipeline; }
     const QCPGraphPipeline& pipeline() const { return mPipeline; }
     bool hasRenderedRange() const { return mHasRenderedRange; }
+    QPointF stallPixelOffset() const override;
 
     // Line style
     LineStyle lineStyle() const { return mLineStyle; }
