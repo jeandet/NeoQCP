@@ -512,8 +512,11 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     // skip drawing raw data.  Drawing 100K+ points through QPainter is
     // extremely slow on macOS (Core Graphics), causing multi-second stalls.
     // The pipeline will trigger a replot when L1 is ready.
+    // Exception: log-scale axes never produce L2 results, so we must not skip.
+    // Exception: export mode (pmNoCaching) must always draw.
     if (mNeedsResampling && !mL2Result
-        && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        && !painter->modes().testFlag(QCPPainter::pmNoCaching)
+        && (!mKeyAxis || mKeyAxis->scaleType() != QCPAxis::stLogarithmic))
         return;
 
     const QCPAbstractMultiDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
@@ -565,10 +568,13 @@ void QCPMultiGraph::draw(QCPPainter* painter)
                 painter->setPen(impulsePen);
                 painter->drawLines(lines);
             } else {
-                // GPU path: extrude polyline into triangle strip and render via RHI
+                // GPU path: extrude polyline into a triangle-list vertex buffer and render via RHI.
+                // Disabled for export: pmVectorized (SVG/PDF) and pmNoCaching (raster
+                // export via toPixmap/saveRastered) don't composite plottable RHI layers.
                 bool drawnOnGpu = false;
                 if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
                     rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
+                        && !painter->modes().testFlag(QCPPainter::pmNoCaching)
                         && activePen.style() == Qt::SolidLine)
                 {
                     if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
