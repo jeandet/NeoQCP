@@ -162,6 +162,8 @@ public:
 
     virtual QCPPlottableInterface1D* interface1D() { return nullptr; }
 
+    virtual QPointF stallPixelOffset() const { return {}; }
+
     virtual QCPRange getKeyRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth) const
         = 0;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,
