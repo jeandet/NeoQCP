@@ -102,6 +102,8 @@ private slots:
     void multiGraphTranslationOffsetWhenBusy();
     void colormap2TranslationOffsetWhenBusy();
     void histogram2dTranslationOffsetWhenBusy();
+    void translatedGeometryClippedToAxisRect();
+    void multipleGraph2IndependentOffsets();
 
 private:
     QCustomPlot* mPlot = nullptr;

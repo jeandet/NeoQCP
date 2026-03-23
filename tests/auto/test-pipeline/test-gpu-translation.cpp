@@ -129,3 +129,75 @@ void TestPipeline::colormap2TranslationOffsetWhenBusy()
     if (cm->pipeline().isBusy())
         QVERIFY(cm->hasRenderedRange());
 }
+
+void TestPipeline::translatedGeometryClippedToAxisRect()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    QVector<double> keys(200000), values(200000);
+    for (int i = 0; i < 200000; ++i) {
+        keys[i] = i;
+        values[i] = 1.0;
+    }
+    graph->setData(std::move(keys), std::move(values));
+    graph->setPen(QPen(Qt::red, 2));
+
+    mPlot->xAxis->setRange(0, 100000);
+    mPlot->yAxis->setRange(-2, 2);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QTRY_VERIFY_WITH_TIMEOUT(!graph->pipeline().isBusy(), 5000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // Large pan to push data far outside the axis rect
+    mPlot->xAxis->setRange(200000, 300000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // toPixmap uses QPainter export path, not RHI. Verifies QPainter clipping.
+    // RHI scissor clipping is hardware-enforced and inherently correct.
+    QPixmap pixmap = mPlot->toPixmap(400, 300);
+    QImage img = pixmap.toImage();
+    QRect axisRect = mPlot->axisRect()->rect();
+
+    bool foundRedOutside = false;
+    for (int y = 0; y < img.height() && !foundRedOutside; ++y)
+    {
+        for (int x = 0; x < img.width() && !foundRedOutside; ++x)
+        {
+            if (!axisRect.contains(x, y))
+            {
+                QColor c = img.pixelColor(x, y);
+                if (c.red() > 200 && c.green() < 50 && c.blue() < 50)
+                    foundRedOutside = true;
+            }
+        }
+    }
+    QVERIFY2(!foundRedOutside, "Red pixels found outside axis rect — scissor clipping failed");
+}
+
+void TestPipeline::multipleGraph2IndependentOffsets()
+{
+    auto* small = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    QVector<double> ks(100), vs(100);
+    for (int i = 0; i < 100; ++i) { ks[i] = i * 1000; vs[i] = i; }
+    small->setData(std::move(ks), std::move(vs));
+
+    auto* large = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    QVector<double> kl(500000), vl(500000);
+    for (int i = 0; i < 500000; ++i) { kl[i] = i; vl[i] = i; }
+    large->setData(std::move(kl), std::move(vl));
+
+    mPlot->xAxis->setRange(0, 100000);
+    mPlot->yAxis->setRange(-1, 1);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        !small->pipeline().isBusy() && !large->pipeline().isBusy(), 5000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QVERIFY(small->hasRenderedRange());
+    QVERIFY(large->hasRenderedRange());
+
+    // Smoke test: replot doesn't crash with independent offset states
+    mPlot->xAxis->setRange(10000, 110000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+}
