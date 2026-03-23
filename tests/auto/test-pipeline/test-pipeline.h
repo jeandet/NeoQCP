@@ -90,6 +90,12 @@ private slots:
     void histogram2dNormalizationToggleNoRebind();
     void histogram2dRenderSmokeTest();
 
+    // GPU translation offset
+    void viewportOffsetLinearHorizontal();
+    void viewportOffsetLinearVertical();
+    void viewportOffsetLogScale();
+    void viewportOffsetNoChange();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };
