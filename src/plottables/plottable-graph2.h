@@ -60,6 +60,7 @@ public:
     // Pipeline
     QCPGraphPipeline& pipeline() { return mPipeline; }
     const QCPGraphPipeline& pipeline() const { return mPipeline; }
+    bool hasRenderedRange() const { return mHasRenderedRange; }
 
     // Line style
     LineStyle lineStyle() const { return mLineStyle; }
@@ -113,6 +114,10 @@ private:
     std::shared_ptr<QCPAbstractDataSource> mL2Result;
     bool mNeedsResampling = false;
     bool mL2Dirty = false;
+
+    // GPU translation fast path: axis ranges when data was last drawn fresh
+    struct { QCPRange key, value; } mRenderedRange {};
+    bool mHasRenderedRange = false;
 
     void onL1Ready();
     void rebuildL2(const ViewportParams& vp);

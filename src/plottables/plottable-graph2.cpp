@@ -8,6 +8,7 @@
 #include "../painting/line-extruder.h"
 #include "../painting/painter.h"
 #include "../painting/plottable-rhi-layer.h"
+#include "../painting/viewport-offset.h"
 #include "../vector2d.h"
 
 QCPGraph2::QCPGraph2(QCPAxis* keyAxis, QCPAxis* valueAxis)
@@ -520,6 +521,20 @@ void QCPGraph2::draw(QCPPainter* painter)
 
     const bool keyIsVertical = mKeyAxis->orientation() == Qt::Vertical;
 
+    // GPU translation: compute offset if pipeline is busy (stale data)
+    QPointF gpuOffset;
+    if (mPipeline.isBusy() && mHasRenderedRange)
+    {
+        gpuOffset = qcp::computeViewportOffset(
+            mKeyAxis.data(), mValueAxis.data(),
+            mRenderedRange.key, mRenderedRange.value);
+    }
+    else if (!mPipeline.isBusy())
+    {
+        mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
+        mHasRenderedRange = true;
+    }
+
     // Draw lines
     if (mLineStyle != lsNone && mPen.style() != Qt::NoPen && mPen.color().alpha() != 0)
     {
@@ -534,6 +549,7 @@ void QCPGraph2::draw(QCPPainter* painter)
             {
                 if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
                 {
+                    prl->setPixelOffset(gpuOffset);
                     const QColor penColor = mPen.color();
                     const double dpr = mParentPlot->bufferDevicePixelRatio();
                     // Cosmetic pens (widthF==0) = 1 device pixel, independent of DPR

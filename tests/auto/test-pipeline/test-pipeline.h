@@ -96,6 +96,10 @@ private slots:
     void viewportOffsetLogScale();
     void viewportOffsetNoChange();
 
+    // GPU translation fast path
+    void graph2TranslationOffsetWhenBusy();
+    void graph2TranslationResetsOnFreshData();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };

@@ -20,6 +20,7 @@ test_srcs = [
     'test-multigraph/test-multigraph.cpp',
     'test-pipeline/test-pipeline.cpp',
     'test-pipeline/test-viewport-offset.cpp',
+    'test-pipeline/test-gpu-translation.cpp',
     'test-waterfall/test-waterfall.cpp',
     'test-hspan/test-hspan.cpp',
     'test-rspan/test-rspan.cpp',
