@@ -80,6 +80,31 @@ void TestPipeline::multiGraphTranslationOffsetWhenBusy()
         QVERIFY(mg->hasRenderedRange());
 }
 
+void TestPipeline::histogram2dTranslationOffsetWhenBusy()
+{
+    auto* hist = new QCPHistogram2D(mPlot->xAxis, mPlot->yAxis);
+    constexpr int N = 200000;
+    std::vector<double> keys(N), values(N);
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i % 500;
+        values[i] = i / 500;
+    }
+    hist->setData(std::move(keys), std::move(values));
+
+    mPlot->xAxis->setRange(0, 500);
+    mPlot->yAxis->setRange(0, 400);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QTRY_VERIFY_WITH_TIMEOUT(!hist->pipeline().isBusy(), 5000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    mPlot->xAxis->setRange(50, 550);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    if (hist->pipeline().isBusy())
+        QVERIFY(hist->hasRenderedRange());
+}
+
 void TestPipeline::colormap2TranslationOffsetWhenBusy()
 {
     auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
