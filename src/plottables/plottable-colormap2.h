@@ -68,8 +68,6 @@ public:
     QCPColormapPipeline& pipeline() { return mPipeline; }
     const QCPColormapPipeline& pipeline() const { return mPipeline; }
 
-    bool hasRenderedRange() const { return mHasRenderedRange; }
-
 public Q_SLOTS:
     void setGradient(const QCPColorGradient& gradient);
     void setDataRange(const QCPRange& range);
@@ -97,7 +95,4 @@ private:
     QCPColormapRenderer mRenderer;
 
     void onViewportChanged();
-
-    struct { QCPRange key, value; } mRenderedRange {};
-    bool mHasRenderedRange = false;
 };

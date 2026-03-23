@@ -37,8 +37,7 @@ public:
     using NormalizeFn = std::function<double(double value, int col, int row)>;
     void updateMapImage(const QCPColorMapData* data, NormalizeFn normalize = {});
     void draw(QCPPainter* painter, QCPAxis* keyAxis, QCPAxis* valueAxis,
-              const QCPRange& keyRange, const QCPRange& valueRange,
-              QPointF pixelOffset = {});
+              const QCPRange& keyRange, const QCPRange& valueRange);
 
     // RHI layer
     QCPColormapRhiLayer* ensureRhiLayer();

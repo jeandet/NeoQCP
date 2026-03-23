@@ -1,7 +1,6 @@
 #include "plottable-histogram2d.h"
 #include "plottable-colormap.h" // for QCPColorMapData
 #include <core.h>
-#include <painting/viewport-offset.h>
 #include <limits>
 #include <painting/painter.h>
 #include <layoutelements/layoutelement-colorscale.h>
@@ -255,22 +254,8 @@ void QCPHistogram2D::draw(QCPPainter* painter)
 
     QCPRange keyRange = binnedData->keyRange();
     QCPRange valueRange = binnedData->valueRange();
-
-    QPointF gpuOffset;
-    if (mPipeline.isBusy() && mHasRenderedRange)
-    {
-        gpuOffset = qcp::computeViewportOffset(
-            mKeyAxis.data(), mValueAxis.data(),
-            mRenderedRange.key, mRenderedRange.value);
-    }
-    else if (!mPipeline.isBusy())
-    {
-        mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
-        mHasRenderedRange = true;
-    }
-
     applyDefaultAntialiasingHint(painter);
-    mRenderer.draw(painter, mKeyAxis.data(), mValueAxis.data(), keyRange, valueRange, gpuOffset);
+    mRenderer.draw(painter, mKeyAxis.data(), mValueAxis.data(), keyRange, valueRange);
 }
 
 void QCPHistogram2D::drawLegendIcon(QCPPainter* painter, const QRectF& rect) const

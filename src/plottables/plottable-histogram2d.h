@@ -66,8 +66,6 @@ public:
     // Pipeline access
     QCPHistogramPipeline& pipeline() { return mPipeline; }
     const QCPHistogramPipeline& pipeline() const { return mPipeline; }
-    bool hasRenderedRange() const { return mHasRenderedRange; }
-
 public Q_SLOTS:
     void setGradient(const QCPColorGradient& gradient);
     void setDataRange(const QCPRange& range);
@@ -96,8 +94,6 @@ private:
     Normalization mNormalization = nNone;
     QCPHistogramPipeline mPipeline;
     QCPColormapRenderer mRenderer;
-    struct { QCPRange key, value; } mRenderedRange {};
-    bool mHasRenderedRange = false;
 
     void installTransform();
 };

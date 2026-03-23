@@ -82,6 +82,9 @@ void TestPipeline::multiGraphTranslationOffsetWhenBusy()
 
 void TestPipeline::histogram2dTranslationOffsetWhenBusy()
 {
+    // Histogram2D uses coordToPixel()-based quad positioning (same as ColorMap2),
+    // so it naturally repositions on pan without GPU translation.
+    // This test verifies panning during busy pipeline doesn't crash.
     auto* hist = new QCPHistogram2D(mPlot->xAxis, mPlot->yAxis);
     constexpr int N = 200000;
     std::vector<double> keys(N), values(N);
@@ -98,15 +101,16 @@ void TestPipeline::histogram2dTranslationOffsetWhenBusy()
     QTRY_VERIFY_WITH_TIMEOUT(!hist->pipeline().isBusy(), 5000);
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
+    // Pan while pipeline may be busy — should not crash or double-translate
     mPlot->xAxis->setRange(50, 550);
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
-
-    if (hist->pipeline().isBusy())
-        QVERIFY(hist->hasRenderedRange());
 }
 
 void TestPipeline::colormap2TranslationOffsetWhenBusy()
 {
+    // ColorMap2 uses coordToPixel()-based quad positioning, so the image
+    // naturally repositions on pan without needing a GPU translation offset.
+    // This test verifies that panning during a busy pipeline doesn't crash.
     auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
 
     constexpr int NX = 500, NY = 500;
@@ -123,11 +127,9 @@ void TestPipeline::colormap2TranslationOffsetWhenBusy()
     QTRY_VERIFY_WITH_TIMEOUT(!cm->pipeline().isBusy(), 5000);
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
+    // Pan while pipeline may be busy — should not crash or double-translate
     mPlot->xAxis->setRange(50, 550);
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
-
-    if (cm->pipeline().isBusy())
-        QVERIFY(cm->hasRenderedRange());
 }
 
 void TestPipeline::translatedGeometryClippedToAxisRect()
