@@ -52,6 +52,7 @@ class QRhiBuffer;
 class QRhiShaderResourceBindings;
 class QCPPlottableRhiLayer;
 class QCPColormapRhiLayer;
+class QCPSpanRhiLayer;
 class QCPTheme;
 class QCPPipelineScheduler;
 class QCPOverlay;
@@ -218,6 +219,8 @@ public:
     void setThemeLegendBorder(const QColor& color);
     // overlay:
     QCPOverlay* overlay();
+    // span GPU layer:
+    QCPSpanRhiLayer* spanRhiLayer();
     // pipeline:
     QCPPipelineScheduler* pipelineScheduler() const { return mPipelineScheduler; }
     void setMaxPipelineThreads(int count);
@@ -382,6 +385,7 @@ protected:
     bool mRhiInitialized = false;
     QMap<QCPLayer*, QCPPlottableRhiLayer*> mPlottableRhiLayers;
     QSet<QCPColormapRhiLayer*> mColormapRhiLayers;
+    QCPSpanRhiLayer* mSpanRhiLayer = nullptr;
     QCPPipelineScheduler* mPipelineScheduler = nullptr;
     QCPOverlay* mOverlay = nullptr;
     ItemCreator mItemCreator;

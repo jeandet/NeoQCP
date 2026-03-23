@@ -42,6 +42,7 @@
 #include "painting/paintbuffer-rhi.h"
 #include "painting/plottable-rhi-layer.h"
 #include "painting/colormap-rhi-layer.h"
+#include "painting/span-rhi-layer.h"
 #include <QSet>
 #include <rhi/qrhi.h>
 #include "embedded_shaders.h"
@@ -663,6 +664,13 @@ QCPOverlay* QCustomPlot::overlay()
         mOverlay->setLayer(notifLayer);
     }
     return mOverlay;
+}
+
+QCPSpanRhiLayer* QCustomPlot::spanRhiLayer()
+{
+    if (!mSpanRhiLayer && mRhi)
+        mSpanRhiLayer = new QCPSpanRhiLayer(mRhi);
+    return mSpanRhiLayer;
 }
 
 /*!
@@ -2631,6 +2639,14 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
                               mRhi->isYUpInNDC(), mCompositeUbo);
     }
 
+    // Upload span GPU resources
+    if (mSpanRhiLayer && mSpanRhiLayer->hasSpans())
+    {
+        mSpanRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
+        mSpanRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
+                                        mRhi->isYUpInNDC());
+    }
+
     if (!mCompositePipeline)
     {
         QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
@@ -2793,6 +2809,10 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
         }
     }
 
+    // Draw GPU spans (on top of everything, clipped by scissor to axis rects)
+    if (mSpanRhiLayer && mSpanRhiLayer->hasSpans())
+        mSpanRhiLayer->render(cb, outputSize);
+
     cb->endPass();
 }
 
@@ -2808,6 +2828,8 @@ void QCustomPlot::releaseResources()
     mPlottableRhiLayers.clear();
     // Colormap RHI layers are owned by QCPColorMap2 instances — just clear tracking
     mColormapRhiLayers.clear();
+    delete mSpanRhiLayer;
+    mSpanRhiLayer = nullptr;
     mPaintBuffers.clear();
     delete mCompositePipeline;
     mCompositePipeline = nullptr;
