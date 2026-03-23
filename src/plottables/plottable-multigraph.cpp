@@ -5,7 +5,9 @@
 #include "../datasource/resampled-multi-datasource.h"
 #include "../layoutelements/layoutelement-axisrect.h"
 #include "../layoutelements/layoutelement-legend-group.h"
+#include "../painting/line-extruder.h"
 #include "../painting/painter.h"
+#include "../painting/plottable-rhi-layer.h"
 #include "../vector2d.h"
 #include <cmath>
 
@@ -506,6 +508,14 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             rebuildL2(vp);
     }
 
+    // When the async pipeline is active but hasn't delivered results yet,
+    // skip drawing raw data.  Drawing 100K+ points through QPainter is
+    // extremely slow on macOS (Core Graphics), causing multi-second stalls.
+    // The pipeline will trigger a replot when L1 is ready.
+    if (mNeedsResampling && !mL2Result
+        && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        return;
+
     const QCPAbstractMultiDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
 
     int begin = ds->findBegin(mKeyAxis->range().lower);
@@ -547,16 +557,41 @@ void QCPMultiGraph::draw(QCPPainter* painter)
 
         // Draw lines
         if (mLineStyle != lsNone) {
-            applyDefaultAntialiasingHint(painter);
+            const QPen& activePen = comp.selection.isEmpty() ? comp.pen : comp.selectedPen;
             if (mLineStyle == lsImpulse) {
-                QPen impulsePen = comp.pen;
+                applyDefaultAntialiasingHint(painter);
+                QPen impulsePen = activePen;
                 impulsePen.setCapStyle(Qt::FlatCap);
-                painter->setPen(comp.selection.isEmpty() ? impulsePen : comp.selectedPen);
+                painter->setPen(impulsePen);
                 painter->drawLines(lines);
             } else {
-                painter->setPen(comp.selection.isEmpty() ? comp.pen : comp.selectedPen);
-                painter->setBrush(Qt::NoBrush);
-                painter->drawPolyline(lines.constData(), lines.size());
+                // GPU path: extrude polyline into triangle strip and render via RHI
+                bool drawnOnGpu = false;
+                if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
+                    rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
+                        && activePen.style() == Qt::SolidLine)
+                {
+                    if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
+                    {
+                        const QColor penColor = activePen.color();
+                        const float penWidth = qMax(1.0f, static_cast<float>(activePen.widthF()));
+                        auto strokeVerts = QCPLineExtruder::extrudePolyline(lines, penWidth, penColor);
+                        if (!strokeVerts.isEmpty())
+                        {
+                            const double dpr = mParentPlot->bufferDevicePixelRatio();
+                            const QSize outputSize = mParentPlot->rhiOutputSize();
+                            prl->addPlottable({}, strokeVerts, clipRect(), dpr,
+                                               outputSize.height(), rhi->isYUpInNDC());
+                            drawnOnGpu = true;
+                        }
+                    }
+                }
+                if (!drawnOnGpu) {
+                    applyDefaultAntialiasingHint(painter);
+                    painter->setPen(activePen);
+                    painter->setBrush(Qt::NoBrush);
+                    painter->drawPolyline(lines.constData(), lines.size());
+                }
             }
         }
 
