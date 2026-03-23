@@ -2,6 +2,7 @@
 #include <colorgradient.h>
 #include <axis/axis.h>
 #include <QImage>
+#include <QPointF>
 #include <functional>
 
 class QCPAbstractPlottable;
@@ -36,7 +37,8 @@ public:
     using NormalizeFn = std::function<double(double value, int col, int row)>;
     void updateMapImage(const QCPColorMapData* data, NormalizeFn normalize = {});
     void draw(QCPPainter* painter, QCPAxis* keyAxis, QCPAxis* valueAxis,
-              const QCPRange& keyRange, const QCPRange& valueRange);
+              const QCPRange& keyRange, const QCPRange& valueRange,
+              QPointF pixelOffset = {});
 
     // RHI layer
     QCPColormapRhiLayer* ensureRhiLayer();

@@ -102,7 +102,8 @@ void QCPColormapRenderer::updateMapImage(const QCPColorMapData* data, NormalizeF
 }
 
 void QCPColormapRenderer::draw(QCPPainter* painter, QCPAxis* keyAxis, QCPAxis* valueAxis,
-                               const QCPRange& keyRange, const QCPRange& valueRange)
+                               const QCPRange& keyRange, const QCPRange& valueRange,
+                               QPointF pixelOffset)
 {
     PROFILE_HERE_N("QCPColormapRenderer::draw");
     if (!keyAxis || !valueAxis || mMapImage.isNull())
@@ -113,6 +114,7 @@ void QCPColormapRenderer::draw(QCPPainter* painter, QCPAxis* keyAxis, QCPAxis* v
     QPointF bottomRight(keyAxis->coordToPixel(keyRange.upper),
                         valueAxis->coordToPixel(valueRange.lower));
     QRectF imageRect(topLeft, bottomRight);
+    imageRect.translate(pixelOffset);
 
     bool mirrorX = keyAxis->rangeReversed();
     bool mirrorY = valueAxis->rangeReversed();

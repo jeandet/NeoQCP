@@ -1,5 +1,6 @@
 #include "plottable-colormap2.h"
 #include "plottable-colormap.h" // for QCPColorMapData
+#include <painting/viewport-offset.h>
 #include <core.h>
 #include <painting/painter.h>
 #include <layoutelements/layoutelement-colorscale.h>
@@ -248,10 +249,23 @@ void QCPColorMap2::draw(QCPPainter* painter)
     if (mRenderer.mapImage().isNull())
         return;
 
+    QPointF gpuOffset;
+    if (mPipeline.isBusy() && mHasRenderedRange)
+    {
+        gpuOffset = qcp::computeViewportOffset(
+            mKeyAxis.data(), mValueAxis.data(),
+            mRenderedRange.key, mRenderedRange.value);
+    }
+    else if (!mPipeline.isBusy())
+    {
+        mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
+        mHasRenderedRange = true;
+    }
+
     QCPRange keyRange = resampledData->keyRange();
     QCPRange valueRange = resampledData->valueRange();
     applyDefaultAntialiasingHint(painter);
-    mRenderer.draw(painter, mKeyAxis.data(), mValueAxis.data(), keyRange, valueRange);
+    mRenderer.draw(painter, mKeyAxis.data(), mValueAxis.data(), keyRange, valueRange, gpuOffset);
 }
 
 void QCPColorMap2::drawLegendIcon(QCPPainter* painter, const QRectF& rect) const

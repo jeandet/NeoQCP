@@ -100,6 +100,7 @@ private slots:
     void graph2TranslationOffsetWhenBusy();
     void graph2TranslationResetsOnFreshData();
     void multiGraphTranslationOffsetWhenBusy();
+    void colormap2TranslationOffsetWhenBusy();
 
 private:
     QCustomPlot* mPlot = nullptr;
