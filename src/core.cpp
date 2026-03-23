@@ -2681,6 +2681,8 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
         mLayoutSrb->create();
         mCompositePipeline->setShaderResourceBindings(mLayoutSrb);
         mCompositePipeline->setSampleCount(sampleCount());
+        mCompositePipeline->setFlags(mCompositePipeline->flags()
+                                     | QRhiGraphicsPipeline::UsesScissor);
         mCompositePipeline->create();
     }
 
@@ -2736,8 +2738,37 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
                     uboUpdates->updateDynamicBuffer(mCompositeUbo, 0, sizeof(compositeParams), &compositeParams);
                     cb->resourceUpdate(uboUpdates);
 
+                    bool needsScissor = !layerOffset.isNull();
+                    if (needsScissor)
+                    {
+                        QRect clipRect;
+                        for (auto* child : layer->children())
+                        {
+                            if (auto* plottable = qobject_cast<QCPAbstractPlottable*>(child))
+                                clipRect = clipRect.isNull() ? plottable->clipRect()
+                                                             : clipRect.united(plottable->clipRect());
+                        }
+                        if (!clipRect.isNull())
+                        {
+                            double dpr = bufferDevicePixelRatio();
+                            int sx = static_cast<int>(clipRect.x() * dpr);
+                            int sy = static_cast<int>(clipRect.y() * dpr);
+                            int sw = static_cast<int>(clipRect.width() * dpr);
+                            int sh = static_cast<int>(clipRect.height() * dpr);
+                            if (mRhi->isYUpInNDC())
+                                sy = outputSize.height() - sy - sh;
+                            cb->setScissor({sx, sy, sw, sh});
+                        }
+                        else
+                        {
+                            needsScissor = false;
+                        }
+                    }
+
                     cb->setGraphicsPipeline(mCompositePipeline);
                     cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
+                    if (!needsScissor)
+                        cb->setScissor({0, 0, outputSize.width(), outputSize.height()});
                     cb->setShaderResources(rhiBuffer->srb());
                     cb->setVertexInput(0, 1, &vbufBinding, mQuadIndexBuffer, 0,
                                        QRhiCommandBuffer::IndexUInt16);

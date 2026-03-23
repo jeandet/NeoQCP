@@ -95,6 +95,7 @@ private slots:
     void stallPixelOffsetIdleIsZero();
     void layerPixelOffsetFromBusyChild();
     void layerPixelOffsetZeroWhenNoAsyncChildren();
+    void layerTranslationClippedToAxisRect();
 
     // GPU translation offset
     void viewportOffsetLinearHorizontal();
