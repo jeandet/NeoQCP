@@ -70,18 +70,14 @@ Span constructors call `mParentPlot->spanRhiLayer()->registerSpan(this)`. The sp
 
 ### Render order
 
-The existing `render()` loop iterates layers and interleaves plottable, colormap, and paint buffer composite draws per layer. There is no clean insertion point between GPU content and paint buffers within this loop.
-
-The span draw call goes **after the layer loop ends**, before `cb->endPass()`:
-
 ```
-1. Per-layer loop: plottable draws, colormap draws, paint buffer composites (existing)
-2. Span RHI layer — on top of everything (NEW)
+1. Plottable RHI layers (Graph2, MultiGraph — curves)
+2. Colormap RHI layers (ColorMap2, Histogram2D)
+3. Span RHI layer — on top of data (NEW)
+4. Composite paint buffer textures (axes, tick labels, legend — on top of everything)
 ```
 
-Spans render on top of all content including axes/labels/legend. Scissor clipping to the axis rect prevents spans from covering axis decorations outside the plot area. This is the natural visual for overlay/highlight items.
-
-**Screen vs export Z-order**: The QPainter export path respects layer assignment, while the GPU path renders all spans at a fixed Z-order. This is acceptable since spans are conventionally on top of data.
+Spans render after plottables/colormaps (visually on top of curves) but before the paint buffer composite pass (so axes and labels remain on top).
 
 ### Export fallback
 
@@ -305,7 +301,7 @@ QCPSpanRhiLayer* spanRhiLayer();            // accessor, creates on first call
 
 ### Changes to `QCustomPlot::render()`
 
-The span RHI layer is a single global object, not per-layer. It renders once, after the layer loop ends but before `cb->endPass()`. All spans share a single Z-order (on top of everything). Span layer assignment in the `QCPLayer` system is ignored for on-screen rendering (only matters for the export QPainter path).
+The span RHI layer is a single global object, not per-layer. It renders once, after all plottable and colormap RHI layers, but before the paint buffer composite loop. This means all spans render at the same Z-order — on top of all GPU plottables/colormaps, below all paint buffer content (axes, labels, legend). Span layer assignment in the `QCPLayer` system is ignored for on-screen rendering (only matters for the export QPainter path).
 
 Resource upload phase (before `beginPass`):
 ```cpp
@@ -315,17 +311,11 @@ if (mSpanRhiLayer && mSpanRhiLayer->hasSpans()) {
 }
 ```
 
-Draw phase (after the per-layer loop, before `cb->endPass()`):
+Draw phase (inside render pass, after plottable/colormap draws, before composite loop):
 ```cpp
 if (mSpanRhiLayer && mSpanRhiLayer->hasSpans()) {
     mSpanRhiLayer->render(cb, outputSize);
 }
-```
-
-Also add `releaseResources()` cleanup:
-```cpp
-delete mSpanRhiLayer;
-mSpanRhiLayer = nullptr;
 ```
 
 ### Changes to span constructors

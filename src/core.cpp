@@ -453,6 +453,7 @@ QCustomPlot::QCustomPlot(QWidget* parent)
     updateLayerIndices();
     setCurrentLayer(QLatin1String("main"));
     layer(QLatin1String("overlay"))->setMode(QCPLayer::lmBuffered);
+    layer(QLatin1String("main"))->setMode(QCPLayer::lmBuffered);
 
     // create initial layout, axis rect and legend:
     mPlotLayout = new QCPLayoutGrid;
@@ -2490,6 +2491,8 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
         mCompositePipeline = nullptr;
         delete mLayoutSrb;
         mLayoutSrb = nullptr;
+        delete mCompositeUbo;
+        mCompositeUbo = nullptr;
         for (const auto& buffer : mPaintBuffers)
         {
             if (auto* rhiBuffer = dynamic_cast<QCPPaintBufferRhi*>(buffer.data()))
@@ -2544,6 +2547,10 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
     updates->uploadStaticBuffer(mQuadVertexBuffer, quadVertices);
     updates->uploadStaticBuffer(mQuadIndexBuffer, quadIndices);
     cb->resourceUpdate(updates);
+
+    // Uniform buffer for per-layer composite translation (5 floats, padded to 32 for std140)
+    mCompositeUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 32);
+    mCompositeUbo->create();
 
     // Recreate paint buffers now that we have an RHI instance
     mPaintBuffers.clear();
@@ -2617,6 +2624,12 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
     }
 
     // Create pipeline lazily (needs renderPassDescriptor from the first render call)
+    if (!mCompositeUbo)
+    {
+        mCompositeUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 32);
+        mCompositeUbo->create();
+    }
+
     if (!mCompositePipeline)
     {
         QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
@@ -2660,11 +2673,16 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
         mLayoutSrb->setBindings({
             QRhiShaderResourceBinding::sampledTexture(
                 0, QRhiShaderResourceBinding::FragmentStage,
-                nullptr, mSampler)
+                nullptr, mSampler),
+            QRhiShaderResourceBinding::uniformBuffer(
+                1, QRhiShaderResourceBinding::VertexStage,
+                mCompositeUbo)
         });
         mLayoutSrb->create();
         mCompositePipeline->setShaderResourceBindings(mLayoutSrb);
         mCompositePipeline->setSampleCount(sampleCount());
+        mCompositePipeline->setFlags(mCompositePipeline->flags()
+                                     | QRhiGraphicsPipeline::UsesScissor);
         mCompositePipeline->create();
     }
 
@@ -2698,13 +2716,59 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
                         srb->setBindings({
                             QRhiShaderResourceBinding::sampledTexture(
                                 0, QRhiShaderResourceBinding::FragmentStage,
-                                rhiBuffer->texture(), mSampler)
+                                rhiBuffer->texture(), mSampler),
+                            QRhiShaderResourceBinding::uniformBuffer(
+                                1, QRhiShaderResourceBinding::VertexStage,
+                                mCompositeUbo)
                         });
                         srb->create();
                         rhiBuffer->setSrb(srb, rhiBuffer->texture());
                     }
+                    QPointF layerOffset = layer->pixelOffset();
+                    struct {
+                        float translateX, translateY, viewportW, viewportH, yFlip;
+                    } compositeParams = {
+                        float(layerOffset.x()),
+                        float(layerOffset.y()),
+                        float(outputSize.width()),
+                        float(outputSize.height()),
+                        mRhi->isYUpInNDC() ? -1.0f : 1.0f
+                    };
+                    QRhiResourceUpdateBatch* uboUpdates = mRhi->nextResourceUpdateBatch();
+                    uboUpdates->updateDynamicBuffer(mCompositeUbo, 0, sizeof(compositeParams), &compositeParams);
+                    cb->resourceUpdate(uboUpdates);
+
+                    bool needsScissor = !layerOffset.isNull();
+                    if (needsScissor)
+                    {
+                        QRect clipRect;
+                        for (auto* child : layer->children())
+                        {
+                            if (auto* plottable = qobject_cast<QCPAbstractPlottable*>(child))
+                                clipRect = clipRect.isNull() ? plottable->clipRect()
+                                                             : clipRect.united(plottable->clipRect());
+                        }
+                        if (!clipRect.isNull())
+                        {
+                            double dpr = bufferDevicePixelRatio();
+                            int sx = static_cast<int>(clipRect.x() * dpr);
+                            int sy = static_cast<int>(clipRect.y() * dpr);
+                            int sw = static_cast<int>(clipRect.width() * dpr);
+                            int sh = static_cast<int>(clipRect.height() * dpr);
+                            if (mRhi->isYUpInNDC())
+                                sy = outputSize.height() - sy - sh;
+                            cb->setScissor({sx, sy, sw, sh});
+                        }
+                        else
+                        {
+                            needsScissor = false;
+                        }
+                    }
+
                     cb->setGraphicsPipeline(mCompositePipeline);
                     cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
+                    if (!needsScissor)
+                        cb->setScissor({0, 0, outputSize.width(), outputSize.height()});
                     cb->setShaderResources(rhiBuffer->srb());
                     cb->setVertexInput(0, 1, &vbufBinding, mQuadIndexBuffer, 0,
                                        QRhiCommandBuffer::IndexUInt16);
@@ -2748,6 +2812,8 @@ void QCustomPlot::releaseResources()
     mCompositePipeline = nullptr;
     delete mLayoutSrb;
     mLayoutSrb = nullptr;
+    delete mCompositeUbo;
+    mCompositeUbo = nullptr;
     delete mSampler;
     mSampler = nullptr;
     delete mQuadVertexBuffer;
