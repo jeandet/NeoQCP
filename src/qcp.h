@@ -65,6 +65,7 @@
 #include "lineending.h"
 #include "painting/paintbuffer.h"
 #include "painting/painter.h"
+#include "painting/span-rhi-layer.h"
 #include "plottables/plottable.h"
 #include "plottables/plottable1d.h"
 #include "plottables/plottable-bars.h"
