@@ -337,6 +337,35 @@ void QCPLayer::removeChild(QCPLayerable* layerable)
                  << reinterpret_cast<quintptr>(layerable);
 }
 
+QPointF QCPLayer::pixelOffset() const
+{
+    QPointF result;
+    QCPAxisRect* firstAxisRect = nullptr;
+    for (auto* child : mChildren)
+    {
+        if (auto* plottable = qobject_cast<QCPAbstractPlottable*>(child))
+        {
+            QPointF offset = plottable->stallPixelOffset();
+            if (!offset.isNull())
+            {
+                auto* ar = plottable->keyAxis() ? plottable->keyAxis()->axisRect() : nullptr;
+                if (!firstAxisRect)
+                {
+                    firstAxisRect = ar;
+                    result = offset;
+                }
+                else if (ar != firstAxisRect)
+                {
+                    // Multiple axis rects with different pan states — cannot
+                    // apply a single offset. Degrade gracefully to no translation.
+                    return {};
+                }
+            }
+        }
+    }
+    return result;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPLayerable
 ////////////////////////////////////////////////////////////////////////////////////////////////////

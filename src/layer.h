@@ -82,6 +82,8 @@ public:
 
     LayerMode mode() const { return mMode; }
 
+    QPointF pixelOffset() const;
+
     // setters:
     void setVisible(bool visible);
     void setMode(LayerMode mode);

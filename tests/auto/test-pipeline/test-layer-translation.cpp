@@ -51,3 +51,47 @@ void TestPipeline::stallPixelOffsetIdleIsZero()
 
     QCOMPARE(graph->stallPixelOffset(), QPointF(0, 0));
 }
+
+void TestPipeline::layerPixelOffsetFromBusyChild()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    QVector<double> keys(200000), values(200000);
+    for (int i = 0; i < 200000; ++i) {
+        keys[i] = i;
+        values[i] = std::sin(i * 0.01);
+    }
+    graph->setData(std::move(keys), std::move(values));
+
+    mPlot->xAxis->setRange(0, 100000);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QTRY_VERIFY_WITH_TIMEOUT(!graph->pipeline().isBusy(), 5000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QCPLayer* mainLayer = mPlot->layer("main");
+    QVERIFY(mainLayer);
+
+    // Idle: layer offset should be zero
+    QCOMPARE(mainLayer->pixelOffset(), QPointF(0, 0));
+
+    // Pan to trigger busy state
+    mPlot->xAxis->setRange(10000, 110000);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    if (graph->pipeline().isBusy())
+    {
+        QPointF layerOffset = mainLayer->pixelOffset();
+        QPointF plottableOffset = graph->stallPixelOffset();
+        // Layer offset should match the plottable's offset
+        QCOMPARE(layerOffset, plottableOffset);
+    }
+}
+
+void TestPipeline::layerPixelOffsetZeroWhenNoAsyncChildren()
+{
+    // main layer with no plottables should return zero
+    QCPLayer* mainLayer = mPlot->layer("main");
+    QVERIFY(mainLayer);
+    QCOMPARE(mainLayer->pixelOffset(), QPointF(0, 0));
+}
