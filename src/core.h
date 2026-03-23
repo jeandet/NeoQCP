@@ -378,6 +378,7 @@ protected:
     QRhiSampler* mSampler = nullptr;
     QRhiBuffer* mQuadVertexBuffer = nullptr;
     QRhiBuffer* mQuadIndexBuffer = nullptr;
+    QRhiBuffer* mCompositeUbo = nullptr;
     bool mRhiInitialized = false;
     QMap<QCPLayer*, QCPPlottableRhiLayer*> mPlottableRhiLayers;
     QSet<QCPColormapRhiLayer*> mColormapRhiLayers;

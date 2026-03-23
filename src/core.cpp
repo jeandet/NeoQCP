@@ -2491,6 +2491,8 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
         mCompositePipeline = nullptr;
         delete mLayoutSrb;
         mLayoutSrb = nullptr;
+        delete mCompositeUbo;
+        mCompositeUbo = nullptr;
         for (const auto& buffer : mPaintBuffers)
         {
             if (auto* rhiBuffer = dynamic_cast<QCPPaintBufferRhi*>(buffer.data()))
@@ -2545,6 +2547,10 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
     updates->uploadStaticBuffer(mQuadVertexBuffer, quadVertices);
     updates->uploadStaticBuffer(mQuadIndexBuffer, quadIndices);
     cb->resourceUpdate(updates);
+
+    // Uniform buffer for per-layer composite translation (5 floats, padded to 32 for std140)
+    mCompositeUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 32);
+    mCompositeUbo->create();
 
     // Recreate paint buffers now that we have an RHI instance
     mPaintBuffers.clear();
@@ -2618,6 +2624,12 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
     }
 
     // Create pipeline lazily (needs renderPassDescriptor from the first render call)
+    if (!mCompositeUbo)
+    {
+        mCompositeUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 32);
+        mCompositeUbo->create();
+    }
+
     if (!mCompositePipeline)
     {
         QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
@@ -2661,7 +2673,10 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
         mLayoutSrb->setBindings({
             QRhiShaderResourceBinding::sampledTexture(
                 0, QRhiShaderResourceBinding::FragmentStage,
-                nullptr, mSampler)
+                nullptr, mSampler),
+            QRhiShaderResourceBinding::uniformBuffer(
+                1, QRhiShaderResourceBinding::VertexStage,
+                mCompositeUbo)
         });
         mLayoutSrb->create();
         mCompositePipeline->setShaderResourceBindings(mLayoutSrb);
@@ -2699,11 +2714,28 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
                         srb->setBindings({
                             QRhiShaderResourceBinding::sampledTexture(
                                 0, QRhiShaderResourceBinding::FragmentStage,
-                                rhiBuffer->texture(), mSampler)
+                                rhiBuffer->texture(), mSampler),
+                            QRhiShaderResourceBinding::uniformBuffer(
+                                1, QRhiShaderResourceBinding::VertexStage,
+                                mCompositeUbo)
                         });
                         srb->create();
                         rhiBuffer->setSrb(srb, rhiBuffer->texture());
                     }
+                    QPointF layerOffset = layer->pixelOffset();
+                    struct {
+                        float translateX, translateY, viewportW, viewportH, yFlip;
+                    } compositeParams = {
+                        float(layerOffset.x()),
+                        float(layerOffset.y()),
+                        float(outputSize.width()),
+                        float(outputSize.height()),
+                        mRhi->isYUpInNDC() ? -1.0f : 1.0f
+                    };
+                    QRhiResourceUpdateBatch* uboUpdates = mRhi->nextResourceUpdateBatch();
+                    uboUpdates->updateDynamicBuffer(mCompositeUbo, 0, sizeof(compositeParams), &compositeParams);
+                    cb->resourceUpdate(uboUpdates);
+
                     cb->setGraphicsPipeline(mCompositePipeline);
                     cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
                     cb->setShaderResources(rhiBuffer->srb());
@@ -2749,6 +2781,8 @@ void QCustomPlot::releaseResources()
     mCompositePipeline = nullptr;
     delete mLayoutSrb;
     mLayoutSrb = nullptr;
+    delete mCompositeUbo;
+    mCompositeUbo = nullptr;
     delete mSampler;
     mSampler = nullptr;
     delete mQuadVertexBuffer;
