@@ -158,6 +158,14 @@ void QCPGrid::draw(QCPPainter* painter)
         return;
     }
 
+    if (auto* plot = mParentAxis->parentPlot())
+    {
+        if (plot->gridRhiLayer()
+            && !painter->modes().testFlag(QCPPainter::pmVectorized)
+            && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+            return;
+    }
+
     if (mParentAxis->subTicks() && mSubGridVisible)
         drawSubGridLines(painter);
     drawGridLines(painter);
@@ -1991,6 +1999,9 @@ void QCPAxis::draw(QCPPainter* painter)
     mAxisPainter->tickPositions = tickPositions;
     mAxisPainter->tickLabels = tickLabels;
     mAxisPainter->subTickPositions = subTickPositions;
+    mAxisPainter->skipTickDrawing = mParentPlot && mParentPlot->gridRhiLayer()
+        && !painter->modes().testFlag(QCPPainter::pmVectorized)
+        && !painter->modes().testFlag(QCPPainter::pmNoCaching);
     mAxisPainter->draw(painter);
 }
 
@@ -2263,48 +2274,52 @@ void QCPAxisPainterPrivate::draw(QCPPainter* painter)
             baseLine.p1()); // won't make a difference for line itself, but for line endings later
     painter->drawLine(baseLine);
 
-    // draw ticks:
-    if (!tickPositions.isEmpty())
+    if (!skipTickDrawing)
     {
-        painter->setPen(tickPen);
-        int tickDir = (type == QCPAxis::atBottom || type == QCPAxis::atRight)
-            ? -1
-            : 1; // direction of ticks ("inward" is right for left axis and left for right axis)
-        if (QCPAxis::orientation(type) == Qt::Horizontal)
+        // draw ticks:
+        if (!tickPositions.isEmpty())
         {
-            for (double tickPos : tickPositions)
-                painter->drawLine(
-                    QLineF(tickPos + xCor, origin.y() - tickLengthOut * tickDir + yCor,
-                           tickPos + xCor, origin.y() + tickLengthIn * tickDir + yCor));
+            painter->setPen(tickPen);
+            int tickDir = (type == QCPAxis::atBottom || type == QCPAxis::atRight)
+                ? -1
+                : 1; // direction of ticks ("inward" is right for left axis and left for right axis)
+            if (QCPAxis::orientation(type) == Qt::Horizontal)
+            {
+                for (double tickPos : tickPositions)
+                    painter->drawLine(
+                        QLineF(tickPos + xCor, origin.y() - tickLengthOut * tickDir + yCor,
+                               tickPos + xCor, origin.y() + tickLengthIn * tickDir + yCor));
+            }
+            else
+            {
+                for (double tickPos : tickPositions)
+                    painter->drawLine(
+                        QLineF(origin.x() - tickLengthOut * tickDir + xCor,
+                               tickPos + yCor, origin.x() + tickLengthIn * tickDir + xCor,
+                               tickPos + yCor));
+            }
         }
-        else
-        {
-            for (double tickPos : tickPositions)
-                painter->drawLine(QLineF(origin.x() - tickLengthOut * tickDir + xCor,
-                                         tickPos + yCor, origin.x() + tickLengthIn * tickDir + xCor,
-                                         tickPos + yCor));
-        }
-    }
 
-    // draw subticks:
-    if (!subTickPositions.isEmpty())
-    {
-        painter->setPen(subTickPen);
-        // direction of ticks ("inward" is right for left axis and left for right axis)
-        int tickDir = (type == QCPAxis::atBottom || type == QCPAxis::atRight) ? -1 : 1;
-        if (QCPAxis::orientation(type) == Qt::Horizontal)
+        // draw subticks:
+        if (!subTickPositions.isEmpty())
         {
-            for (double subTickPos : subTickPositions)
-                painter->drawLine(
-                    QLineF(subTickPos + xCor, origin.y() - subTickLengthOut * tickDir + yCor,
-                           subTickPos + xCor, origin.y() + subTickLengthIn * tickDir + yCor));
-        }
-        else
-        {
-            for (double subTickPos : subTickPositions)
-                painter->drawLine(
-                    QLineF(origin.x() - subTickLengthOut * tickDir + xCor, subTickPos + yCor,
-                           origin.x() + subTickLengthIn * tickDir + xCor, subTickPos + yCor));
+            painter->setPen(subTickPen);
+            // direction of ticks ("inward" is right for left axis and left for right axis)
+            int tickDir = (type == QCPAxis::atBottom || type == QCPAxis::atRight) ? -1 : 1;
+            if (QCPAxis::orientation(type) == Qt::Horizontal)
+            {
+                for (double subTickPos : subTickPositions)
+                    painter->drawLine(
+                        QLineF(subTickPos + xCor, origin.y() - subTickLengthOut * tickDir + yCor,
+                               subTickPos + xCor, origin.y() + subTickLengthIn * tickDir + yCor));
+            }
+            else
+            {
+                for (double subTickPos : subTickPositions)
+                    painter->drawLine(
+                        QLineF(origin.x() - subTickLengthOut * tickDir + xCor, subTickPos + yCor,
+                               origin.x() + subTickLengthIn * tickDir + xCor, subTickPos + yCor));
+            }
         }
     }
     margin += qMax(0, qMax(tickLengthOut, subTickLengthOut));

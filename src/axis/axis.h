@@ -525,6 +525,7 @@ public:
     QVector<double> subTickPositions;
     QVector<double> tickPositions;
     QVector<QString> tickLabels;
+    bool skipTickDrawing = false;
 
 protected:
     struct CachedLabel

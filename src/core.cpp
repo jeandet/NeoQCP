@@ -2661,6 +2661,20 @@ void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QS
                                         mRhi->isYUpInNDC());
     }
 
+    // Register all axes with the grid RHI layer
+    if (mGridRhiLayer || mRhi)
+    {
+        auto* grl = gridRhiLayer();
+        if (grl)
+        {
+            for (auto* ar : axisRects())
+            {
+                for (auto* axis : ar->axes())
+                    grl->registerAxis(axis);
+            }
+        }
+    }
+
     // Upload grid RHI resources
     if (mGridRhiLayer && mGridRhiLayer->hasContent())
     {
