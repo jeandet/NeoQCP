@@ -64,7 +64,7 @@ _pad0, _pad1
 ```
 Updated every frame with current axis ranges (64-byte dynamic buffer update per axis rect).
 
-**Axis selection**: each draw group's UBO is parameterized from the actual parent axis of the grid, not hardcoded to `atBottom`/`atLeft`. A horizontal-axis grid line's UBO uses that axis as key and the perpendicular axis as value. This avoids the hardcoding limitation present in `QCPSpanRhiLayer`.
+**Axis selection**: each draw group's UBO picks a representative horizontal axis (`atBottom` → `atTop`) and vertical axis (`atLeft` → `atRight`) from the axis rect. This matches the `QCPSpanRhiLayer` approach. Axis rects with only non-standard axis placements (e.g., only top+right) are a known limitation shared with the span layer — fix both together if needed.
 
 ### Exclusions
 
