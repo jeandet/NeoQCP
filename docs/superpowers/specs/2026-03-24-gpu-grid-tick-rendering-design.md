@@ -6,7 +6,7 @@ During pan/zoom on macOS, the axes layer repaints every frame via QPainter→Cor
 
 ## Solution
 
-Render grid lines, subtick lines, and tick marks via QRhi shaders instead of QPainter. Reuse the existing span shader infrastructure (`span.vert` + `plottable.frag`). Store tick positions as data-space coordinates in a vertex buffer; the shader maps data→pixel using axis range UBO parameters. During pan, only the UBO updates (32 bytes) — geometry rebuilds only when the tick set changes.
+Render grid lines, zero-lines, subtick lines, and tick marks via QRhi shaders instead of QPainter. Reuse the existing span shader infrastructure (`span.vert` + `plottable.frag`). Store tick positions as data-space coordinates in a vertex buffer; the shader maps data→pixel using axis range UBO parameters. During pan, only the UBO updates (64 bytes per axis rect) — geometry rebuilds only when the tick set changes.
 
 ## Architecture
 
@@ -17,6 +17,7 @@ Located in `src/painting/grid-rhi-layer.h/.cpp`. Follows the `QCPSpanRhiLayer` p
 - One instance per `QCustomPlot`, lazily created (`mGridRhiLayer`)
 - Groups geometry by `QCPAxisRect` for scissor clipping
 - Reuses `span.vert` + `plottable.frag` (same vertex format, UBO layout, blending)
+- Renders in **two passes** at different layers (see Render Loop Integration)
 
 ### Vertex format
 
@@ -28,6 +29,8 @@ Same as spans: 11 floats per vertex (dataCoord, color, extrudeDir, extrudeWidth,
 - `extrudeDir = (1, 0)`, `extrudeWidth = halfPenWidth`
 - Generated via `appendBorder()` (6 vertices per line)
 
+**Zero-line**: same as grid lines but with `mZeroLinePen` color. Emitted only when `range.lower < 0 && range.upper > 0` and `mZeroLinePen.style() != Qt::NoPen`. The zero-line is at data coordinate 0.
+
 **Tick marks** (horizontal axis, bottom example — short line at tick value `t`):
 - `dataCoord = (t, baseline - tickLengthOut)` / `(t, baseline + tickLengthIn)` — X is data space, Y is pixel space
 - `isPixel = (0, 1)` — same mapping as grid lines
@@ -37,13 +40,18 @@ Subticks use the same layout with different Y extents and potentially different 
 
 ### Draw groups
 
-Two draw groups per axis rect:
-1. **Grid lines** — scissored to axis rect interior (same as spans)
-2. **Tick marks** — unscissored (tick marks sit at the axis baseline, outside the plot area)
+Three draw group types per axis rect:
+1. **Grid lines + zero-line** — scissored to axis rect interior, rendered on `"grid"` layer
+2. **Tick marks + subtick marks** — unscissored, rendered on `"axes"` layer
+
+Grid lines and tick marks live on different layers in the current QPainter path (`QCPGrid` draws on `"grid"`, `QCPAxisPainterPrivate` draws ticks on `"axes"`). The GPU path preserves this ordering by splitting the draw groups into two render passes. Each draw group stores its target layer name so `render()` can filter by layer.
 
 ### Dirty detection
 
-Cache the tick value set (`mTickVector` + `mSubTickVector` values, not pixel positions) after each geometry rebuild. On each replot, compare new tick values to cached set. If equal, skip geometry rebuild — only update the UBO with new axis ranges.
+Cache the tick value set (`mTickVector` + `mSubTickVector` values, not pixel positions) and visual properties (pen colors, pen widths, subgrid visibility, zero-line pen) after each geometry rebuild. Mark geometry dirty when:
+- Tick values change (detected by comparison during `uploadResources()`)
+- Any grid visual property changes (call `markGeometryDirty()` from property setters in `QCPGrid` and `QCPAxis`)
+- Axis rect bounds change (detected by comparing cached bounds, same as `QCPSpanRhiLayer`)
 
 ### UBO
 
@@ -54,7 +62,14 @@ keyRangeLower, keyRangeUpper, keyAxisOffset, keyAxisLength, keyLogScale,
 valRangeLower, valRangeUpper, valAxisOffset, valAxisLength, valLogScale,
 _pad0, _pad1
 ```
-Updated every frame with current axis ranges (32-byte dynamic buffer update).
+Updated every frame with current axis ranges (64-byte dynamic buffer update per axis rect).
+
+**Axis selection**: each draw group's UBO is parameterized from the actual parent axis of the grid, not hardcoded to `atBottom`/`atLeft`. A horizontal-axis grid line's UBO uses that axis as key and the perpendicular axis as value. This avoids the hardcoding limitation present in `QCPSpanRhiLayer`.
+
+### Exclusions
+
+- **Polar grids** (`QCPPolarGrid`): excluded from the GPU path. Polar grids use angular/radial axes that don't inherit from `QCPAxis` and have no `QCPAxisRect`. The `rebuildGeometry()` function only processes `QCPGrid` instances attached to standard `QCPAxis` objects.
+- **Log scale constraint**: the span shader clamps coordinates to `max(coord, 1e-30)` before `log()`. This is safe because `QCPAxisTickerLog` only produces positive tick values. Custom tickers on log axes that produce zero/negative values will be silently clamped — this matches the span shader behavior.
 
 ## Data flow
 
@@ -64,7 +79,7 @@ Updated every frame with current axis ranges (32-byte dynamic buffer update).
 setRange() → replot() → setupTickVectors()
   → compare tick values to cached set → MATCH
   → skip geometry rebuild
-  → uploadResources(): update UBO only (32 bytes)
+  → uploadResources(): update UBO only (64 bytes per axis rect)
   → render(): setGraphicsPipeline, draw vertices (already on GPU)
 ```
 
@@ -80,7 +95,7 @@ setRange() → replot() → setupTickVectors()
 
 ## Render loop integration
 
-In `core.cpp render()`, the layer loop already iterates layers in order. Grid RHI layer renders on the `"grid"` layer:
+In `core.cpp render()`, the layer loop iterates layers in order (background → grid → main → axes → legend → overlay). The grid RHI layer renders at **two points** to match the QPainter draw ordering:
 
 ```
 for each layer:
@@ -88,8 +103,11 @@ for each layer:
     2. draw colormap RHI layers (existing)
     3. draw plottable RHI layers (existing)
     4. IF layer == "main": draw span RHI layer (existing)
-    5. IF layer == "grid": draw grid RHI layer (NEW)
+    5. IF layer == "grid": draw grid RHI layer — grid lines only (NEW)
+    6. IF layer == "axes": draw grid RHI layer — tick marks only (NEW)
 ```
+
+This preserves the current Z-ordering: grid lines behind plottables, tick marks in front.
 
 ### Lifecycle
 
@@ -125,7 +143,7 @@ PDF/SVG/pixmap export uses QPainter directly (`pmVectorized` / `pmNoCaching` mod
 
 | Metric | Before (QPainter) | After (GPU) |
 |---|---|---|
-| Per-frame draw calls | ~120 `drawLine()` | 1 GPU draw call + 32-byte UBO |
+| Per-frame draw calls | ~120 `drawLine()` | 2 GPU draw calls + 64-byte UBO |
 | Per-frame CPU→GPU upload | ~8 MB staging buffer | 0 (texture eliminated for grid) |
 | Geometry rebuild (when ticks change) | N/A (always full) | ~32 KB vertex buffer |
 | CoreGraphics overhead | ~120 CG path operations | 0 |
@@ -137,8 +155,8 @@ PDF/SVG/pixmap export uses QPainter directly (`pmVectorized` / `pmNoCaching` mod
 | `src/painting/grid-rhi-layer.h` | New — `QCPGridRhiLayer` class declaration |
 | `src/painting/grid-rhi-layer.cpp` | New — implementation |
 | `src/core.h` | Add `mGridRhiLayer` member, `gridRhiLayer()` accessor |
-| `src/core.cpp` | Lifecycle, render loop integration on `"grid"` layer |
-| `src/axis/axis.cpp` | `QCPGrid::draw()` early-return, `QCPAxisPainterPrivate::draw()` skip ticks |
+| `src/core.cpp` | Lifecycle, render loop integration at `"grid"` and `"axes"` layers |
+| `src/axis/axis.cpp` | `QCPGrid::draw()` early-return, `QCPAxisPainterPrivate::draw()` skip ticks, `markGeometryDirty()` from property setters |
 | `meson.build` | Add new source files |
 
 ## Files NOT changed
@@ -147,3 +165,4 @@ PDF/SVG/pixmap export uses QPainter directly (`pmVectorized` / `pmNoCaching` mod
 - `QCPSpanRhiLayer` — independent, no shared state
 - Export paths — guarded by painter mode flags
 - Tick label rendering — stays QPainter
+- Polar plot code — explicitly excluded
