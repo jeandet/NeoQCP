@@ -3,6 +3,7 @@
 #include "plottable1d.h"
 #include "datasource/abstract-multi-datasource.h"
 #include "datasource/soa-multi-datasource.h"
+#include "datasource/row-major-multi-datasource.h"
 #include "datasource/async-pipeline.h"
 #include "datasource/graph-resampler.h"
 #include <memory>
@@ -47,13 +48,22 @@ public:
             std::forward<KC>(keys), std::forward<std::vector<VC>>(valueColumns)));
     }
 
-    // Convenience: non-owning spans
+    // Convenience: non-owning spans (column-major / Fortran-order)
     template <typename K, typename V>
     void viewData(std::span<const K> keys, std::vector<std::span<const V>> valueColumns)
     {
         setDataSource(std::make_shared<
             QCPSoAMultiDataSource<std::span<const K>, std::span<const V>>>(
             keys, std::move(valueColumns)));
+    }
+
+    // Convenience: non-owning row-major (C-order) 2D array
+    template <typename K, typename V>
+    void viewRowMajorData(std::span<const K> keys, const V* values,
+                           int rows, int columns, int stride)
+    {
+        setDataSource(std::make_shared<QCPRowMajorMultiDataSource<K, V>>(
+            keys, values, rows, columns, stride));
     }
 
     // Components
