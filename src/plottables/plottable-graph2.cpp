@@ -523,29 +523,84 @@ void QCPGraph2::draw(QCPPainter* painter)
     if (begin >= end)
         return;
 
-    QVector<QPointF> lines;
-    if (mAdaptiveSampling)
+    const bool keyIsVertical = mKeyAxis->orientation() == Qt::Vertical;
+
+    // --- Line caching with GPU translation ---
+    bool needFreshLines = mLineCacheDirty || mCachedLines.isEmpty();
+
+    // Check plot resize
+    QSize currentPlotSize(mKeyAxis->axisRect()->width(), mKeyAxis->axisRect()->height());
+    if (currentPlotSize != mCachedPlotSize)
+        needFreshLines = true;
+
+    // Check zoom: if axis range size changed significantly, pixel mapping is stale
+    if (!needFreshLines && mHasRenderedRange)
     {
-        lines = ds->getOptimizedLineData(
-            begin, end, static_cast<int>(mKeyAxis->axisRect()->width()),
-            mKeyAxis.data(), mValueAxis.data());
+        double keyRatio = mKeyAxis->range().size() / mRenderedRange.key.size();
+        double valRatio = mValueAxis->range().size() / mRenderedRange.value.size();
+        if (qAbs(keyRatio - 1.0) > 0.01 || qAbs(valRatio - 1.0) > 0.01)
+            needFreshLines = true;
+    }
+
+    // Check translation: if pan offset exceeds half the plot in either axis, rebuild
+    QPointF gpuOffset;
+    if (!needFreshLines && mHasRenderedRange)
+    {
+        gpuOffset = qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
+                                               mRenderedRange.key, mRenderedRange.value);
+        const double keyDim = keyIsVertical
+            ? mKeyAxis->axisRect()->height()
+            : mKeyAxis->axisRect()->width();
+        const double valDim = keyIsVertical
+            ? mKeyAxis->axisRect()->width()
+            : mKeyAxis->axisRect()->height();
+        const double keyOffset = qAbs(keyIsVertical ? gpuOffset.y() : gpuOffset.x());
+        const double valOffset = qAbs(keyIsVertical ? gpuOffset.x() : gpuOffset.y());
+        if (keyOffset > keyDim * 0.5 || valOffset > valDim * 0.5)
+            needFreshLines = true;
+    }
+
+    // Export mode always recomputes
+    if (painter->modes().testFlag(QCPPainter::pmNoCaching)
+        || painter->modes().testFlag(QCPPainter::pmVectorized))
+        needFreshLines = true;
+
+    QVector<QPointF> lines;
+    if (needFreshLines)
+    {
+        if (mAdaptiveSampling)
+        {
+            const int pixDim = keyIsVertical
+                ? static_cast<int>(mKeyAxis->axisRect()->height())
+                : static_cast<int>(mKeyAxis->axisRect()->width());
+            lines = ds->getOptimizedLineData(
+                begin, end, pixDim, mKeyAxis.data(), mValueAxis.data());
+        }
+        else
+        {
+            lines = ds->getLines(begin, end, mKeyAxis.data(), mValueAxis.data());
+        }
+
+        // Cache for reuse (but not during export)
+        if (!painter->modes().testFlag(QCPPainter::pmNoCaching)
+            && !painter->modes().testFlag(QCPPainter::pmVectorized))
+        {
+            mCachedLines = lines;
+            mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
+            mHasRenderedRange = true;
+            mLineCacheDirty = false;
+            mCachedPlotSize = currentPlotSize;
+            gpuOffset = {};
+        }
     }
     else
     {
-        lines = ds->getLines(begin, end, mKeyAxis.data(), mValueAxis.data());
+        lines = mCachedLines;
+        // gpuOffset already computed above
     }
 
     if (lines.isEmpty())
         return;
-
-    const bool keyIsVertical = mKeyAxis->orientation() == Qt::Vertical;
-
-    QPointF gpuOffset = stallPixelOffset();
-    if (!mPipeline.isBusy())
-    {
-        mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
-        mHasRenderedRange = true;
-    }
 
     // Draw lines
     if (mLineStyle != lsNone && mPen.style() != Qt::NoPen && mPen.color().alpha() != 0)

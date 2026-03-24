@@ -105,6 +105,13 @@ private slots:
     void viewportOffsetLogScale();
     void viewportOffsetNoChange();
 
+    // Line caching
+    void graph2LineCacheReusedOnSmallPan();
+    void graph2LineCacheRebuiltOnLargePan();
+    void graph2LineCacheRebuiltOnZoom();
+    void graph2LineCacheInvalidatedOnDataChange();
+    void multiGraphLineCacheReusedOnSmallPan();
+
     // GPU translation fast path
     void graph2TranslationOffsetWhenBusy();
     void graph2TranslationResetsOnFreshData();
