@@ -2510,6 +2510,8 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
             prl->invalidatePipeline();
         for (auto* crl : mColormapRhiLayers)
             crl->invalidatePipeline();
+        if (mSpanRhiLayer)
+            mSpanRhiLayer->invalidatePipeline();
         // QRhiWidget calls initialize() on resize BEFORE resizeEvent() fires.
         // Regenerate geometry now so render() has fresh data for the new size.
         setViewport(rect());
@@ -2640,8 +2642,10 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
     }
 
     // Upload span GPU resources
+    // Always rebuild: span vertices bake axis rect pixel bounds which change on layout reflow
     if (mSpanRhiLayer && mSpanRhiLayer->hasSpans())
     {
+        mSpanRhiLayer->markGeometryDirty();
         mSpanRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mSpanRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
                                         mRhi->isYUpInNDC());
