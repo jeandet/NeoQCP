@@ -43,6 +43,7 @@
 #include "painting/plottable-rhi-layer.h"
 #include "painting/colormap-rhi-layer.h"
 #include "painting/span-rhi-layer.h"
+#include "painting/grid-rhi-layer.h"
 #include <QSet>
 #include <rhi/qrhi.h>
 #include "embedded_shaders.h"
@@ -665,6 +666,13 @@ QCPSpanRhiLayer* QCustomPlot::spanRhiLayer()
     if (!mSpanRhiLayer && mRhi)
         mSpanRhiLayer = new QCPSpanRhiLayer(mRhi);
     return mSpanRhiLayer;
+}
+
+QCPGridRhiLayer* QCustomPlot::gridRhiLayer()
+{
+    if (!mGridRhiLayer && mRhi)
+        mGridRhiLayer = new QCPGridRhiLayer(mRhi);
+    return mGridRhiLayer;
 }
 
 /*!
@@ -2492,6 +2500,8 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
             crl->invalidatePipeline();
         if (mSpanRhiLayer)
             mSpanRhiLayer->invalidatePipeline();
+        if (mGridRhiLayer)
+            mGridRhiLayer->invalidatePipeline();
         // QRhiWidget calls initialize() on resize BEFORE resizeEvent() fires.
         // Regenerate geometry now so render() has fresh data for the new size.
         setViewport(rect());
@@ -2650,6 +2660,14 @@ void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QS
         mSpanRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
                                         mRhi->isYUpInNDC());
     }
+
+    // Upload grid RHI resources
+    if (mGridRhiLayer && mGridRhiLayer->hasContent())
+    {
+        mGridRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
+        mGridRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
+                                        mRhi->isYUpInNDC());
+    }
 }
 
 void QCustomPlot::executeRenderPass(QRhiCommandBuffer* cb, QRhiResourceUpdateBatch* updates,
@@ -2781,6 +2799,16 @@ void QCustomPlot::executeRenderPass(QRhiCommandBuffer* cb, QRhiResourceUpdateBat
         if (layer == this->layer(QLatin1String("main"))
             && mSpanRhiLayer && mSpanRhiLayer->hasSpans())
             mSpanRhiLayer->render(cb, outputSize);
+
+        // Draw GPU grid lines on the "grid" layer
+        if (layer == this->layer(QLatin1String("grid"))
+            && mGridRhiLayer && mGridRhiLayer->hasContent())
+            mGridRhiLayer->renderGridLines(cb, outputSize);
+
+        // Draw GPU tick marks on the "axes" layer
+        if (layer == this->layer(QLatin1String("axes"))
+            && mGridRhiLayer && mGridRhiLayer->hasContent())
+            mGridRhiLayer->renderTickMarks(cb, outputSize);
     }
 
     cb->endPass();
@@ -2830,6 +2858,8 @@ void QCustomPlot::releaseResources()
     mColormapRhiLayers.clear();
     delete mSpanRhiLayer;
     mSpanRhiLayer = nullptr;
+    delete mGridRhiLayer;
+    mGridRhiLayer = nullptr;
     mPaintBuffers.clear();
     delete mCompositePipeline;
     mCompositePipeline = nullptr;
@@ -2858,6 +2888,8 @@ void QCustomPlot::resizeEvent([[maybe_unused]] QResizeEvent* event)
     setViewport(rect());
     if (mSpanRhiLayer)
         mSpanRhiLayer->markGeometryDirty();
+    if (mGridRhiLayer)
+        mGridRhiLayer->markGeometryDirty();
     replot(rpImmediateRefresh);
 }
 
