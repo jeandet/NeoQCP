@@ -385,6 +385,12 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
         group.srb = srb;
         mDrawGroups.append(group);
     }
+
+    // Cache axis rect bounds for layout-change detection
+    mLastAxisRectBounds.clear();
+    for (const auto& group : mDrawGroups)
+        mLastAxisRectBounds[group.axisRect] = QRect(group.axisRect->left(), group.axisRect->top(),
+                                                     group.axisRect->width(), group.axisRect->height());
 }
 
 void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
@@ -392,6 +398,21 @@ void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
                                         bool isYUpInNDC)
 {
     PROFILE_HERE_N("QCPSpanRhiLayer::uploadResources");
+
+    // Detect layout changes: axis rect pixel bounds may shift due to auto-margins
+    if (!mGeometryDirty)
+    {
+        for (const auto& group : mDrawGroups)
+        {
+            QRect current(group.axisRect->left(), group.axisRect->top(),
+                          group.axisRect->width(), group.axisRect->height());
+            if (mLastAxisRectBounds.value(group.axisRect) != current)
+            {
+                mGeometryDirty = true;
+                break;
+            }
+        }
+    }
 
     if (mGeometryDirty)
     {

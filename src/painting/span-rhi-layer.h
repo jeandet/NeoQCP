@@ -55,4 +55,5 @@ private:
     QRhiBuffer* mLayoutUbo = nullptr;
     int mVertexBufferSize = 0;
     int mLastSampleCount = 0;
+    QMap<QCPAxisRect*, QRect> mLastAxisRectBounds;
 };

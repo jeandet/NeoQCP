@@ -2642,10 +2642,8 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
     }
 
     // Upload span GPU resources
-    // Always rebuild: span vertices bake axis rect pixel bounds which change on layout reflow
     if (mSpanRhiLayer && mSpanRhiLayer->hasSpans())
     {
-        mSpanRhiLayer->markGeometryDirty();
         mSpanRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mSpanRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
                                         mRhi->isYUpInNDC());
