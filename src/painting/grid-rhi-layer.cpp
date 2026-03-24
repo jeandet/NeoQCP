@@ -198,7 +198,7 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
         for (auto* axis : axes)
         {
             QCPGrid* grid = axis->grid();
-            if (!grid)
+            if (!grid || !grid->visible())
                 continue;
 
             const bool isHorizontal = (axis->orientation() == Qt::Horizontal);
@@ -281,6 +281,9 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
 
         for (auto* axis : axes)
         {
+            if (!axis->visible() || !axis->ticks())
+                continue;
+
             const bool isHorizontal = (axis->orientation() == Qt::Horizontal);
             const auto axisType = axis->axisType();
 

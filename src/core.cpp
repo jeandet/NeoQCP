@@ -2675,8 +2675,9 @@ void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QS
         }
     }
 
-    // Upload grid RHI resources
-    if (mGridRhiLayer && mGridRhiLayer->hasContent())
+    // Upload grid RHI resources (must run before hasContent() check in render loop,
+    // since uploadResources() triggers the first geometry build after axis registration)
+    if (mGridRhiLayer)
     {
         mGridRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mGridRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
