@@ -117,3 +117,45 @@ void TestHSpan::drawOnLogAxis()
     mPlot->replot();
     QVERIFY(true);
 }
+
+void TestHSpan::exportFallbackRendersSpan()
+{
+    auto* span = new QCPItemHSpan(mPlot);
+    span->setRange(QCPRange(3, 7));
+    span->setBrush(QBrush(QColor(0, 255, 0, 128)));
+    span->setPen(Qt::NoPen);
+    span->setBorderPen(Qt::NoPen);
+    mPlot->replot();
+    QPixmap pm = mPlot->toPixmap(400, 300);
+    QVERIFY(!pm.isNull());
+    QImage img = pm.toImage();
+    int centerX = img.width() / 2;
+    int centerY = static_cast<int>(mPlot->yAxis->coordToPixel(5));
+    centerX = qBound(0, centerX, img.width() - 1);
+    centerY = qBound(0, centerY, img.height() - 1);
+    QColor c = img.pixelColor(centerX, centerY);
+    QVERIFY2(c.green() > 50, qPrintable(QString("Expected green > 50, got %1").arg(c.green())));
+}
+
+void TestHSpan::dirtyTrackingReplots()
+{
+    auto* span = new QCPItemHSpan(mPlot);
+    span->setRange(QCPRange(2, 8));
+    mPlot->replot();
+
+    span->setBrush(QBrush(Qt::blue));
+    mPlot->replot();
+    span->setPen(QPen(Qt::green));
+    mPlot->replot();
+    span->setBorderPen(QPen(Qt::red, 3));
+    mPlot->replot();
+    span->setRange(QCPRange(1, 9));
+    mPlot->replot();
+    span->setSelectedBrush(QBrush(Qt::yellow));
+    mPlot->replot();
+    span->setSelectedPen(QPen(Qt::cyan));
+    mPlot->replot();
+    span->setSelectedBorderPen(QPen(Qt::magenta, 2));
+    mPlot->replot();
+    QVERIFY(true);
+}

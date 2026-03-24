@@ -18,6 +18,10 @@ private slots:
     void movableFlag();
     void drawDoesNotCrash();
     void drawOnLogAxis();
+    void exportFallbackRendersSpan();
+    void dirtyTrackingReplots();
+    void multiAxisRectSpans();
+    void spanRhiLayerNullWithoutRhi();
 
 private:
     QCustomPlot* mPlot = nullptr;

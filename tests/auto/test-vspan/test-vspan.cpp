@@ -117,3 +117,72 @@ void TestVSpan::drawOnLogAxis()
     mPlot->replot();
     QVERIFY(true);
 }
+
+void TestVSpan::exportFallbackRendersSpan()
+{
+    auto* span = new QCPItemVSpan(mPlot);
+    span->setRange(QCPRange(3, 7));
+    span->setBrush(QBrush(QColor(255, 0, 0, 128)));
+    span->setPen(Qt::NoPen);
+    span->setBorderPen(Qt::NoPen);
+    mPlot->replot();
+    QPixmap pm = mPlot->toPixmap(400, 300);
+    QVERIFY(!pm.isNull());
+    QImage img = pm.toImage();
+    int centerX = static_cast<int>(mPlot->xAxis->coordToPixel(5));
+    int centerY = img.height() / 2;
+    centerX = qBound(0, centerX, img.width() - 1);
+    centerY = qBound(0, centerY, img.height() - 1);
+    QColor c = img.pixelColor(centerX, centerY);
+    QVERIFY2(c.red() > 50, qPrintable(QString("Expected red > 50, got %1").arg(c.red())));
+}
+
+void TestVSpan::dirtyTrackingReplots()
+{
+    auto* span = new QCPItemVSpan(mPlot);
+    span->setRange(QCPRange(2, 8));
+    mPlot->replot();
+
+    span->setBrush(QBrush(Qt::blue));
+    mPlot->replot();
+    span->setPen(QPen(Qt::green));
+    mPlot->replot();
+    span->setBorderPen(QPen(Qt::red, 3));
+    mPlot->replot();
+    span->setRange(QCPRange(1, 9));
+    mPlot->replot();
+    span->setSelectedBrush(QBrush(Qt::yellow));
+    mPlot->replot();
+    span->setSelectedPen(QPen(Qt::cyan));
+    mPlot->replot();
+    span->setSelectedBorderPen(QPen(Qt::magenta, 2));
+    mPlot->replot();
+    QVERIFY(true);
+}
+
+void TestVSpan::multiAxisRectSpans()
+{
+    auto* ar2 = new QCPAxisRect(mPlot);
+    mPlot->plotLayout()->addElement(0, 1, ar2);
+
+    auto* span1 = new QCPItemVSpan(mPlot);
+    span1->setRange(QCPRange(2, 8));
+    span1->setBrush(QBrush(QColor(255, 0, 0, 80)));
+
+    auto* span2 = new QCPItemVSpan(mPlot);
+    span2->lowerEdge->setAxes(ar2->axis(QCPAxis::atBottom), ar2->axis(QCPAxis::atLeft));
+    span2->upperEdge->setAxes(ar2->axis(QCPAxis::atBottom), ar2->axis(QCPAxis::atLeft));
+    span2->setRange(QCPRange(3, 7));
+    span2->setBrush(QBrush(QColor(0, 0, 255, 80)));
+
+    mPlot->replot();
+    QPixmap pm = mPlot->toPixmap(600, 300);
+    QVERIFY(!pm.isNull());
+}
+
+void TestVSpan::spanRhiLayerNullWithoutRhi()
+{
+    // In offscreen test environment, no QRhi is available
+    // spanRhiLayer() returns nullptr, spans use QPainter fallback
+    QVERIFY(mPlot->spanRhiLayer() == nullptr);
+}

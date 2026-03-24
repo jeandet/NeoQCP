@@ -99,3 +99,56 @@ void TestRSpan::drawDoesNotCrash()
     mPlot->replot();
     QVERIFY(true);
 }
+
+void TestRSpan::exportFallbackRendersSpan()
+{
+    auto* span = new QCPItemRSpan(mPlot);
+    span->setKeyRange(QCPRange(3, 7));
+    span->setValueRange(QCPRange(3, 7));
+    span->setBrush(QBrush(QColor(0, 0, 255, 128)));
+    span->setPen(Qt::NoPen);
+    span->setBorderPen(Qt::NoPen);
+    mPlot->replot();
+    QPixmap pm = mPlot->toPixmap(400, 300);
+    QVERIFY(!pm.isNull());
+    QImage img = pm.toImage();
+    int centerX = static_cast<int>(mPlot->xAxis->coordToPixel(5));
+    int centerY = static_cast<int>(mPlot->yAxis->coordToPixel(5));
+    centerX = qBound(0, centerX, img.width() - 1);
+    centerY = qBound(0, centerY, img.height() - 1);
+    QColor c = img.pixelColor(centerX, centerY);
+    QVERIFY2(c.blue() > 50, qPrintable(QString("Expected blue > 50, got %1").arg(c.blue())));
+}
+
+void TestRSpan::dirtyTrackingReplots()
+{
+    auto* span = new QCPItemRSpan(mPlot);
+    span->setKeyRange(QCPRange(2, 8));
+    span->setValueRange(QCPRange(2, 8));
+    mPlot->replot();
+
+    span->setBrush(QBrush(Qt::blue));
+    mPlot->replot();
+    span->setPen(QPen(Qt::green));
+    mPlot->replot();
+    span->setBorderPen(QPen(Qt::red, 3));
+    mPlot->replot();
+    span->setKeyRange(QCPRange(1, 9));
+    mPlot->replot();
+    span->setValueRange(QCPRange(1, 9));
+    mPlot->replot();
+    QVERIFY(true);
+}
+
+void TestRSpan::drawOnLogAxis()
+{
+    mPlot->xAxis->setScaleType(QCPAxis::stLogarithmic);
+    mPlot->xAxis->setRange(1, 1000);
+    mPlot->yAxis->setScaleType(QCPAxis::stLogarithmic);
+    mPlot->yAxis->setRange(1, 1000);
+    auto* span = new QCPItemRSpan(mPlot);
+    span->setKeyRange(QCPRange(10, 100));
+    span->setValueRange(QCPRange(10, 100));
+    mPlot->replot();
+    QVERIFY(true);
+}

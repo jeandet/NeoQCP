@@ -13,6 +13,9 @@ private slots:
     void selectTestEdges();
     void selectTestFill();
     void drawDoesNotCrash();
+    void exportFallbackRendersSpan();
+    void dirtyTrackingReplots();
+    void drawOnLogAxis();
 
 private:
     QCustomPlot* mPlot = nullptr;
