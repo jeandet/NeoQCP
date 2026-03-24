@@ -25,14 +25,10 @@ QCPItemHSpan::QCPItemHSpan(QCustomPlot* parentPlot)
     setBorderPen(QPen(Qt::black, 2));
     setSelectedBorderPen(QPen(Qt::blue, 2));
 
-    if (parentPlot->spanRhiLayer())
-    {
-        parentPlot->spanRhiLayer()->registerSpan(this);
-        connect(this, &QCPAbstractItem::selectionChanged, this, [this](bool) {
-            if (mParentPlot && mParentPlot->spanRhiLayer())
-                mParentPlot->spanRhiLayer()->markGeometryDirty();
-        });
-    }
+    connect(this, &QCPAbstractItem::selectionChanged, this, [this](bool) {
+        if (mParentPlot && mParentPlot->spanRhiLayer())
+            mParentPlot->spanRhiLayer()->markGeometryDirty();
+    });
 }
 
 QCPItemHSpan::~QCPItemHSpan()
@@ -152,10 +148,13 @@ double QCPItemHSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
 
 void QCPItemHSpan::draw(QCPPainter* painter)
 {
-    if (mParentPlot && mParentPlot->spanRhiLayer()
-        && !painter->modes().testFlag(QCPPainter::pmVectorized)
-        && !painter->modes().testFlag(QCPPainter::pmNoCaching))
-        return;
+    if (auto* layer = mParentPlot ? mParentPlot->spanRhiLayer() : nullptr)
+    {
+        layer->registerSpan(this); // idempotent — handles late RHI init
+        if (!painter->modes().testFlag(QCPPainter::pmVectorized)
+            && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+            return;
+    }
 
     auto* valAxis = lowerEdge->valueAxis();
     if (!valAxis)

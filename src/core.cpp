@@ -2795,10 +2795,29 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
         }
 
         // Draw colormap texture quads for this layer (between paint buffer and line plottables)
+        // Colormaps pre-compute NDC on the CPU, so reset shared UBO to zero translation
+        bool hasColormapsOnLayer = false;
         for (auto* crl : mColormapRhiLayers)
         {
             if (crl->layer() == layer && crl->hasContent())
+            {
+                if (!hasColormapsOnLayer)
+                {
+                    hasColormapsOnLayer = true;
+                    struct {
+                        float translateX, translateY, viewportW, viewportH, yFlip;
+                    } zeroParams = {
+                        0.0f, 0.0f,
+                        float(outputSize.width()),
+                        float(outputSize.height()),
+                        mRhi->isYUpInNDC() ? -1.0f : 1.0f
+                    };
+                    QRhiResourceUpdateBatch* cmapUboUpdate = mRhi->nextResourceUpdateBatch();
+                    cmapUboUpdate->updateDynamicBuffer(mCompositeUbo, 0, sizeof(zeroParams), &zeroParams);
+                    cb->resourceUpdate(cmapUboUpdate);
+                }
                 crl->render(cb, outputSize);
+            }
         }
 
         // Draw GPU plottable geometry for this layer (after its paint buffer)

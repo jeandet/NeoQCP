@@ -259,7 +259,8 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 // Border lines (vertical edges)
                 const QPen& borderPenV = vspan->selected() ? vspan->selectedBorderPen() : vspan->borderPen();
                 auto borderColor = premultiply(borderPenV.color());
-                float halfW = float(borderPenV.widthF()) / 2.0f;
+                float penW = borderPenV.widthF();
+                float halfW = (penW == 0.0 || borderPenV.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
                 if (borderPenV.style() != Qt::NoPen && halfW > 0.0f)
                 {
                     // Left border (at dataX0): vertical line from pixTop to pixBot
@@ -293,7 +294,8 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 // Border lines (horizontal edges)
                 const QPen& borderPenH = hspan->selected() ? hspan->selectedBorderPen() : hspan->borderPen();
                 auto borderColor = premultiply(borderPenH.color());
-                float halfW = float(borderPenH.widthF()) / 2.0f;
+                float penW = borderPenH.widthF();
+                float halfW = (penW == 0.0 || borderPenH.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
                 if (borderPenH.style() != Qt::NoPen && halfW > 0.0f)
                 {
                     // Top border (at dataY0): horizontal line from pixLeft to pixRight
@@ -327,7 +329,8 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 // 4 border lines
                 const QPen& borderPenR = rspan->selected() ? rspan->selectedBorderPen() : rspan->borderPen();
                 auto borderColor = premultiply(borderPenR.color());
-                float halfW = float(borderPenR.widthF()) / 2.0f;
+                float penW = borderPenR.widthF();
+                float halfW = (penW == 0.0 || borderPenR.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
                 if (borderPenR.style() != Qt::NoPen && halfW > 0.0f)
                 {
                     // Left border: vertical line
