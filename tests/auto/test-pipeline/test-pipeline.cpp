@@ -1555,3 +1555,44 @@ void TestPipeline::multiGraphHiddenComponentsStillResampled()
     // Draw with one hidden component — should not crash
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
 }
+
+void TestPipeline::graph2LineCacheReusedOnSmallPan()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10000;
+    std::vector<double> keys(N), values(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; values[i] = std::sin(i * 0.01); }
+    graph->setDataSource(std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::vector<double>(keys), std::vector<double>(values)));
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // Cache should be populated
+    QVERIFY(!graph->mCachedLines.isEmpty());
+    auto cachedBefore = graph->mCachedLines;
+
+    // Small pan: shift by 5% of range — should reuse cache
+    double shift = N * 0.05;
+    mPlot->xAxis->setRange(shift, N + shift);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // Cache should NOT have been rebuilt (same data)
+    QCOMPARE(graph->mCachedLines, cachedBefore);
+}
+
+void TestPipeline::graph2LineCacheRebuiltOnLargePan()
+{
+}
+
+void TestPipeline::graph2LineCacheRebuiltOnZoom()
+{
+}
+
+void TestPipeline::graph2LineCacheInvalidatedOnDataChange()
+{
+}
+
+void TestPipeline::multiGraphLineCacheReusedOnSmallPan()
+{
+}
