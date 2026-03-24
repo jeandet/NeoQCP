@@ -462,7 +462,7 @@ QVector<QPointF> QCPGraph2::toImpulseLines(const QVector<QPointF>& lines, bool k
 
 QPointF QCPGraph2::stallPixelOffset() const
 {
-    if (mPipeline.isBusy() && mHasRenderedRange)
+    if (mHasRenderedRange && !mCachedLines.isEmpty())
         return qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
                                           mRenderedRange.key, mRenderedRange.value);
     return {};

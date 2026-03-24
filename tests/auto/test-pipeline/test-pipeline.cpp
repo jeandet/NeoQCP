@@ -1583,14 +1583,72 @@ void TestPipeline::graph2LineCacheReusedOnSmallPan()
 
 void TestPipeline::graph2LineCacheRebuiltOnLargePan()
 {
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10000;
+    std::vector<double> keys(N), values(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; values[i] = std::sin(i * 0.01); }
+    graph->setDataSource(std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::vector<double>(keys), std::vector<double>(values)));
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto cachedBefore = graph->mCachedLines;
+    QVERIFY(!cachedBefore.isEmpty());
+
+    // Large pan: shift by 60% — should trigger rebuild
+    double shift = N * 0.6;
+    mPlot->xAxis->setRange(shift, N + shift);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // Cache should have been rebuilt (different data)
+    QVERIFY(graph->mCachedLines != cachedBefore);
 }
 
 void TestPipeline::graph2LineCacheRebuiltOnZoom()
 {
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10000;
+    std::vector<double> keys(N), values(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; values[i] = std::sin(i * 0.01); }
+    graph->setDataSource(std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::vector<double>(keys), std::vector<double>(values)));
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto cachedBefore = graph->mCachedLines;
+    QVERIFY(!cachedBefore.isEmpty());
+
+    // Zoom in 2x (center stays same, range halved) — should trigger rebuild
+    mPlot->xAxis->setRange(N * 0.25, N * 0.75);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QVERIFY(graph->mCachedLines != cachedBefore);
 }
 
 void TestPipeline::graph2LineCacheInvalidatedOnDataChange()
 {
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10000;
+    std::vector<double> keys(N), values(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; values[i] = std::sin(i * 0.01); }
+    graph->setDataSource(std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::vector<double>(keys), std::vector<double>(values)));
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QVERIFY(!graph->mCachedLines.isEmpty());
+
+    // Replace data — cache must be invalidated
+    std::vector<double> keys2(N), values2(N);
+    for (int i = 0; i < N; ++i) { keys2[i] = i; values2[i] = std::cos(i * 0.01); }
+    graph->setDataSource(std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::move(keys2), std::move(values2)));
+
+    QVERIFY(graph->mCachedLines.isEmpty());
+    QVERIFY(graph->mLineCacheDirty);
 }
 
 void TestPipeline::multiGraphLineCacheReusedOnSmallPan()
