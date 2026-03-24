@@ -2,6 +2,7 @@
 
 #include "../core.h"
 #include "../painting/painter.h"
+#include "../painting/span-rhi-layer.h"
 
 QCPItemVSpan::QCPItemVSpan(QCustomPlot* parentPlot)
     : QCPAbstractItem(parentPlot)
@@ -23,9 +24,22 @@ QCPItemVSpan::QCPItemVSpan(QCustomPlot* parentPlot)
     setSelectedBrush(QBrush(QColor(0, 0, 255, 80)));
     setBorderPen(QPen(Qt::black, 2));
     setSelectedBorderPen(QPen(Qt::blue, 2));
+
+    if (parentPlot->spanRhiLayer())
+    {
+        parentPlot->spanRhiLayer()->registerSpan(this);
+        connect(this, &QCPAbstractItem::selectionChanged, this, [this](bool) {
+            if (mParentPlot && mParentPlot->spanRhiLayer())
+                mParentPlot->spanRhiLayer()->markGeometryDirty();
+        });
+    }
 }
 
-QCPItemVSpan::~QCPItemVSpan() { }
+QCPItemVSpan::~QCPItemVSpan()
+{
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->unregisterSpan(this);
+}
 
 QCPRange QCPItemVSpan::range() const
 {
@@ -37,14 +51,52 @@ void QCPItemVSpan::setRange(const QCPRange& range)
     lowerEdge->setCoords(range.lower, 0);
     upperEdge->setCoords(range.upper, 1);
     emit rangeChanged(range);
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
 }
 
-void QCPItemVSpan::setPen(const QPen& pen) { mPen = pen; }
-void QCPItemVSpan::setSelectedPen(const QPen& pen) { mSelectedPen = pen; }
-void QCPItemVSpan::setBrush(const QBrush& brush) { mBrush = brush; }
-void QCPItemVSpan::setSelectedBrush(const QBrush& brush) { mSelectedBrush = brush; }
-void QCPItemVSpan::setBorderPen(const QPen& pen) { mBorderPen = pen; }
-void QCPItemVSpan::setSelectedBorderPen(const QPen& pen) { mSelectedBorderPen = pen; }
+void QCPItemVSpan::setPen(const QPen& pen)
+{
+    mPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemVSpan::setSelectedPen(const QPen& pen)
+{
+    mSelectedPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemVSpan::setBrush(const QBrush& brush)
+{
+    mBrush = brush;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemVSpan::setSelectedBrush(const QBrush& brush)
+{
+    mSelectedBrush = brush;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemVSpan::setBorderPen(const QPen& pen)
+{
+    mBorderPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemVSpan::setSelectedBorderPen(const QPen& pen)
+{
+    mSelectedBorderPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
 void QCPItemVSpan::setMovable(bool movable) { mMovable = movable; }
 
 QPen QCPItemVSpan::mainPen() const { return mSelected ? mSelectedPen : mPen; }
@@ -100,6 +152,11 @@ double QCPItemVSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
 
 void QCPItemVSpan::draw(QCPPainter* painter)
 {
+    if (mParentPlot && mParentPlot->spanRhiLayer()
+        && !painter->modes().testFlag(QCPPainter::pmVectorized)
+        && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        return;
+
     auto* keyAxis = lowerEdge->keyAxis();
     if (!keyAxis)
         return;
@@ -181,6 +238,8 @@ void QCPItemVSpan::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
             break;
     }
     emit rangeChanged(range());
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
     mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 

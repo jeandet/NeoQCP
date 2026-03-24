@@ -2857,6 +2857,8 @@ void QCustomPlot::resizeEvent(QResizeEvent* event)
     Q_UNUSED(event)
     // resize and repaint the buffer:
     setViewport(rect());
+    if (mSpanRhiLayer)
+        mSpanRhiLayer->markGeometryDirty();
     replot(rpQueuedRefresh); // queued refresh is important here, to prevent painting issues in some
                              // contexts (e.g. MDI subwindow)
 }

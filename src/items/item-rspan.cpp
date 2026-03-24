@@ -2,6 +2,7 @@
 
 #include "../core.h"
 #include "../painting/painter.h"
+#include "../painting/span-rhi-layer.h"
 
 QCPItemRSpan::QCPItemRSpan(QCustomPlot* parentPlot)
     : QCPAbstractItem(parentPlot)
@@ -33,9 +34,22 @@ QCPItemRSpan::QCPItemRSpan(QCustomPlot* parentPlot)
     setSelectedBrush(QBrush(QColor(0, 0, 255, 80)));
     setBorderPen(QPen(Qt::black, 2));
     setSelectedBorderPen(QPen(Qt::blue, 2));
+
+    if (parentPlot->spanRhiLayer())
+    {
+        parentPlot->spanRhiLayer()->registerSpan(this);
+        connect(this, &QCPAbstractItem::selectionChanged, this, [this](bool) {
+            if (mParentPlot && mParentPlot->spanRhiLayer())
+                mParentPlot->spanRhiLayer()->markGeometryDirty();
+        });
+    }
 }
 
-QCPItemRSpan::~QCPItemRSpan() { }
+QCPItemRSpan::~QCPItemRSpan()
+{
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->unregisterSpan(this);
+}
 
 QCPRange QCPItemRSpan::keyRange() const
 {
@@ -52,6 +66,8 @@ void QCPItemRSpan::setKeyRange(const QCPRange& range)
     leftEdge->setCoords(range.lower, leftEdge->coords().y());
     rightEdge->setCoords(range.upper, rightEdge->coords().y());
     emit keyRangeChanged(range);
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
 }
 
 void QCPItemRSpan::setValueRange(const QCPRange& range)
@@ -59,14 +75,52 @@ void QCPItemRSpan::setValueRange(const QCPRange& range)
     bottomEdge->setCoords(bottomEdge->coords().x(), range.lower);
     topEdge->setCoords(topEdge->coords().x(), range.upper);
     emit valueRangeChanged(range);
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
 }
 
-void QCPItemRSpan::setPen(const QPen& pen) { mPen = pen; }
-void QCPItemRSpan::setSelectedPen(const QPen& pen) { mSelectedPen = pen; }
-void QCPItemRSpan::setBrush(const QBrush& brush) { mBrush = brush; }
-void QCPItemRSpan::setSelectedBrush(const QBrush& brush) { mSelectedBrush = brush; }
-void QCPItemRSpan::setBorderPen(const QPen& pen) { mBorderPen = pen; }
-void QCPItemRSpan::setSelectedBorderPen(const QPen& pen) { mSelectedBorderPen = pen; }
+void QCPItemRSpan::setPen(const QPen& pen)
+{
+    mPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemRSpan::setSelectedPen(const QPen& pen)
+{
+    mSelectedPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemRSpan::setBrush(const QBrush& brush)
+{
+    mBrush = brush;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemRSpan::setSelectedBrush(const QBrush& brush)
+{
+    mSelectedBrush = brush;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemRSpan::setBorderPen(const QPen& pen)
+{
+    mBorderPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
+void QCPItemRSpan::setSelectedBorderPen(const QPen& pen)
+{
+    mSelectedBorderPen = pen;
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
 void QCPItemRSpan::setMovable(bool movable) { mMovable = movable; }
 
 QPen QCPItemRSpan::mainPen() const { return mSelected ? mSelectedPen : mPen; }
@@ -146,6 +200,11 @@ double QCPItemRSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
 
 void QCPItemRSpan::draw(QCPPainter* painter)
 {
+    if (mParentPlot && mParentPlot->spanRhiLayer()
+        && !painter->modes().testFlag(QCPPainter::pmVectorized)
+        && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        return;
+
     auto* keyAxis = leftEdge->keyAxis();
     auto* valAxis = leftEdge->valueAxis();
     if (!keyAxis || !valAxis)
@@ -263,6 +322,8 @@ void QCPItemRSpan::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
     if (mDragPart == hpTop || mDragPart == hpBottom || mDragPart == hpFill)
         emit valueRangeChanged(valueRange());
 
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
     mParentPlot->replot(QCustomPlot::rpQueuedReplot);
 }
 

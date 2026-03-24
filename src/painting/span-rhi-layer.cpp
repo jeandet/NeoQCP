@@ -246,8 +246,9 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 float pixBot = float(ar->top() + ar->height());
 
                 // Fill quad: X = data coords, Y = pixel coords
-                auto fillColor = premultiply(vspan->brush().color());
-                if (vspan->brush().style() != Qt::NoBrush && fillColor[3] > 0.0f)
+                const QBrush& fillBrush = vspan->selected() ? vspan->selectedBrush() : vspan->brush();
+                auto fillColor = premultiply(fillBrush.color());
+                if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
                 {
                     appendQuad(mStagingVertices,
                                dataX0, pixTop, dataX1, pixTop,
@@ -256,9 +257,10 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 }
 
                 // Border lines (vertical edges)
-                auto borderColor = premultiply(vspan->borderPen().color());
-                float halfW = float(vspan->borderPen().widthF()) / 2.0f;
-                if (vspan->borderPen().style() != Qt::NoPen && halfW > 0.0f)
+                const QPen& borderPenV = vspan->selected() ? vspan->selectedBorderPen() : vspan->borderPen();
+                auto borderColor = premultiply(borderPenV.color());
+                float halfW = float(borderPenV.widthF()) / 2.0f;
+                if (borderPenV.style() != Qt::NoPen && halfW > 0.0f)
                 {
                     // Left border (at dataX0): vertical line from pixTop to pixBot
                     appendBorder(mStagingVertices,
@@ -278,8 +280,9 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 float pixRight = float(ar->left() + ar->width());
 
                 // Fill quad: Y = data coords, X = pixel coords
-                auto fillColor = premultiply(hspan->brush().color());
-                if (hspan->brush().style() != Qt::NoBrush && fillColor[3] > 0.0f)
+                const QBrush& fillBrush = hspan->selected() ? hspan->selectedBrush() : hspan->brush();
+                auto fillColor = premultiply(fillBrush.color());
+                if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
                 {
                     appendQuad(mStagingVertices,
                                pixLeft, dataY0, pixRight, dataY0,
@@ -288,9 +291,10 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 }
 
                 // Border lines (horizontal edges)
-                auto borderColor = premultiply(hspan->borderPen().color());
-                float halfW = float(hspan->borderPen().widthF()) / 2.0f;
-                if (hspan->borderPen().style() != Qt::NoPen && halfW > 0.0f)
+                const QPen& borderPenH = hspan->selected() ? hspan->selectedBorderPen() : hspan->borderPen();
+                auto borderColor = premultiply(borderPenH.color());
+                float halfW = float(borderPenH.widthF()) / 2.0f;
+                if (borderPenH.style() != Qt::NoPen && halfW > 0.0f)
                 {
                     // Top border (at dataY0): horizontal line from pixLeft to pixRight
                     appendBorder(mStagingVertices,
@@ -310,8 +314,9 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 float dataBot = float(rspan->bottomEdge->coords().y());
 
                 // Fill quad: all data coords
-                auto fillColor = premultiply(rspan->brush().color());
-                if (rspan->brush().style() != Qt::NoBrush && fillColor[3] > 0.0f)
+                const QBrush& fillBrush = rspan->selected() ? rspan->selectedBrush() : rspan->brush();
+                auto fillColor = premultiply(fillBrush.color());
+                if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
                 {
                     appendQuad(mStagingVertices,
                                dataLeft, dataTop, dataRight, dataTop,
@@ -320,9 +325,10 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 }
 
                 // 4 border lines
-                auto borderColor = premultiply(rspan->borderPen().color());
-                float halfW = float(rspan->borderPen().widthF()) / 2.0f;
-                if (rspan->borderPen().style() != Qt::NoPen && halfW > 0.0f)
+                const QPen& borderPenR = rspan->selected() ? rspan->selectedBorderPen() : rspan->borderPen();
+                auto borderColor = premultiply(borderPenR.color());
+                float halfW = float(borderPenR.widthF()) / 2.0f;
+                if (borderPenR.style() != Qt::NoPen && halfW > 0.0f)
                 {
                     // Left border: vertical line
                     appendBorder(mStagingVertices,
