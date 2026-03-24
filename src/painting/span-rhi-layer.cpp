@@ -449,7 +449,7 @@ void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
             float width, height, yFlip, dpr;
             float keyRangeLower, keyRangeUpper, keyAxisOffset, keyAxisLength, keyLogScale;
             float valRangeLower, valRangeUpper, valAxisOffset, valAxisLength, valLogScale;
-            float _pad;
+            float _pad0, _pad1;
         } params = {
             float(outputSize.width()),
             float(outputSize.height()),
@@ -465,10 +465,10 @@ void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
             valOffset,
             valLength,
             (valAxis->scaleType() == QCPAxis::stLogarithmic) ? 1.0f : 0.0f,
-            0.0f
+            0.0f, 0.0f
         };
-
-        updates->updateDynamicBuffer(group.uniformBuffer, 0, kUniformBufferSize, &params);
+        static_assert(sizeof(params) == kUniformBufferSize);
+        updates->updateDynamicBuffer(group.uniformBuffer, 0, sizeof(params), &params);
     }
 }
 

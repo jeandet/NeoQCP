@@ -90,10 +90,10 @@ bool QCPPlottableRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
         return false;
     }
 
-    // Create uniform buffer for viewport params (24 bytes: width, height, yFlip, dpr, translateX, translateY)
+    // Create uniform buffer for viewport params (6 floats, padded to 32 bytes for std140)
     delete mUniformBuffer;
     mUniformBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
-                                      QRhiBuffer::UniformBuffer, 24);
+                                      QRhiBuffer::UniformBuffer, 32);
     mUniformBuffer->create();
 
     // Create SRB binding the uniform buffer at binding 0
@@ -155,15 +155,20 @@ void QCPPlottableRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
     // Upload uniform buffer (viewport params) — always, since output size may change
     if (mUniformBuffer)
     {
-        struct { float width, height, yFlip, dpr, translateX, translateY; } params = {
+        struct {
+            float width, height, yFlip, dpr, translateX, translateY;
+            float _pad0, _pad1; // std140 rounds to 16-byte multiple
+        } params = {
             float(outputSize.width()),
             float(outputSize.height()),
             isYUpInNDC ? -1.0f : 1.0f,
             dpr,
             float(mPixelOffset.x()),
-            float(mPixelOffset.y())
+            float(mPixelOffset.y()),
+            0.0f, 0.0f
         };
-        updates->updateDynamicBuffer(mUniformBuffer, 0, 24, &params);
+        static_assert(sizeof(params) == 32);
+        updates->updateDynamicBuffer(mUniformBuffer, 0, sizeof(params), &params);
     }
 
     if (!mDirty || mStagingVertices.isEmpty())

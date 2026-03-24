@@ -2807,11 +2807,12 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
             if (prl->hasGeometry())
                 prl->render(cb, outputSize);
         }
-    }
 
-    // Draw GPU spans (on top of everything, clipped by scissor to axis rects)
-    if (mSpanRhiLayer && mSpanRhiLayer->hasSpans())
-        mSpanRhiLayer->render(cb, outputSize);
+        // Draw GPU spans on the main layer (after plottables, before axes)
+        if (layer == this->layer(QLatin1String("main"))
+            && mSpanRhiLayer && mSpanRhiLayer->hasSpans())
+            mSpanRhiLayer->render(cb, outputSize);
+    }
 
     cb->endPass();
 }
