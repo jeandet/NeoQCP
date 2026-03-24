@@ -46,6 +46,11 @@ QCPMultiGraph::QCPMultiGraph(QCPAxis* keyAxis, QCPAxis* valueAxis)
         connect(keyAxis, &QCPAxis::scaleTypeChanged,
                 this, [this] { mLineCacheDirty = true; mCachedLines.clear(); });
     }
+    if (valueAxis)
+    {
+        connect(valueAxis, &QCPAxis::scaleTypeChanged,
+                this, [this] { mLineCacheDirty = true; mCachedLines.clear(); });
+    }
 
     connect(&mPipeline, &QCPMultiGraphPipeline::finished,
             this, [this](uint64_t) { onL1Ready(); });
@@ -577,26 +582,29 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             needFreshLines = true;
     }
 
-    if (painter->modes().testFlag(QCPPainter::pmNoCaching)
-        || painter->modes().testFlag(QCPPainter::pmVectorized))
+    const bool isExportMode = painter->modes().testFlag(QCPPainter::pmNoCaching)
+                           || painter->modes().testFlag(QCPPainter::pmVectorized);
+    if (isExportMode)
         needFreshLines = true;
+
+    QVector<QVector<QPointF>> exportLines;
+    auto& linesTarget = isExportMode ? exportLines : mCachedLines;
 
     if (needFreshLines)
     {
-        mCachedLines.resize(mComponents.size());
+        linesTarget.resize(mComponents.size());
         for (int c = 0; c < mComponents.size(); ++c)
         {
-            if (!mComponents[c].visible) { mCachedLines[c].clear(); continue; }
+            if (!mComponents[c].visible) { linesTarget[c].clear(); continue; }
             if (mL2Result)
-                mCachedLines[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+                linesTarget[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
             else if (mAdaptiveSampling)
-                mCachedLines[c] = ds->getOptimizedLineData(c, begin, end, pixelWidth,
+                linesTarget[c] = ds->getOptimizedLineData(c, begin, end, pixelWidth,
                                                            mKeyAxis.data(), mValueAxis.data());
             else
-                mCachedLines[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+                linesTarget[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
         }
-        if (!painter->modes().testFlag(QCPPainter::pmNoCaching)
-            && !painter->modes().testFlag(QCPPainter::pmVectorized))
+        if (!isExportMode)
         {
             mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
             mHasRenderedRange = true;
@@ -611,8 +619,8 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         if (!comp.visible) continue;
         if (mLineStyle == lsNone && comp.scatterStyle.isNone()) continue;
 
-        const QVector<QPointF>& cachedForComp = (c < mCachedLines.size()) ? mCachedLines[c] : QVector<QPointF>();
-        QVector<QPointF> lines = cachedForComp;
+        if (c >= linesTarget.size()) continue;
+        QVector<QPointF> lines = linesTarget[c];
         if (lines.isEmpty()) continue;
 
         // Apply line style transform
