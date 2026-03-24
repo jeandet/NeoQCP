@@ -72,6 +72,15 @@ private:
         float subGridPenWidth = 0;
         float zeroLinePenWidth = 0;
         Qt::PenStyle zeroLinePenStyle = Qt::NoPen;
+        QRgb tickColor = 0;
+        QRgb subTickColor = 0;
+        float tickPenWidth = 0;
+        float subTickPenWidth = 0;
+        float tickLengthOut = 0;
+        float tickLengthIn = 0;
+        float subTickLengthOut = 0;
+        float subTickLengthIn = 0;
+        bool subTicksVisible = false;
     };
     QMap<QCPAxis*, CachedAxisTicks> mCachedTicks;
 };

@@ -275,6 +275,86 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
         group.srb = srb;
         group.isGridLines = true;
         mDrawGroups.append(group);
+
+        // --- Tick marks (second pass, per axis rect) ---
+        int tickGroupVertexStart = mStagingVertices.size() / kFloatsPerVertex;
+
+        for (auto* axis : axes)
+        {
+            const bool isHorizontal = (axis->orientation() == Qt::Horizontal);
+            const auto axisType = axis->axisType();
+
+            int tickDir = (axisType == QCPAxis::atBottom || axisType == QCPAxis::atRight) ? -1 : 1;
+
+            float baseline = 0.0f;
+            switch (axisType)
+            {
+                case QCPAxis::atBottom: baseline = float(ar->bottom()); break;
+                case QCPAxis::atTop:    baseline = float(ar->top());    break;
+                case QCPAxis::atLeft:   baseline = float(ar->left());   break;
+                case QCPAxis::atRight:  baseline = float(ar->right());  break;
+            }
+
+            auto emitTickLine = [&](double tickValue, float lengthOut, float lengthIn, const QPen& pen) {
+                auto color = premultiply(pen.color());
+                float penW = pen.widthF();
+                float halfW = (penW == 0.0 || pen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
+                if (pen.style() == Qt::NoPen || halfW <= 0.0f || color[3] <= 0.0f)
+                    return;
+                float tv = float(tickValue);
+                float pxStart = baseline - lengthOut * tickDir;
+                float pxEnd   = baseline + lengthIn  * tickDir;
+                if (isHorizontal)
+                {
+                    appendBorder(mStagingVertices,
+                                 tv, pxStart, tv, pxEnd,
+                                 color, 1, 0, halfW, 0, 1);
+                }
+                else
+                {
+                    appendBorder(mStagingVertices,
+                                 pxStart, tv, pxEnd, tv,
+                                 color, 0, 1, halfW, 1, 0);
+                }
+            };
+
+            float tickLenOut = float(axis->tickLengthOut());
+            float tickLenIn  = float(axis->tickLengthIn());
+            for (double tickVal : axis->tickVector())
+                emitTickLine(tickVal, tickLenOut, tickLenIn, axis->tickPen());
+
+            if (axis->subTicks())
+            {
+                float subTickLenOut = float(axis->subTickLengthOut());
+                float subTickLenIn  = float(axis->subTickLengthIn());
+                for (double subTickVal : axis->subTickVector())
+                    emitTickLine(subTickVal, subTickLenOut, subTickLenIn, axis->subTickPen());
+            }
+        }
+
+        int tickGroupVertexCount = mStagingVertices.size() / kFloatsPerVertex - tickGroupVertexStart;
+        if (tickGroupVertexCount > 0)
+        {
+            auto* tickUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBufferSize);
+            tickUbo->create();
+
+            auto* tickSrb = mRhi->newShaderResourceBindings();
+            tickSrb->setBindings({
+                QRhiShaderResourceBinding::uniformBuffer(
+                    0, QRhiShaderResourceBinding::VertexStage, tickUbo)
+            });
+            tickSrb->create();
+
+            DrawGroup tickGroup;
+            tickGroup.axisRect     = ar;
+            tickGroup.vertexOffset = tickGroupVertexStart;
+            tickGroup.vertexCount  = tickGroupVertexCount;
+            tickGroup.scissorRect  = QRect();
+            tickGroup.uniformBuffer = tickUbo;
+            tickGroup.srb          = tickSrb;
+            tickGroup.isGridLines  = false;
+            mDrawGroups.append(tickGroup);
+        }
     }
 
     mLastAxisRectBounds.clear();
@@ -310,7 +390,16 @@ void QCPGridRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
                 || cached.gridPenWidth != float(grid->pen().widthF())
                 || cached.subGridPenWidth != float(grid->subGridPen().widthF())
                 || cached.zeroLinePenWidth != float(grid->zeroLinePen().widthF())
-                || cached.zeroLinePenStyle != grid->zeroLinePen().style())
+                || cached.zeroLinePenStyle != grid->zeroLinePen().style()
+                || cached.tickColor != axis->tickPen().color().rgba()
+                || cached.subTickColor != axis->subTickPen().color().rgba()
+                || cached.tickPenWidth != float(axis->tickPen().widthF())
+                || cached.subTickPenWidth != float(axis->subTickPen().widthF())
+                || cached.tickLengthOut != float(axis->tickLengthOut())
+                || cached.tickLengthIn != float(axis->tickLengthIn())
+                || cached.subTickLengthOut != float(axis->subTickLengthOut())
+                || cached.subTickLengthIn != float(axis->subTickLengthIn())
+                || cached.subTicksVisible != axis->subTicks())
             {
                 mGeometryDirty = true;
                 break;
@@ -352,6 +441,15 @@ void QCPGridRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
             cached.subGridPenWidth = float(grid->subGridPen().widthF());
             cached.zeroLinePenWidth = float(grid->zeroLinePen().widthF());
             cached.zeroLinePenStyle = grid->zeroLinePen().style();
+            cached.tickColor = axis->tickPen().color().rgba();
+            cached.subTickColor = axis->subTickPen().color().rgba();
+            cached.tickPenWidth = float(axis->tickPen().widthF());
+            cached.subTickPenWidth = float(axis->subTickPen().widthF());
+            cached.tickLengthOut = float(axis->tickLengthOut());
+            cached.tickLengthIn = float(axis->tickLengthIn());
+            cached.subTickLengthOut = float(axis->subTickLengthOut());
+            cached.subTickLengthIn = float(axis->subTickLengthIn());
+            cached.subTicksVisible = axis->subTicks();
             mCachedTicks[axis] = cached;
         }
 
