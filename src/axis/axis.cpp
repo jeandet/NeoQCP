@@ -26,6 +26,7 @@
 #include "axis.h"
 
 #include "../core.h"
+#include "../painting/grid-rhi-layer.h"
 #include "../items/item.h"
 #include "../layoutelements/layoutelement-axisrect.h"
 #include "../painting/painter.h"
@@ -82,6 +83,9 @@ QCPGrid::QCPGrid(QCPAxis* parentAxis)
 void QCPGrid::setSubGridVisible(bool visible)
 {
     mSubGridVisible = visible;
+    if (auto* plot = mParentAxis ? mParentAxis->parentPlot() : nullptr)
+        if (auto* grl = plot->gridRhiLayer())
+            grl->markGeometryDirty();
 }
 
 /*!
@@ -106,6 +110,9 @@ void QCPGrid::setAntialiasedZeroLine(bool enabled)
 void QCPGrid::setPen(const QPen& pen)
 {
     mPen = pen;
+    if (auto* plot = mParentAxis ? mParentAxis->parentPlot() : nullptr)
+        if (auto* grl = plot->gridRhiLayer())
+            grl->markGeometryDirty();
 }
 
 /*!
@@ -114,6 +121,9 @@ void QCPGrid::setPen(const QPen& pen)
 void QCPGrid::setSubGridPen(const QPen& pen)
 {
     mSubGridPen = pen;
+    if (auto* plot = mParentAxis ? mParentAxis->parentPlot() : nullptr)
+        if (auto* grl = plot->gridRhiLayer())
+            grl->markGeometryDirty();
 }
 
 /*!
@@ -125,6 +135,9 @@ void QCPGrid::setSubGridPen(const QPen& pen)
 void QCPGrid::setZeroLinePen(const QPen& pen)
 {
     mZeroLinePen = pen;
+    if (auto* plot = mParentAxis ? mParentAxis->parentPlot() : nullptr)
+        if (auto* grl = plot->gridRhiLayer())
+            grl->markGeometryDirty();
 }
 
 /*! \internal
