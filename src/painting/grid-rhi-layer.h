@@ -37,6 +37,9 @@ public:
     void renderGridLines(QRhiCommandBuffer* cb, const QSize& outputSize);
     void renderTickMarks(QRhiCommandBuffer* cb, const QSize& outputSize);
 
+    void registerAxis(QCPAxis* axis);
+    void unregisterAxis(QCPAxis* axis);
+
 private:
     void rebuildGeometry(float dpr, int outputHeight, bool isYUpInNDC);
     void renderGroups(QRhiCommandBuffer* cb, const QSize& outputSize, bool gridLines);
@@ -55,4 +58,20 @@ private:
     int mVertexBufferSize = 0;
     int mLastSampleCount = 0;
     QMap<QCPAxisRect*, QRect> mLastAxisRectBounds;
+
+    QVector<QCPAxis*> mAxes;
+
+    struct CachedAxisTicks {
+        QVector<double> majorTicks;
+        QVector<double> subTicks;
+        bool subGridVisible = false;
+        QRgb gridColor = 0;
+        QRgb subGridColor = 0;
+        QRgb zeroLineColor = 0;
+        float gridPenWidth = 0;
+        float subGridPenWidth = 0;
+        float zeroLinePenWidth = 0;
+        Qt::PenStyle zeroLinePenStyle = Qt::NoPen;
+    };
+    QMap<QCPAxis*, CachedAxisTicks> mCachedTicks;
 };

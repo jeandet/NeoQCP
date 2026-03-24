@@ -8,7 +8,47 @@
 #include <cmath>
 
 static constexpr int kFloatsPerVertex = 11;
+// Uniform buffer size: 14 data floats + 2 padding = 16 floats = 64 bytes (std140)
 static constexpr int kUniformBufferSize = 64;
+
+static auto premultiply(const QColor& c) -> std::array<float, 4>
+{
+    float a = c.alphaF();
+    return {float(c.redF() * a), float(c.greenF() * a), float(c.blueF() * a), a};
+}
+
+static void appendVertex(QVector<float>& buf, float x, float y,
+                          const std::array<float, 4>& rgba,
+                          float extX, float extY, float extW,
+                          float isPixelX, float isPixelY)
+{
+    buf.append(x);
+    buf.append(y);
+    buf.append(rgba[0]);
+    buf.append(rgba[1]);
+    buf.append(rgba[2]);
+    buf.append(rgba[3]);
+    buf.append(extX);
+    buf.append(extY);
+    buf.append(extW);
+    buf.append(isPixelX);
+    buf.append(isPixelY);
+}
+
+static void appendBorder(QVector<float>& buf,
+                          float x0, float y0, float x1, float y1,
+                          const std::array<float, 4>& rgba,
+                          float extDirX, float extDirY, float halfWidth,
+                          float isPixelX, float isPixelY)
+{
+    appendVertex(buf, x0, y0, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
+    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
+    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
+
+    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
+    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
+    appendVertex(buf, x1, y1, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
+}
 
 QCPGridRhiLayer::QCPGridRhiLayer(QRhi* rhi)
     : mRhi(rhi)
@@ -25,6 +65,24 @@ QCPGridRhiLayer::~QCPGridRhiLayer()
 }
 
 void QCPGridRhiLayer::markGeometryDirty() { mGeometryDirty = true; }
+
+void QCPGridRhiLayer::registerAxis(QCPAxis* axis)
+{
+    if (!mAxes.contains(axis))
+    {
+        mAxes.append(axis);
+        mGeometryDirty = true;
+    }
+}
+
+void QCPGridRhiLayer::unregisterAxis(QCPAxis* axis)
+{
+    if (mAxes.removeOne(axis))
+    {
+        mCachedTicks.remove(axis);
+        mGeometryDirty = true;
+    }
+}
 
 void QCPGridRhiLayer::cleanupDrawGroups()
 {
@@ -116,18 +174,264 @@ bool QCPGridRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampl
     return true;
 }
 
-void QCPGridRhiLayer::rebuildGeometry(float /*dpr*/, int /*outputHeight*/, bool /*isYUpInNDC*/)
+void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInNDC)
 {
-    // Stub — filled in later
+    PROFILE_HERE_N("QCPGridRhiLayer::rebuildGeometry");
+
     mStagingVertices.clear();
     cleanupDrawGroups();
+
+    QMap<QCPAxisRect*, QVector<QCPAxis*>> groupedAxes;
+    for (auto* axis : mAxes)
+    {
+        if (auto* ar = axis->axisRect())
+            groupedAxes[ar].append(axis);
+    }
+
+    for (auto it = groupedAxes.constBegin(); it != groupedAxes.constEnd(); ++it)
+    {
+        QCPAxisRect* ar = it.key();
+        const auto& axes = it.value();
+
+        int groupVertexStart = mStagingVertices.size() / kFloatsPerVertex;
+
+        for (auto* axis : axes)
+        {
+            QCPGrid* grid = axis->grid();
+            if (!grid)
+                continue;
+
+            const bool isHorizontal = (axis->orientation() == Qt::Horizontal);
+            const float pixLeft = float(ar->left());
+            const float pixRight = float(ar->left() + ar->width());
+            const float pixTop = float(ar->top());
+            const float pixBot = float(ar->top() + ar->height());
+
+            auto emitGridLine = [&](double tickValue, const QPen& pen) {
+                auto color = premultiply(pen.color());
+                float penW = pen.widthF();
+                float halfW = (penW == 0.0 || pen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
+                if (pen.style() == Qt::NoPen || halfW <= 0.0f || color[3] <= 0.0f)
+                    return;
+                float tv = float(tickValue);
+                if (isHorizontal)
+                {
+                    appendBorder(mStagingVertices,
+                                 tv, pixTop, tv, pixBot,
+                                 color, 1, 0, halfW, 0, 1);
+                }
+                else
+                {
+                    appendBorder(mStagingVertices,
+                                 pixLeft, tv, pixRight, tv,
+                                 color, 0, 1, halfW, 1, 0);
+                }
+            };
+
+            const QCPRange& range = axis->range();
+            if (grid->zeroLinePen().style() != Qt::NoPen
+                && range.lower < 0 && range.upper > 0)
+            {
+                emitGridLine(0.0, grid->zeroLinePen());
+            }
+
+            for (double tickVal : axis->tickVector())
+                emitGridLine(tickVal, grid->pen());
+
+            if (grid->subGridVisible())
+            {
+                for (double subTickVal : axis->subTickVector())
+                    emitGridLine(subTickVal, grid->subGridPen());
+            }
+        }
+
+        int groupVertexCount = mStagingVertices.size() / kFloatsPerVertex - groupVertexStart;
+        if (groupVertexCount == 0)
+            continue;
+
+        int sx = int(ar->left() * dpr);
+        int sy = int(ar->top() * dpr);
+        int sw = int(ar->width() * dpr);
+        int sh = int(ar->height() * dpr);
+        if (isYUpInNDC)
+            sy = outputHeight - sy - sh;
+
+        auto* ubo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBufferSize);
+        ubo->create();
+
+        auto* srb = mRhi->newShaderResourceBindings();
+        srb->setBindings({
+            QRhiShaderResourceBinding::uniformBuffer(
+                0, QRhiShaderResourceBinding::VertexStage, ubo)
+        });
+        srb->create();
+
+        DrawGroup group;
+        group.axisRect = ar;
+        group.vertexOffset = groupVertexStart;
+        group.vertexCount = groupVertexCount;
+        group.scissorRect = QRect(sx, sy, sw, sh);
+        group.uniformBuffer = ubo;
+        group.srb = srb;
+        group.isGridLines = true;
+        mDrawGroups.append(group);
+    }
+
+    mLastAxisRectBounds.clear();
+    for (const auto& group : mDrawGroups)
+        mLastAxisRectBounds[group.axisRect] = QRect(group.axisRect->left(), group.axisRect->top(),
+                                                     group.axisRect->width(), group.axisRect->height());
 }
 
-void QCPGridRhiLayer::uploadResources(QRhiResourceUpdateBatch* /*updates*/,
-                                       const QSize& /*outputSize*/, float /*dpr*/,
-                                       bool /*isYUpInNDC*/)
+void QCPGridRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
+                                       const QSize& outputSize, float dpr,
+                                       bool isYUpInNDC)
 {
-    // Stub — filled in later
+    PROFILE_HERE_N("QCPGridRhiLayer::uploadResources");
+
+    if (!mGeometryDirty)
+    {
+        for (auto* axis : mAxes)
+        {
+            auto it = mCachedTicks.constFind(axis);
+            if (it == mCachedTicks.constEnd())
+            {
+                mGeometryDirty = true;
+                break;
+            }
+            const auto& cached = it.value();
+            QCPGrid* grid = axis->grid();
+            if (cached.majorTicks != axis->tickVector()
+                || cached.subTicks != axis->subTickVector()
+                || cached.subGridVisible != grid->subGridVisible()
+                || cached.gridColor != grid->pen().color().rgba()
+                || cached.subGridColor != grid->subGridPen().color().rgba()
+                || cached.zeroLineColor != grid->zeroLinePen().color().rgba()
+                || cached.gridPenWidth != float(grid->pen().widthF())
+                || cached.subGridPenWidth != float(grid->subGridPen().widthF())
+                || cached.zeroLinePenWidth != float(grid->zeroLinePen().widthF())
+                || cached.zeroLinePenStyle != grid->zeroLinePen().style())
+            {
+                mGeometryDirty = true;
+                break;
+            }
+        }
+    }
+
+    if (!mGeometryDirty)
+    {
+        for (const auto& group : mDrawGroups)
+        {
+            QRect current(group.axisRect->left(), group.axisRect->top(),
+                          group.axisRect->width(), group.axisRect->height());
+            if (mLastAxisRectBounds.value(group.axisRect) != current)
+            {
+                mGeometryDirty = true;
+                break;
+            }
+        }
+    }
+
+    if (mGeometryDirty)
+    {
+        rebuildGeometry(dpr, outputSize.height(), isYUpInNDC);
+        mGeometryDirty = false;
+
+        mCachedTicks.clear();
+        for (auto* axis : mAxes)
+        {
+            QCPGrid* grid = axis->grid();
+            CachedAxisTicks cached;
+            cached.majorTicks = axis->tickVector();
+            cached.subTicks = axis->subTickVector();
+            cached.subGridVisible = grid->subGridVisible();
+            cached.gridColor = grid->pen().color().rgba();
+            cached.subGridColor = grid->subGridPen().color().rgba();
+            cached.zeroLineColor = grid->zeroLinePen().color().rgba();
+            cached.gridPenWidth = float(grid->pen().widthF());
+            cached.subGridPenWidth = float(grid->subGridPen().widthF());
+            cached.zeroLinePenWidth = float(grid->zeroLinePen().widthF());
+            cached.zeroLinePenStyle = grid->zeroLinePen().style();
+            mCachedTicks[axis] = cached;
+        }
+
+        if (!mStagingVertices.isEmpty())
+        {
+            int requiredSize = mStagingVertices.size() * sizeof(float);
+            if (!mVertexBuffer || mVertexBufferSize < requiredSize)
+            {
+                delete mVertexBuffer;
+                mVertexBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
+                                                 QRhiBuffer::VertexBuffer,
+                                                 requiredSize);
+                mVertexBuffer->create();
+                mVertexBufferSize = requiredSize;
+            }
+            updates->updateDynamicBuffer(mVertexBuffer, 0, requiredSize,
+                                          mStagingVertices.constData());
+        }
+    }
+
+    for (auto& group : mDrawGroups)
+    {
+        QCPAxisRect* ar = group.axisRect;
+
+        QCPAxis* hAxis = ar->axis(QCPAxis::atBottom);
+        if (!hAxis) hAxis = ar->axis(QCPAxis::atTop);
+        QCPAxis* vAxis = ar->axis(QCPAxis::atLeft);
+        if (!vAxis) vAxis = ar->axis(QCPAxis::atRight);
+        if (!hAxis || !vAxis)
+            continue;
+
+        float keyOffset, keyLength;
+        if (!hAxis->rangeReversed())
+        {
+            keyOffset = float(ar->left());
+            keyLength = float(ar->width());
+        }
+        else
+        {
+            keyOffset = float(ar->right());
+            keyLength = float(-ar->width());
+        }
+
+        float valOffset, valLength;
+        if (!vAxis->rangeReversed())
+        {
+            valOffset = float(ar->bottom());
+            valLength = float(-ar->height());
+        }
+        else
+        {
+            valOffset = float(ar->top());
+            valLength = float(ar->height());
+        }
+
+        struct {
+            float width, height, yFlip, dpr;
+            float keyRangeLower, keyRangeUpper, keyAxisOffset, keyAxisLength, keyLogScale;
+            float valRangeLower, valRangeUpper, valAxisOffset, valAxisLength, valLogScale;
+            float _pad0, _pad1;
+        } params = {
+            float(outputSize.width()),
+            float(outputSize.height()),
+            isYUpInNDC ? -1.0f : 1.0f,
+            dpr,
+            float(hAxis->range().lower),
+            float(hAxis->range().upper),
+            keyOffset,
+            keyLength,
+            (hAxis->scaleType() == QCPAxis::stLogarithmic) ? 1.0f : 0.0f,
+            float(vAxis->range().lower),
+            float(vAxis->range().upper),
+            valOffset,
+            valLength,
+            (vAxis->scaleType() == QCPAxis::stLogarithmic) ? 1.0f : 0.0f,
+            0.0f, 0.0f
+        };
+        static_assert(sizeof(params) == kUniformBufferSize);
+        updates->updateDynamicBuffer(group.uniformBuffer, 0, sizeof(params), &params);
+    }
 }
 
 void QCPGridRhiLayer::renderGroups(QRhiCommandBuffer* cb, const QSize& outputSize, bool gridLines)
