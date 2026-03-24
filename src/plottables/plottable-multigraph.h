@@ -132,6 +132,10 @@ protected:
     bool mNeedsResampling = false;
     struct { QCPRange key, value; } mRenderedRange {};
     bool mHasRenderedRange = false;
+    // Line cache: per-component cached lines, reused with GPU offset
+    QVector<QVector<QPointF>> mCachedLines;
+    bool mLineCacheDirty = true;
+    QSize mCachedPlotSize;
 
     void onL1Ready();
     void rebuildL2(const ViewportParams& vp);

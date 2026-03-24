@@ -1653,4 +1653,30 @@ void TestPipeline::graph2LineCacheInvalidatedOnDataChange()
 
 void TestPipeline::multiGraphLineCacheReusedOnSmallPan()
 {
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10000;
+    const int cols = 3;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> values(cols, std::vector<double>(N));
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i;
+        for (int c = 0; c < cols; ++c)
+            values[c][i] = std::sin(i * 0.01 + c);
+    }
+    mg->setDataSource(std::make_shared<QCPSoAMultiDataSource<
+        std::vector<double>, std::vector<double>>>(
+        std::move(keys), std::move(values)));
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QVERIFY(!mg->mCachedLines.isEmpty());
+    auto cachedBefore = mg->mCachedLines;
+
+    // Small pan
+    double shift = N * 0.05;
+    mPlot->xAxis->setRange(shift, N + shift);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QCOMPARE(mg->mCachedLines, cachedBefore);
 }

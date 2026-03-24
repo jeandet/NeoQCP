@@ -43,6 +43,8 @@ QCPMultiGraph::QCPMultiGraph(QCPAxis* keyAxis, QCPAxis* valueAxis)
     {
         connect(keyAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged),
                 this, &QCPMultiGraph::onViewportChanged);
+        connect(keyAxis, &QCPAxis::scaleTypeChanged,
+                this, [this] { mLineCacheDirty = true; mCachedLines.clear(); });
     }
 
     connect(&mPipeline, &QCPMultiGraphPipeline::finished,
@@ -87,6 +89,8 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
     mL1Cache.reset();
     mL2Result.reset();
     mL2Dirty = false;
+    mLineCacheDirty = true;
+    mCachedLines.clear();
 
     if (mDataSource)
     {
@@ -105,6 +109,8 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
 
 void QCPMultiGraph::dataChanged()
 {
+    mLineCacheDirty = true;
+    mCachedLines.clear();
     if (mDataSource)
     {
         bool wasResampling = mNeedsResampling;
@@ -469,7 +475,7 @@ void QCPMultiGraph::deselectEvent(bool* selectionStateChanged)
 
 QPointF QCPMultiGraph::stallPixelOffset() const
 {
-    if (mPipeline.isBusy() && mHasRenderedRange)
+    if (mHasRenderedRange && !mCachedLines.isEmpty())
         return qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
                                           mRenderedRange.key, mRenderedRange.value);
     return {};
@@ -539,11 +545,65 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         ? static_cast<int>(mKeyAxis->axisRect()->height())
         : static_cast<int>(mKeyAxis->axisRect()->width());
 
-    QPointF gpuOffset = stallPixelOffset();
-    if (!mPipeline.isBusy())
+    // --- Line caching with GPU translation ---
+    bool needFreshLines = mLineCacheDirty || mCachedLines.isEmpty();
+
+    QSize currentPlotSize(mKeyAxis->axisRect()->width(), mKeyAxis->axisRect()->height());
+    if (currentPlotSize != mCachedPlotSize)
+        needFreshLines = true;
+
+    if (!needFreshLines && mHasRenderedRange)
     {
-        mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
-        mHasRenderedRange = true;
+        double keyRatio = mKeyAxis->range().size() / mRenderedRange.key.size();
+        double valRatio = mValueAxis->range().size() / mRenderedRange.value.size();
+        if (qAbs(keyRatio - 1.0) > 0.01 || qAbs(valRatio - 1.0) > 0.01)
+            needFreshLines = true;
+    }
+
+    QPointF gpuOffset;
+    if (!needFreshLines && mHasRenderedRange)
+    {
+        gpuOffset = qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
+                                               mRenderedRange.key, mRenderedRange.value);
+        const double keyDim = keyIsVertical
+            ? mKeyAxis->axisRect()->height()
+            : mKeyAxis->axisRect()->width();
+        const double valDim = keyIsVertical
+            ? mKeyAxis->axisRect()->width()
+            : mKeyAxis->axisRect()->height();
+        const double keyOff = qAbs(keyIsVertical ? gpuOffset.y() : gpuOffset.x());
+        const double valOff = qAbs(keyIsVertical ? gpuOffset.x() : gpuOffset.y());
+        if (keyOff > keyDim * 0.5 || valOff > valDim * 0.5)
+            needFreshLines = true;
+    }
+
+    if (painter->modes().testFlag(QCPPainter::pmNoCaching)
+        || painter->modes().testFlag(QCPPainter::pmVectorized))
+        needFreshLines = true;
+
+    if (needFreshLines)
+    {
+        mCachedLines.resize(mComponents.size());
+        for (int c = 0; c < mComponents.size(); ++c)
+        {
+            if (!mComponents[c].visible) { mCachedLines[c].clear(); continue; }
+            if (mL2Result)
+                mCachedLines[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+            else if (mAdaptiveSampling)
+                mCachedLines[c] = ds->getOptimizedLineData(c, begin, end, pixelWidth,
+                                                           mKeyAxis.data(), mValueAxis.data());
+            else
+                mCachedLines[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+        }
+        if (!painter->modes().testFlag(QCPPainter::pmNoCaching)
+            && !painter->modes().testFlag(QCPPainter::pmVectorized))
+        {
+            mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
+            mHasRenderedRange = true;
+            mLineCacheDirty = false;
+            mCachedPlotSize = currentPlotSize;
+            gpuOffset = {};
+        }
     }
 
     for (int c = 0; c < mComponents.size(); ++c) {
@@ -551,15 +611,8 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         if (!comp.visible) continue;
         if (mLineStyle == lsNone && comp.scatterStyle.isNone()) continue;
 
-        QVector<QPointF> lines;
-        if (mL2Result)
-            lines = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
-        else if (mAdaptiveSampling)
-            lines = ds->getOptimizedLineData(c, begin, end, pixelWidth,
-                                              mKeyAxis.data(), mValueAxis.data());
-        else
-            lines = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
-
+        const QVector<QPointF>& cachedForComp = (c < mCachedLines.size()) ? mCachedLines[c] : QVector<QPointF>();
+        QVector<QPointF> lines = cachedForComp;
         if (lines.isEmpty()) continue;
 
         // Apply line style transform
