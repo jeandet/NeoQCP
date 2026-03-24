@@ -25,6 +25,7 @@
 #include "test-overlay/test-overlay.h"
 #include "test-busy-indicator/test-busy-indicator.h"
 #include "test-creation-mode/test-creation-mode.h"
+#include "test-grid-rhi/test-grid-rhi.h"
 
 #define QCPTEST(t) t t##instance; QTest::qExec(&t##instance)
 
@@ -59,6 +60,7 @@ int main(int argc, char **argv)
   QCPTEST(TestOverlay);
   QCPTEST(TestBusyIndicator);
   QCPTEST(TestCreationMode);
+  QCPTEST(TestGridRhi);
 
   return 0;
 }

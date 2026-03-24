@@ -31,6 +31,7 @@ test_srcs = [
     'test-overlay/test-overlay.cpp',
     'test-busy-indicator/test-busy-indicator.cpp',
     'test-creation-mode/test-creation-mode.cpp',
+    'test-grid-rhi/test-grid-rhi.cpp',
 ]
 
 test_headers = [
@@ -61,6 +62,7 @@ test_headers = [
     'test-overlay/test-overlay.h',
     'test-busy-indicator/test-busy-indicator.h',
     'test-creation-mode/test-creation-mode.h',
+    'test-grid-rhi/test-grid-rhi.h',
 ]
 test_moc_files = qtmod.compile_moc(headers : test_headers)
 
