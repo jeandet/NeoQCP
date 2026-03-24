@@ -22,11 +22,15 @@ QCPGraph2::QCPGraph2(QCPAxis* keyAxis, QCPAxis* valueAxis)
     {
         connect(keyAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged),
                 this, &QCPGraph2::onViewportChanged);
+        connect(keyAxis, &QCPAxis::scaleTypeChanged,
+                this, [this] { mLineCacheDirty = true; mCachedLines.clear(); });
     }
     if (valueAxis)
     {
         connect(valueAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged),
                 this, &QCPGraph2::onViewportChanged);
+        connect(valueAxis, &QCPAxis::scaleTypeChanged,
+                this, [this] { mLineCacheDirty = true; mCachedLines.clear(); });
     }
 
     connect(&mPipeline, &QCPGraphPipeline::finished,
@@ -63,6 +67,8 @@ void QCPGraph2::setDataSource(std::unique_ptr<QCPAbstractDataSource> source)
     mDataSource = std::move(source);
     mL1Cache.reset();
     mL2Result.reset();
+    mLineCacheDirty = true;
+    mCachedLines.clear();
     mL2Dirty = false;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
     if (mDataSource)
@@ -75,6 +81,8 @@ void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
     mDataSource = std::move(source);
     mL1Cache.reset();
     mL2Result.reset();
+    mLineCacheDirty = true;
+    mCachedLines.clear();
     mL2Dirty = false;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
     if (mDataSource)
@@ -84,6 +92,9 @@ void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
 
 void QCPGraph2::dataChanged()
 {
+    mLineCacheDirty = true;
+    mCachedLines.clear();
+
     bool wasResampling = mNeedsResampling;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
 

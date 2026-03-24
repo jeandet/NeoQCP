@@ -75,7 +75,12 @@ public:
 
     // Adaptive sampling control
     bool adaptiveSampling() const { return mAdaptiveSampling; }
-    void setAdaptiveSampling(bool enabled) { mAdaptiveSampling = enabled; }
+    void setAdaptiveSampling(bool enabled)
+    {
+        mAdaptiveSampling = enabled;
+        mLineCacheDirty = true;
+        mCachedLines.clear();
+    }
 
     // QCPPlottableInterface1D
     int dataCount() const override;
@@ -119,6 +124,11 @@ private:
     // GPU translation fast path: axis ranges when data was last drawn fresh
     struct { QCPRange key, value; } mRenderedRange {};
     bool mHasRenderedRange = false;
+
+    // Line cache: reuse across replots when viewport shift is small
+    QVector<QPointF> mCachedLines;
+    bool mLineCacheDirty = true;
+    QSize mCachedPlotSize;
 
     void onL1Ready();
     void rebuildL2(const ViewportParams& vp);
