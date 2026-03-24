@@ -173,7 +173,7 @@ void TestPipeline::translatedGeometryClippedToAxisRect()
             }
         }
     }
-    QVERIFY2(!foundRedOutside, "Red pixels found outside axis rect — scissor clipping failed");
+    QVERIFY2(!foundRedOutside, "Red pixels found outside axis rect — clipping failed");
 }
 
 void TestPipeline::multipleGraph2IndependentOffsets()

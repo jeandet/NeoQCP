@@ -12,7 +12,7 @@
 #include <cmath>
 
 static constexpr int kFloatsPerVertex = 11;
-// Uniform buffer size: 15 floats padded to 16-byte alignment = 64 bytes
+// Uniform buffer size: 14 data floats + 2 padding = 16 floats = 64 bytes (std140)
 static constexpr int kUniformBufferSize = 64;
 
 static auto premultiply(const QColor& c) -> std::array<float, 4>
