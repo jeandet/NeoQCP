@@ -71,7 +71,7 @@ public:
     LineStyle lineStyle() const { return mLineStyle; }
     void setLineStyle(LineStyle style) { mLineStyle = style; }
     bool adaptiveSampling() const { return mAdaptiveSampling; }
-    void setAdaptiveSampling(bool enabled) { mAdaptiveSampling = enabled; }
+    void setAdaptiveSampling(bool enabled) { if (mAdaptiveSampling != enabled) { mAdaptiveSampling = enabled; mLineCacheDirty = true; mCachedLines.clear(); } }
     int scatterSkip() const { return mScatterSkip; }
     void setScatterSkip(int skip) { mScatterSkip = qMax(0, skip); }
 
