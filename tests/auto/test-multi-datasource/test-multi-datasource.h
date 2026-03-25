@@ -24,6 +24,11 @@ private slots:
     void soaEmpty();
     void soaMixedTypes();
 
+    // Row-major data source
+    void rowMajorValueAt();
+    void rowMajorWithPadding();
+    void rowMajorGetLines();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };

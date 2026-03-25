@@ -57,13 +57,14 @@ public:
             keys, std::move(valueColumns)));
     }
 
-    // Convenience: non-owning row-major (C-order) 2D array
+    // Convenience: non-owning row-major (C-order) 2D array.
+    // stride is in elements (not bytes).
     template <typename K, typename V>
     void viewRowMajorData(std::span<const K> keys, const V* values,
-                           int rows, int columns, int stride)
+                           int columns, int stride)
     {
         setDataSource(std::make_shared<QCPRowMajorMultiDataSource<K, V>>(
-            keys, values, rows, columns, stride));
+            keys, values, static_cast<int>(keys.size()), columns, stride));
     }
 
     // Components
