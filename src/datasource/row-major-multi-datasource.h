@@ -7,6 +7,8 @@
 
 // Lightweight non-owning view of a single column in a row-major 2D array.
 // Satisfies IndexableNumericRange (random_access_range + arithmetic value_type).
+// Uses index-based iteration to avoid out-of-bounds pointer arithmetic when
+// the base pointer is offset into the middle of a buffer (e.g. values + column).
 template <typename V>
 class StridedColumnView {
 public:
@@ -20,29 +22,30 @@ public:
         using pointer = const V*;
         using reference = const V&;
 
-        const V* ptr = nullptr;
+        const V* base = nullptr;
+        int index = 0;
         int stride = 0;
 
-        const V& operator*() const { return *ptr; }
-        Iterator& operator++() { ptr += stride; return *this; }
-        Iterator operator++(int) { auto t = *this; ++*this; return t; }
-        Iterator& operator--() { ptr -= stride; return *this; }
-        Iterator operator--(int) { auto t = *this; --*this; return t; }
-        Iterator& operator+=(difference_type n) { ptr += n * stride; return *this; }
-        Iterator& operator-=(difference_type n) { ptr -= n * stride; return *this; }
-        Iterator operator+(difference_type n) const { return {ptr + n * stride, stride}; }
-        Iterator operator-(difference_type n) const { return {ptr - n * stride, stride}; }
-        difference_type operator-(const Iterator& o) const { return (ptr - o.ptr) / stride; }
-        const V& operator[](difference_type n) const { return *(ptr + n * stride); }
-        auto operator<=>(const Iterator& o) const = default;
-        bool operator==(const Iterator& o) const = default;
+        const V& operator*() const { return base[static_cast<std::ptrdiff_t>(index) * stride]; }
+        Iterator& operator++() { ++index; return *this; }
+        Iterator operator++(int) { auto t = *this; ++index; return t; }
+        Iterator& operator--() { --index; return *this; }
+        Iterator operator--(int) { auto t = *this; --index; return t; }
+        Iterator& operator+=(difference_type n) { index += static_cast<int>(n); return *this; }
+        Iterator& operator-=(difference_type n) { index -= static_cast<int>(n); return *this; }
+        Iterator operator+(difference_type n) const { return {base, index + static_cast<int>(n), stride}; }
+        Iterator operator-(difference_type n) const { return {base, index - static_cast<int>(n), stride}; }
+        difference_type operator-(const Iterator& o) const { return index - o.index; }
+        const V& operator[](difference_type n) const { return base[static_cast<std::ptrdiff_t>(index + n) * stride]; }
+        auto operator<=>(const Iterator& o) const { return index <=> o.index; }
+        bool operator==(const Iterator& o) const { return index == o.index; }
     };
 
     friend Iterator operator+(typename Iterator::difference_type n, const Iterator& it)
     { return it + n; }
 
-    Iterator begin() const { return {mBase, mStride}; }
-    Iterator end() const { return {mBase + static_cast<std::ptrdiff_t>(mCount) * mStride, mStride}; }
+    Iterator begin() const { return {mBase, 0, mStride}; }
+    Iterator end() const { return {mBase, mCount, mStride}; }
     int size() const { return mCount; }
     const V& operator[](int i) const { return mBase[static_cast<std::ptrdiff_t>(i) * mStride]; }
 
@@ -96,22 +99,8 @@ public:
                         const QCPRange& inKeyRange = QCPRange()) const override
     {
         Q_ASSERT(column >= 0 && column < mColumns);
-        found = false;
-        const bool filterByKey = (inKeyRange.lower != 0 || inKeyRange.upper != 0);
-        double lo = std::numeric_limits<double>::max();
-        double hi = std::numeric_limits<double>::lowest();
-        for (int i = 0; i < mRows; ++i)
-        {
-            if (filterByKey && !inKeyRange.contains(static_cast<double>(mKeys[i])))
-                continue;
-            double v = static_cast<double>(mValues[i * mStride + column]);
-            if (sd == QCP::sdPositive && v <= 0) continue;
-            if (sd == QCP::sdNegative && v >= 0) continue;
-            if (v < lo) lo = v;
-            if (v > hi) hi = v;
-            found = true;
-        }
-        return found ? QCPRange(lo, hi) : QCPRange();
+        StridedColumnView<V> colView(mValues + column, mRows, mStride);
+        return qcp::algo::valueRange(mKeys, colView, found, sd, inKeyRange);
     }
 
     int findBegin(double sortKey, bool expandedRange = true) const override

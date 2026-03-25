@@ -244,6 +244,10 @@ void TestMultiDataSource::rowMajorWithPadding()
 
 void TestMultiDataSource::rowMajorGetLines()
 {
+    mPlot->xAxis->setRange(0, 6);
+    mPlot->yAxis->setRange(0, 110);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
     std::vector<double> keys = {1.0, 2.0, 3.0, 4.0, 5.0};
     std::vector<double> values = {10, 20,
                                    30, 40,
