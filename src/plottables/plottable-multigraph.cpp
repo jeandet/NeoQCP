@@ -1,4 +1,5 @@
 #include "plottable-multigraph.h"
+#include "plottable-l1-cache.h"
 #include "plottable-linestyle.h"
 #include "../axis/axis.h"
 #include "../core.h"
@@ -141,14 +142,7 @@ void QCPMultiGraph::dataChanged()
 
 void QCPMultiGraph::onL1Ready()
 {
-    auto& pipelineCache = mPipeline.cache();
-    auto* c = std::any_cast<qcp::algo::MultiGraphResamplerCache>(&pipelineCache);
-    if (c && c->sourceSize > 0)
-    {
-        mL1Cache = std::make_shared<qcp::algo::MultiGraphResamplerCache>(std::move(*c));
-        pipelineCache = std::any{};
-        mL2Dirty = true;
-    }
+    qcp::extractL1Cache<qcp::algo::MultiGraphResamplerCache>(mPipeline.cache(), mL1Cache, mL2Dirty);
     if (parentPlot())
         parentPlot()->replot(QCustomPlot::rpQueuedReplot);
 }
