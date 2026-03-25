@@ -24,6 +24,7 @@
 ****************************************************************************/
 
 #include "axistickertime.h"
+#include "axisticker-utils.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPAxisTickerTime
@@ -210,42 +211,10 @@ double QCPAxisTickerTime::getTickStep(const QCPRange& range)
 */
 int QCPAxisTickerTime::getSubTickCount(double tickStep)
 {
-    int result = QCPAxisTicker::getSubTickCount(tickStep);
-    switch (qRound(tickStep)) // hand chosen subticks for specific minute/hour/day range (as
-                              // specified in getTickStep)
-    {
-        case 5 * 60:
-            result = 4;
-            break;
-        case 10 * 60:
-            result = 1;
-            break;
-        case 15 * 60:
-            result = 2;
-            break;
-        case 30 * 60:
-            result = 1;
-            break;
-        case 60 * 60:
-            result = 3;
-            break;
-        case 3600 * 2:
-            result = 3;
-            break;
-        case 3600 * 3:
-            result = 2;
-            break;
-        case 3600 * 6:
-            result = 1;
-            break;
-        case 3600 * 12:
-            result = 3;
-            break;
-        case 3600 * 24:
-            result = 3;
-            break;
-    }
-    return result;
+    int result = qcp::minuteHourSubTickCount(tickStep);
+    if (result >= 0)
+        return result;
+    return QCPAxisTicker::getSubTickCount(tickStep);
 }
 
 /*! \internal
