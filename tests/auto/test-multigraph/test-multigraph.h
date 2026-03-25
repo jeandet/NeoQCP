@@ -42,6 +42,9 @@ private slots:
     void legendExpandCollapse();
     void legendGroupSelectsAll();
 
+    // Line cache
+    void cacheExtendsBeyondVisibleRange();
+
     // Rendering
     void renderVerticalKeyAxisUsesHeight();
     void renderBasicDoesNotCrash();

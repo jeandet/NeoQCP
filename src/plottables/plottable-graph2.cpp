@@ -518,8 +518,9 @@ void QCPGraph2::draw(QCPPainter* painter)
     if (mLineStyle == lsNone && mScatterStyle.isNone())
         return;
 
-    int begin = ds->findBegin(mKeyAxis->range().lower);
-    int end = ds->findEnd(mKeyAxis->range().upper);
+    const QCPRange keyRange = mKeyAxis->range();
+    int begin = ds->findBegin(keyRange.lower);
+    int end = ds->findEnd(keyRange.upper);
     if (begin >= end)
         return;
 
@@ -568,17 +569,23 @@ void QCPGraph2::draw(QCPPainter* painter)
     QVector<QPointF> lines;
     if (needFreshLines)
     {
+        // Expand data range by 50% on each side so GPU-translated pans
+        // don't expose uncovered edges before the rebuild threshold triggers.
+        const double margin = keyRange.size() * 0.5;
+        int cacheBegin = ds->findBegin(keyRange.lower - margin);
+        int cacheEnd = ds->findEnd(keyRange.upper + margin);
+
         if (mAdaptiveSampling)
         {
             const int pixDim = keyIsVertical
                 ? static_cast<int>(mKeyAxis->axisRect()->height())
                 : static_cast<int>(mKeyAxis->axisRect()->width());
             lines = ds->getOptimizedLineData(
-                begin, end, pixDim, mKeyAxis.data(), mValueAxis.data());
+                cacheBegin, cacheEnd, pixDim, mKeyAxis.data(), mValueAxis.data());
         }
         else
         {
-            lines = ds->getLines(begin, end, mKeyAxis.data(), mValueAxis.data());
+            lines = ds->getLines(cacheBegin, cacheEnd, mKeyAxis.data(), mValueAxis.data());
         }
 
         // Cache for reuse (but not during export)
