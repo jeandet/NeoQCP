@@ -506,6 +506,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             vp.plotHeightPx = axisRect->height();
             vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
             rebuildL2(vp);
+            mLineCacheDirty = true; // L2 data changed → cached pixel-space lines are stale
         }
         mL2Dirty = false;
     }

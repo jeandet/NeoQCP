@@ -488,6 +488,7 @@ void QCPGraph2::draw(QCPPainter* painter)
             vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
             vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
             rebuildL2(vp);
+            mLineCacheDirty = true; // L2 data changed → cached pixel-space lines are stale
         }
         mL2Dirty = false;
     }
