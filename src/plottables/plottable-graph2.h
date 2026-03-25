@@ -140,9 +140,4 @@ private:
     int mScatterSkip = 0;
     bool mAdaptiveSampling = true;
 
-    // Line style transforms (pixel-space in, pixel-space out)
-    static QVector<QPointF> toStepLeftLines(const QVector<QPointF>& lines, bool keyIsVertical);
-    static QVector<QPointF> toStepRightLines(const QVector<QPointF>& lines, bool keyIsVertical);
-    static QVector<QPointF> toStepCenterLines(const QVector<QPointF>& lines, bool keyIsVertical);
-    QVector<QPointF> toImpulseLines(const QVector<QPointF>& lines, bool keyIsVertical) const;
 };

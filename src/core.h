@@ -46,7 +46,9 @@ class QCPLegend;
 class QCPAbstractLegendItem;
 class QCPSelectionRect;
 class QRhi;
+class QRhiCommandBuffer;
 class QRhiGraphicsPipeline;
+class QRhiResourceUpdateBatch;
 class QRhiSampler;
 class QRhiBuffer;
 class QRhiShaderResourceBindings;
@@ -399,6 +401,10 @@ protected:
     void initialize(QRhiCommandBuffer* cb) override;
     void render(QRhiCommandBuffer* cb) override;
     void releaseResources() override;
+    void ensureCompositePipeline();
+    void uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QSize& outputSize);
+    void executeRenderPass(QRhiCommandBuffer* cb, QRhiResourceUpdateBatch* updates,
+                           const QSize& outputSize);
     virtual void resizeEvent(QResizeEvent* event) override;
     virtual void mouseDoubleClickEvent(QMouseEvent* event) override;
     virtual void mousePressEvent(QMouseEvent* event) override;

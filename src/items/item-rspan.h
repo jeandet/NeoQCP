@@ -1,13 +1,12 @@
 #ifndef QCP_ITEM_RSPAN_H
 #define QCP_ITEM_RSPAN_H
 
-#include "../global.h"
-#include "item.h"
+#include "item-spanbase.h"
 
 class QCPPainter;
 class QCustomPlot;
 
-class QCP_LIB_DECL QCPItemRSpan : public QCPAbstractItem
+class QCP_LIB_DECL QCPItemRSpan : public QCPAbstractSpanItem
 {
     Q_OBJECT
     Q_PROPERTY(QPen pen READ pen WRITE setPen)
@@ -20,25 +19,9 @@ class QCP_LIB_DECL QCPItemRSpan : public QCPAbstractItem
 
 public:
     explicit QCPItemRSpan(QCustomPlot* parentPlot);
-    virtual ~QCPItemRSpan() override;
 
-    QPen pen() const { return mPen; }
-    QPen selectedPen() const { return mSelectedPen; }
-    QBrush brush() const { return mBrush; }
-    QBrush selectedBrush() const { return mSelectedBrush; }
-    QPen borderPen() const { return mBorderPen; }
-    QPen selectedBorderPen() const { return mSelectedBorderPen; }
-    bool movable() const { return mMovable; }
     QCPRange keyRange() const;
     QCPRange valueRange() const;
-
-    void setPen(const QPen& pen);
-    void setSelectedPen(const QPen& pen);
-    void setBrush(const QBrush& brush);
-    void setSelectedBrush(const QBrush& brush);
-    void setBorderPen(const QPen& pen);
-    void setSelectedBorderPen(const QPen& pen);
-    void setMovable(bool movable);
     void setKeyRange(const QCPRange& range);
     void setValueRange(const QCPRange& range);
 
@@ -65,11 +48,6 @@ signals:
 protected:
     enum AnchorIndex { aiTopLeft, aiTopRight, aiBottomRight, aiBottomLeft, aiCenter };
 
-    QPen mPen, mSelectedPen;
-    QBrush mBrush, mSelectedBrush;
-    QPen mBorderPen, mSelectedBorderPen;
-    bool mMovable = true;
-
     HitPart mDragPart = hpNone;
     double mDragStartLeft = 0, mDragStartRight = 0;
     double mDragStartTop = 0, mDragStartBottom = 0;
@@ -79,10 +57,6 @@ protected:
     virtual void mousePressEvent(QMouseEvent* event, const QVariant& details) override;
     virtual void mouseMoveEvent(QMouseEvent* event, const QPointF& startPos) override;
     virtual void mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos) override;
-
-    QPen mainPen() const;
-    QBrush mainBrush() const;
-    QPen mainBorderPen() const;
 };
 
 #endif // QCP_ITEM_RSPAN_H

@@ -46,6 +46,7 @@
 #include <QSet>
 #include <rhi/qrhi.h>
 #include "embedded_shaders.h"
+#include "painting/rhi-utils.h"
 #include "plottables/plottable.h"
 #include "plottables/plottable-graph.h"
 #include "selectionrect.h"
@@ -560,25 +561,30 @@ void QCustomPlot::applyTheme()
     if (!mTheme)
         return;
 
+    auto recoloredPen = [](QPen pen, const QColor& c) { pen.setColor(c); return pen; };
+
     mBackgroundBrush.setColor(mTheme->background());
 
-    auto applyThemeToAxis = [&](QCPAxis* axis) {
-        QPen bp = axis->basePen();    bp.setColor(mTheme->foreground()); axis->setBasePen(bp);
-        QPen tp = axis->tickPen();    tp.setColor(mTheme->foreground()); axis->setTickPen(tp);
-        QPen sp = axis->subTickPen(); sp.setColor(mTheme->foreground()); axis->setSubTickPen(sp);
-        axis->setLabelColor(mTheme->foreground());
-        axis->setTickLabelColor(mTheme->foreground());
+    const QColor fg = mTheme->foreground();
+    const QColor sel = mTheme->selection();
 
-        QPen sbp = axis->selectedBasePen();    sbp.setColor(mTheme->selection()); axis->setSelectedBasePen(sbp);
-        QPen stp = axis->selectedTickPen();    stp.setColor(mTheme->selection()); axis->setSelectedTickPen(stp);
-        QPen ssp = axis->selectedSubTickPen(); ssp.setColor(mTheme->selection()); axis->setSelectedSubTickPen(ssp);
-        axis->setSelectedLabelColor(mTheme->selection());
-        axis->setSelectedTickLabelColor(mTheme->selection());
+    auto applyThemeToAxis = [&](QCPAxis* axis) {
+        axis->setBasePen(recoloredPen(axis->basePen(), fg));
+        axis->setTickPen(recoloredPen(axis->tickPen(), fg));
+        axis->setSubTickPen(recoloredPen(axis->subTickPen(), fg));
+        axis->setLabelColor(fg);
+        axis->setTickLabelColor(fg);
+
+        axis->setSelectedBasePen(recoloredPen(axis->selectedBasePen(), sel));
+        axis->setSelectedTickPen(recoloredPen(axis->selectedTickPen(), sel));
+        axis->setSelectedSubTickPen(recoloredPen(axis->selectedSubTickPen(), sel));
+        axis->setSelectedLabelColor(sel);
+        axis->setSelectedTickLabelColor(sel);
 
         auto* grid = axis->grid();
-        QPen gp = grid->pen();         gp.setColor(mTheme->grid());    grid->setPen(gp);
-        QPen sgp = grid->subGridPen(); sgp.setColor(mTheme->subGrid()); grid->setSubGridPen(sgp);
-        QPen zlp = grid->zeroLinePen(); zlp.setColor(mTheme->grid());  grid->setZeroLinePen(zlp);
+        grid->setPen(recoloredPen(grid->pen(), mTheme->grid()));
+        grid->setSubGridPen(recoloredPen(grid->subGridPen(), mTheme->subGrid()));
+        grid->setZeroLinePen(recoloredPen(grid->zeroLinePen(), mTheme->grid()));
     };
 
     for (auto* rect : axisRects())
@@ -587,38 +593,35 @@ void QCustomPlot::applyTheme()
 
     if (legend) {
         legend->setBrush(QBrush(mTheme->legendBackground()));
-        QPen lbp = legend->borderPen(); lbp.setColor(mTheme->legendBorder()); legend->setBorderPen(lbp);
-        legend->setTextColor(mTheme->foreground());
-        legend->setSelectedTextColor(mTheme->selection());
-        QPen slbp = legend->selectedBorderPen(); slbp.setColor(mTheme->selection()); legend->setSelectedBorderPen(slbp);
+        legend->setBorderPen(recoloredPen(legend->borderPen(), mTheme->legendBorder()));
+        legend->setTextColor(fg);
+        legend->setSelectedTextColor(sel);
+        legend->setSelectedBorderPen(recoloredPen(legend->selectedBorderPen(), sel));
     }
 
     std::function<void(QCPLayoutElement*)> walkLayout = [&](QCPLayoutElement* el) {
         if (!el) return;
         if (auto* te = qobject_cast<QCPTextElement*>(el)) {
-            te->setTextColor(mTheme->foreground());
-            te->setSelectedTextColor(mTheme->selection());
+            te->setTextColor(fg);
+            te->setSelectedTextColor(sel);
         }
-        if (auto* cs = qobject_cast<QCPColorScale*>(el)) {
+        if (auto* cs = qobject_cast<QCPColorScale*>(el))
             applyThemeToAxis(cs->axis());
-        }
-        if (auto* layout = qobject_cast<QCPLayout*>(el)) {
+        if (auto* layout = qobject_cast<QCPLayout*>(el))
             for (int i = 0; i < layout->elementCount(); ++i)
                 walkLayout(layout->elementAt(i));
-        }
     };
     walkLayout(plotLayout());
 
     for (auto* item : mItems) {
         if (auto* textItem = qobject_cast<QCPItemText*>(item)) {
-            textItem->setColor(mTheme->foreground());
-            textItem->setSelectedColor(mTheme->selection());
+            textItem->setColor(fg);
+            textItem->setSelectedColor(sel);
         }
     }
 
-    if (mSelectionRect) {
-        QPen srp = mSelectionRect->pen(); srp.setColor(mTheme->selection()); mSelectionRect->setPen(srp);
-    }
+    if (mSelectionRect)
+        mSelectionRect->setPen(recoloredPen(mSelectionRect->pen(), sel));
 
     replot(QCustomPlot::rpQueuedReplot);
 }
@@ -2579,31 +2582,57 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
   Called by QRhiWidget each frame. Uploads paint buffer staging images to GPU textures
   and composites them onto the widget render target.
 */
-void QCustomPlot::render(QRhiCommandBuffer* cb)
+void QCustomPlot::ensureCompositePipeline()
 {
-    PROFILE_FRAME_MARK;
-    PROFILE_HERE_N("QCustomPlot::render");
-
-    if (!mRhiInitialized || !mRhi)
+    if (mCompositePipeline)
         return;
 
-    // Detect DPR changes (e.g. window moved between Retina and non-Retina displays)
-    if (const auto newDpr = devicePixelRatioF(); !qFuzzyCompare(mBufferDevicePixelRatio, newDpr))
+    auto vertShader = qcp::rhi::loadEmbeddedShader(composite_vert_qsb_data, composite_vert_qsb_data_len);
+    auto fragShader = qcp::rhi::loadEmbeddedShader(composite_frag_qsb_data, composite_frag_qsb_data_len);
+
+    if (!vertShader.isValid() || !fragShader.isValid())
     {
-        // Only update MSAA if the user hasn't overridden it (still matches auto-selected value)
-        const int autoSample = mBufferDevicePixelRatio >= 2.0 ? 1 : 4;
-        const bool userOverrode = sampleCount() != autoSample;
-        setBufferDevicePixelRatio(newDpr);
-        if (!userOverrode)
-            setSampleCount(newDpr >= 2.0 ? 1 : 4);
-        replot(QCustomPlot::rpQueuedRefresh);
+        qDebug() << Q_FUNC_INFO << "Failed to deserialize compositing shaders";
         return;
     }
 
-    const QSize outputSize = renderTarget()->pixelSize();
-    QRhiResourceUpdateBatch* updates = mRhi->nextResourceUpdateBatch();
+    mCompositePipeline = mRhi->newGraphicsPipeline();
+    mCompositePipeline->setShaderStages({
+        { QRhiShaderStage::Vertex, vertShader },
+        { QRhiShaderStage::Fragment, fragShader }
+    });
 
-    // Upload staging images that changed since last frame
+    QRhiVertexInputLayout inputLayout;
+    inputLayout.setBindings({ { 4 * sizeof(float) } });
+    inputLayout.setAttributes({
+        { 0, 0, QRhiVertexInputAttribute::Float2, 0 },
+        { 0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float) }
+    });
+    mCompositePipeline->setVertexInputLayout(inputLayout);
+
+    mCompositePipeline->setTargetBlends({qcp::rhi::premultipliedAlphaBlend()});
+
+    mCompositePipeline->setRenderPassDescriptor(renderTarget()->renderPassDescriptor());
+    delete mLayoutSrb;
+    mLayoutSrb = mRhi->newShaderResourceBindings();
+    mLayoutSrb->setBindings({
+        QRhiShaderResourceBinding::sampledTexture(
+            0, QRhiShaderResourceBinding::FragmentStage,
+            nullptr, mSampler),
+        QRhiShaderResourceBinding::uniformBuffer(
+            1, QRhiShaderResourceBinding::VertexStage,
+            mCompositeUbo)
+    });
+    mLayoutSrb->create();
+    mCompositePipeline->setShaderResourceBindings(mLayoutSrb);
+    mCompositePipeline->setSampleCount(sampleCount());
+    mCompositePipeline->setFlags(mCompositePipeline->flags()
+                                 | QRhiGraphicsPipeline::UsesScissor);
+    mCompositePipeline->create();
+}
+
+void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QSize& outputSize)
+{
     for (const auto& buffer : mPaintBuffers)
     {
         auto* rhiBuffer = static_cast<QCPPaintBufferRhi*>(buffer.data());
@@ -2617,7 +2646,6 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
         }
     }
 
-    // Upload plottable GPU resources
     for (auto* prl : mPlottableRhiLayers)
     {
         prl->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
@@ -2625,14 +2653,12 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
                               mRhi->isYUpInNDC());
     }
 
-    // Ensure composite UBO exists before any pipeline that shares the composite shader
     if (!mCompositeUbo)
     {
         mCompositeUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 32);
         mCompositeUbo->create();
     }
 
-    // Upload colormap GPU resources
     for (auto* crl : mColormapRhiLayers)
     {
         crl->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount(),
@@ -2641,71 +2667,17 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
                               mRhi->isYUpInNDC(), mCompositeUbo);
     }
 
-    // Upload span GPU resources
     if (mSpanRhiLayer && mSpanRhiLayer->hasSpans())
     {
         mSpanRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mSpanRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
                                         mRhi->isYUpInNDC());
     }
+}
 
-    if (!mCompositePipeline)
-    {
-        QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
-            reinterpret_cast<const char*>(composite_vert_qsb_data), composite_vert_qsb_data_len));
-        QShader fragShader = QShader::fromSerialized(QByteArray::fromRawData(
-            reinterpret_cast<const char*>(composite_frag_qsb_data), composite_frag_qsb_data_len));
-
-        if (!vertShader.isValid() || !fragShader.isValid())
-        {
-            qDebug() << Q_FUNC_INFO << "Failed to deserialize compositing shaders";
-            return;
-        }
-
-        mCompositePipeline = mRhi->newGraphicsPipeline();
-        mCompositePipeline->setShaderStages({
-            { QRhiShaderStage::Vertex, vertShader },
-            { QRhiShaderStage::Fragment, fragShader }
-        });
-
-        QRhiVertexInputLayout inputLayout;
-        inputLayout.setBindings({ { 4 * sizeof(float) } });
-        inputLayout.setAttributes({
-            { 0, 0, QRhiVertexInputAttribute::Float2, 0 },
-            { 0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float) }
-        });
-        mCompositePipeline->setVertexInputLayout(inputLayout);
-
-        // Premultiplied alpha blending
-        QRhiGraphicsPipeline::TargetBlend blend;
-        blend.enable = true;
-        blend.srcColor = QRhiGraphicsPipeline::One;
-        blend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
-        blend.srcAlpha = QRhiGraphicsPipeline::One;
-        blend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
-        mCompositePipeline->setTargetBlends({ blend });
-
-        mCompositePipeline->setRenderPassDescriptor(renderTarget()->renderPassDescriptor());
-        // Layout-only SRB for pipeline compatibility
-        delete mLayoutSrb;
-        mLayoutSrb = mRhi->newShaderResourceBindings();
-        mLayoutSrb->setBindings({
-            QRhiShaderResourceBinding::sampledTexture(
-                0, QRhiShaderResourceBinding::FragmentStage,
-                nullptr, mSampler),
-            QRhiShaderResourceBinding::uniformBuffer(
-                1, QRhiShaderResourceBinding::VertexStage,
-                mCompositeUbo)
-        });
-        mLayoutSrb->create();
-        mCompositePipeline->setShaderResourceBindings(mLayoutSrb);
-        mCompositePipeline->setSampleCount(sampleCount());
-        mCompositePipeline->setFlags(mCompositePipeline->flags()
-                                     | QRhiGraphicsPipeline::UsesScissor);
-        mCompositePipeline->create();
-    }
-
-    // Begin render pass -- clear with background color
+void QCustomPlot::executeRenderPass(QRhiCommandBuffer* cb, QRhiResourceUpdateBatch* updates,
+                                     const QSize& outputSize)
+{
     QColor clearColor = (mBackgroundBrush.style() == Qt::SolidPattern)
         ? mBackgroundBrush.color() : Qt::white;
 
@@ -2796,8 +2768,7 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
             }
         }
 
-        // Draw colormap texture quads for this layer (between paint buffer and line plottables)
-        // Colormaps pre-compute NDC on the CPU, so reset shared UBO to zero translation
+        // Draw colormap texture quads for this layer
         bool hasColormapsOnLayer = false;
         for (auto* crl : mColormapRhiLayers)
         {
@@ -2836,6 +2807,36 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
     }
 
     cb->endPass();
+}
+
+void QCustomPlot::render(QRhiCommandBuffer* cb)
+{
+    PROFILE_FRAME_MARK;
+    PROFILE_HERE_N("QCustomPlot::render");
+
+    if (!mRhiInitialized || !mRhi)
+        return;
+
+    // Detect DPR changes (e.g. window moved between Retina and non-Retina displays)
+    if (const auto newDpr = devicePixelRatioF(); !qFuzzyCompare(mBufferDevicePixelRatio, newDpr))
+    {
+        const int autoSample = mBufferDevicePixelRatio >= 2.0 ? 1 : 4;
+        const bool userOverrode = sampleCount() != autoSample;
+        setBufferDevicePixelRatio(newDpr);
+        if (!userOverrode)
+            setSampleCount(newDpr >= 2.0 ? 1 : 4);
+        replot(QCustomPlot::rpQueuedRefresh);
+        return;
+    }
+
+    const QSize outputSize = renderTarget()->pixelSize();
+    QRhiResourceUpdateBatch* updates = mRhi->nextResourceUpdateBatch();
+
+    uploadLayerTextures(updates, outputSize);
+    ensureCompositePipeline();
+    if (!mCompositePipeline)
+        return;
+    executeRenderPass(cb, updates, outputSize);
 }
 
 /*! \internal
