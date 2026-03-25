@@ -540,8 +540,9 @@ void QCPMultiGraph::draw(QCPPainter* painter)
 
     const QCPAbstractMultiDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
 
-    int begin = ds->findBegin(mKeyAxis->range().lower);
-    int end = ds->findEnd(mKeyAxis->range().upper);
+    const QCPRange keyRange = mKeyAxis->range();
+    int begin = ds->findBegin(keyRange.lower);
+    int end = ds->findEnd(keyRange.upper);
     if (begin >= end)
         return;
 
@@ -592,17 +593,23 @@ void QCPMultiGraph::draw(QCPPainter* painter)
 
     if (needFreshLines)
     {
+        // Expand data range by 50% on each side so GPU-translated pans
+        // don't expose uncovered edges before the rebuild threshold triggers.
+        const double margin = keyRange.size() * 0.5;
+        int cacheBegin = ds->findBegin(keyRange.lower - margin);
+        int cacheEnd = ds->findEnd(keyRange.upper + margin);
+
         linesTarget.resize(mComponents.size());
         for (int c = 0; c < mComponents.size(); ++c)
         {
             if (!mComponents[c].visible) { linesTarget[c].clear(); continue; }
             if (mL2Result)
-                linesTarget[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+                linesTarget[c] = ds->getLines(c, cacheBegin, cacheEnd, mKeyAxis.data(), mValueAxis.data());
             else if (mAdaptiveSampling)
-                linesTarget[c] = ds->getOptimizedLineData(c, begin, end, pixelWidth,
+                linesTarget[c] = ds->getOptimizedLineData(c, cacheBegin, cacheEnd, pixelWidth,
                                                            mKeyAxis.data(), mValueAxis.data());
             else
-                linesTarget[c] = ds->getLines(c, begin, end, mKeyAxis.data(), mValueAxis.data());
+                linesTarget[c] = ds->getLines(c, cacheBegin, cacheEnd, mKeyAxis.data(), mValueAxis.data());
         }
         if (!isExportMode)
         {

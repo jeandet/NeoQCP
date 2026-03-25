@@ -384,6 +384,44 @@ void TestMultiGraph::legendGroupSelectsAll()
     QVERIFY(item);
 }
 
+void TestMultiGraph::cacheExtendsBeyondVisibleRange()
+{
+    // Reproducer: fast panning cropped curves because the line cache only
+    // covered the exact visible range.  After the fix, the cache must extend
+    // beyond the viewport so GPU-translated pans don't expose uncovered edges.
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    // Dense data from 0..20, show only 5..15
+    std::vector<double> keys(21);
+    std::vector<double> vals(21);
+    for (int i = 0; i <= 20; ++i) { keys[i] = i; vals[i] = i * 10.0; }
+    mg->setData(std::vector<double>(keys),
+                std::vector<std::vector<double>>{std::vector<double>(vals)});
+    mPlot->xAxis->setRange(5, 15);
+    mPlot->yAxis->setRange(0, 200);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QVERIFY(!mg->mCachedLines.isEmpty());
+    const auto& cached = mg->mCachedLines[0];
+    QVERIFY(cached.size() > 0);
+
+    // The cached lines are in pixel space.  The leftmost/rightmost cached
+    // pixel-x must extend beyond the axis rect (margin coverage).
+    const QRectF axisRect = mPlot->xAxis->axisRect()->rect();
+    double minPx = cached[0].x(), maxPx = cached[0].x();
+    for (const auto& pt : cached) {
+        minPx = qMin(minPx, pt.x());
+        maxPx = qMax(maxPx, pt.x());
+    }
+    // Before the fix, minPx >= axisRect.left() and maxPx <= axisRect.right()
+    // After the fix, cache extends beyond the visible rect on both sides.
+    QVERIFY2(minPx < axisRect.left(),
+             qPrintable(QString("Cache left %1 should be < axis left %2")
+                        .arg(minPx).arg(axisRect.left())));
+    QVERIFY2(maxPx > axisRect.right(),
+             qPrintable(QString("Cache right %1 should be > axis right %2")
+                        .arg(maxPx).arg(axisRect.right())));
+}
+
 void TestMultiGraph::renderVerticalKeyAxisUsesHeight()
 {
     auto* mg = new QCPMultiGraph(mPlot->yAxis, mPlot->xAxis);
