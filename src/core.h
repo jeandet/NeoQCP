@@ -113,14 +113,15 @@ public:
         rpImmediateRefresh ///< Replots immediately. Under QRhiWidget, the
                            ///< widget repaint is always queued via update().
         ,
-        rpQueuedRefresh ///< Replots immediately. Under QRhiWidget, identical
-                        ///< to rpImmediateRefresh (repaint is always queued).
+        rpQueuedRefresh [[deprecated("Use rpImmediateRefresh — identical under QRhiWidget")]]
+            = rpImmediateRefresh ///< Deprecated. Identical to rpImmediateRefresh.
         ,
-        rpRefreshHint ///< Replots immediately. Under QRhiWidget, identical
-                      ///< to rpImmediateRefresh (repaint is always queued).
+        rpRefreshHint [[deprecated("Use rpImmediateRefresh — identical under QRhiWidget")]]
+            = rpImmediateRefresh ///< Deprecated. Identical to rpImmediateRefresh.
         ,
-        rpQueuedReplot ///< Queues the entire replot for the next event loop iteration. This way
-                       ///< multiple redundant replots can be avoided.
+        rpQueuedReplot = 3 ///< Queues the entire replot for the next event loop iteration. This way
+                           ///< multiple redundant replots can be avoided.
+                           ///< (Value 3 preserves ABI; 1–2 were the former rpQueuedRefresh/rpRefreshHint.)
     };
     Q_ENUMS(RefreshPriority)
 
@@ -306,7 +307,7 @@ public:
                       QCP::ResolutionUnit resolutionUnit = QCP::ruDotsPerInch);
     QPixmap toPixmap(int width = 0, int height = 0, double scale = 1.0);
     void toPainter(QCPPainter* painter, int width = 0, int height = 0);
-    Q_SLOT void replot(QCustomPlot::RefreshPriority refreshPriority = QCustomPlot::rpRefreshHint);
+    Q_SLOT void replot(QCustomPlot::RefreshPriority refreshPriority = QCustomPlot::rpImmediateRefresh);
     double replotTime(bool average = false) const;
 
     QCPAxis *xAxis, *yAxis, *xAxis2, *yAxis2;

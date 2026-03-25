@@ -21,7 +21,7 @@ void TestPaintBuffer::contentDirty_newBufferIsDirty()
 
 void TestPaintBuffer::contentDirty_resetAfterReplot()
 {
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
     for (const auto& buf : mPlot->mPaintBuffers)
         QVERIFY2(!buf->contentDirty(), qPrintable(buf->layerName()));
 }
@@ -55,7 +55,7 @@ void TestPaintBuffer::contentDirty_markDirtyLayer()
     mPlot->addLayer("overlay", mPlot->layer("main"), QCustomPlot::limAbove);
     QCPLayer* overlay = mPlot->layer("overlay");
     overlay->setMode(QCPLayer::lmBuffered);
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     for (const auto& buf : mPlot->mPaintBuffers)
         QVERIFY(!buf->contentDirty());
@@ -77,12 +77,12 @@ void TestPaintBuffer::contentDirty_markDirtyLayer()
 
 void TestPaintBuffer::contentDirty_fallbackMarksAllDirty()
 {
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
     for (const auto& buf : mPlot->mPaintBuffers)
         QVERIFY(!buf->contentDirty());
 
     // replot() without prior markDirty() should still repaint everything
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
     for (const auto& buf : mPlot->mPaintBuffers)
         QVERIFY(!buf->contentDirty());
 }
@@ -101,11 +101,11 @@ void TestPaintBuffer::contentDirty_incrementalReplotSkipsCleanBuffers()
     line->start->setCoords(1, 1);
     line->end->setCoords(3, 3);
 
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     // Mark only main dirty, replot incrementally
     data->markDirty();
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     // All buffers should be clean after replot
     for (const auto& buf : mPlot->mPaintBuffers)
@@ -126,7 +126,7 @@ void TestPaintBuffer::contentDirty_incrementalReplotPreservesContent()
     line->start->setPixelPosition(QPointF(50, 50));
     line->end->setPixelPosition(QPointF(150, 150));
 
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     // Capture overlay buffer content before incremental replot
     auto overlayBuf = overlay->mPaintBuffer.toStrongRef();
@@ -140,7 +140,7 @@ void TestPaintBuffer::contentDirty_incrementalReplotPreservesContent()
 
     // Incremental replot: only main dirty
     data->markDirty();
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     // Overlay buffer content should be identical (not cleared/repainted)
     QPixmap afterReplot(overlayBuf->size());
@@ -155,7 +155,7 @@ void TestPaintBuffer::contentDirty_incrementalReplotPreservesContent()
 void TestPaintBuffer::replotAndExport_smokeTest()
 {
     mPlot->addGraph()->setData({1.0, 2.0}, {3.0, 4.0});
-    mPlot->replot(QCustomPlot::rpQueuedRefresh);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     QPixmap result = mPlot->toPixmap(200, 150);
     QVERIFY(!result.isNull());
