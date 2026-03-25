@@ -1,5 +1,6 @@
 #include "colormap-rhi-layer.h"
 #include "embedded_shaders.h"
+#include "rhi-utils.h"
 #include "Profiling.hpp"
 
 QCPColormapRhiLayer::QCPColormapRhiLayer(QRhi* rhi)
@@ -150,9 +151,7 @@ void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
     if (!mTexture || mTextureSize != imgSize)
     {
         delete mTexture;
-        const auto fmt = mRhi->isTextureFormatSupported(QRhiTexture::BGRA8)
-            ? QRhiTexture::BGRA8
-            : QRhiTexture::RGBA8;
+        const auto fmt = qcp::rhi::preferredTextureFormat(mRhi);
         mTexture = mRhi->newTexture(fmt, imgSize);
         if (!mTexture->create())
         {

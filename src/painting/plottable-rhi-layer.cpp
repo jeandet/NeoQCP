@@ -32,7 +32,7 @@ void QCPPlottableRhiLayer::clear()
     mDirty = true;
 }
 
-QCPPlottableRhiLayer::DrawEntry
+void
 QCPPlottableRhiLayer::addPlottable(const QVector<float>& fillVerts,
                                     const QVector<float>& strokeVerts,
                                     const QRect& clipRect, double dpr,
@@ -65,7 +65,6 @@ QCPPlottableRhiLayer::addPlottable(const QVector<float>& fillVerts,
 
     mDrawEntries.append(entry);
     mDirty = true;
-    return entry;
 }
 
 bool QCPPlottableRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
@@ -94,7 +93,11 @@ bool QCPPlottableRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
     delete mUniformBuffer;
     mUniformBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
                                       QRhiBuffer::UniformBuffer, 32);
-    mUniformBuffer->create();
+    if (!mUniformBuffer->create())
+    {
+        qDebug() << "Failed to create plottable uniform buffer";
+        return false;
+    }
 
     // Create SRB binding the uniform buffer at binding 0
     delete mSrb;
@@ -103,7 +106,11 @@ bool QCPPlottableRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
         QRhiShaderResourceBinding::uniformBuffer(
             0, QRhiShaderResourceBinding::VertexStage, mUniformBuffer)
     });
-    mSrb->create();
+    if (!mSrb->create())
+    {
+        qDebug() << "Failed to create plottable SRB";
+        return false;
+    }
 
     mPipeline = mRhi->newGraphicsPipeline();
     mPipeline->setShaderStages({
@@ -182,7 +189,14 @@ void QCPPlottableRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
         mVertexBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
                                          QRhiBuffer::VertexBuffer,
                                          requiredSize);
-        mVertexBuffer->create();
+        if (!mVertexBuffer->create())
+        {
+            qDebug() << "Failed to create plottable vertex buffer";
+            delete mVertexBuffer;
+            mVertexBuffer = nullptr;
+            mVertexBufferSize = 0;
+            return;
+        }
         mVertexBufferSize = requiredSize;
     }
 

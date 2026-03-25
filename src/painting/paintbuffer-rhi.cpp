@@ -27,6 +27,7 @@
 
 #include "paintbuffer-rhi.h"
 #include "painter.h"
+#include "rhi-utils.h"
 #include "Profiling.hpp"
 
 QCPPaintBufferRhi::QCPPaintBufferRhi(const QSize& size, double devicePixelRatio,
@@ -104,9 +105,7 @@ void QCPPaintBufferRhi::reallocateBuffer()
     mTexture = nullptr;
     if (mRhi)
     {
-        const auto fmt = mRhi->isTextureFormatSupported(QRhiTexture::BGRA8)
-            ? QRhiTexture::BGRA8
-            : QRhiTexture::RGBA8;
+        const auto fmt = qcp::rhi::preferredTextureFormat(mRhi);
         mTexture = mRhi->newTexture(fmt, pixelSize);
         if (!mTexture->create())
         {

@@ -23,10 +23,10 @@ public:
 
     // Geometry accumulation (called during replot)
     void clear();
-    DrawEntry addPlottable(const QVector<float>& fillVerts,
-                           const QVector<float>& strokeVerts,
-                           const QRect& clipRect, double dpr,
-                           int outputHeight, bool isYUpInNDC);
+    void addPlottable(const QVector<float>& fillVerts,
+                      const QVector<float>& strokeVerts,
+                      const QRect& clipRect, double dpr,
+                      int outputHeight, bool isYUpInNDC);
 
     // GPU resource management
     void invalidatePipeline(); // call on resize (render pass descriptor change)

@@ -64,16 +64,7 @@ static void ensureL1Transform(QCPGraphPipeline& pipeline, int sourceSize)
 
 void QCPGraph2::setDataSource(std::unique_ptr<QCPAbstractDataSource> source)
 {
-    mDataSource = std::move(source);
-    mL1Cache.reset();
-    mL2Result.reset();
-    mLineCacheDirty = true;
-    mCachedLines.clear();
-    mL2Dirty = false;
-    mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
-    if (mDataSource)
-        ensureL1Transform(mPipeline, mDataSource->size());
-    mPipeline.setSource(mDataSource);
+    setDataSource(std::shared_ptr<QCPAbstractDataSource>(std::move(source)));
 }
 
 void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
