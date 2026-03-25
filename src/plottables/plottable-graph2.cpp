@@ -1,4 +1,5 @@
 #include "plottable-graph2.h"
+#include "plottable-l1-cache.h"
 #include "plottable-linestyle.h"
 #include "Profiling.hpp"
 #include "../datasource/graph-resampler.h"
@@ -107,15 +108,7 @@ void QCPGraph2::dataChanged()
 void QCPGraph2::onL1Ready()
 {
     PROFILE_HERE_N("QCPGraph2::onL1Ready");
-    // Extract L1 cache from pipeline and store locally
-    auto& pipelineCache = mPipeline.cache();
-    auto* c = std::any_cast<qcp::algo::GraphResamplerCache>(&pipelineCache);
-    if (c && c->sourceSize > 0)
-    {
-        mL1Cache = std::make_shared<qcp::algo::GraphResamplerCache>(std::move(*c));
-        pipelineCache = std::any{}; // clear pipeline copy
-        mL2Dirty = true; // will be rebuilt at next draw()
-    }
+    qcp::extractL1Cache<qcp::algo::GraphResamplerCache>(mPipeline.cache(), mL1Cache, mL2Dirty);
     if (parentPlot())
         parentPlot()->replot(QCustomPlot::rpQueuedReplot);
 }
