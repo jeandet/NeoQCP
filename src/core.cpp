@@ -2518,7 +2518,7 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
         // QRhiWidget calls initialize() on resize BEFORE resizeEvent() fires.
         // Regenerate geometry now so render() has fresh data for the new size.
         setViewport(rect());
-        replot(rpQueuedRefresh);
+        replot(rpImmediateRefresh);
         return;
     }
 
@@ -2574,7 +2574,7 @@ void QCustomPlot::initialize(QRhiCommandBuffer* cb)
     // Draw content into the fresh buffers so the first frame is not blank.
     // This handles widgets that are initially hidden (e.g. in a QTabWidget).
     setViewport(rect());
-    replot(rpQueuedRefresh);
+    replot(rpImmediateRefresh);
 }
 
 /*! \internal
@@ -2825,7 +2825,7 @@ void QCustomPlot::render(QRhiCommandBuffer* cb)
         setBufferDevicePixelRatio(newDpr);
         if (!userOverrode)
             setSampleCount(newDpr >= 2.0 ? 1 : 4);
-        replot(QCustomPlot::rpQueuedRefresh);
+        replot(QCustomPlot::rpImmediateRefresh);
         return;
     }
 
@@ -2882,8 +2882,7 @@ void QCustomPlot::resizeEvent(QResizeEvent* event)
     setViewport(rect());
     if (mSpanRhiLayer)
         mSpanRhiLayer->markGeometryDirty();
-    replot(rpQueuedRefresh); // queued refresh is important here, to prevent painting issues in some
-                             // contexts (e.g. MDI subwindow)
+    replot(rpImmediateRefresh);
 }
 
 /*! \internal
