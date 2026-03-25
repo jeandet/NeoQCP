@@ -1,6 +1,7 @@
 #include "test-multi-datasource.h"
 #include "qcustomplot.h"
 #include "datasource/soa-multi-datasource.h"
+#include "datasource/row-major-multi-datasource.h"
 #include <vector>
 #include <span>
 
@@ -186,4 +187,79 @@ void TestMultiDataSource::soaMixedTypes()
     QCOMPARE(src.columnCount(), 2);
     QCOMPARE(src.keyAt(0), 1.0);
     QCOMPARE(src.valueAt(1, 2), -3.0);
+}
+
+void TestMultiDataSource::rowMajorValueAt()
+{
+    // 3 rows, 2 columns, packed (stride == columns)
+    //   row0: [10, 20]
+    //   row1: [30, 40]
+    //   row2: [50, 60]
+    std::vector<double> keys = {1.0, 2.0, 3.0};
+    std::vector<double> values = {10, 20, 30, 40, 50, 60};
+    QCPRowMajorMultiDataSource<double, double> src(
+        std::span<const double>(keys), values.data(), 3, 2, 2);
+
+    QCOMPARE(src.size(), 3);
+    QCOMPARE(src.columnCount(), 2);
+    QCOMPARE(src.keyAt(0), 1.0);
+    QCOMPARE(src.keyAt(2), 3.0);
+    QCOMPARE(src.valueAt(0, 0), 10.0); // col 0, row 0
+    QCOMPARE(src.valueAt(1, 0), 20.0); // col 1, row 0
+    QCOMPARE(src.valueAt(0, 1), 30.0); // col 0, row 1
+    QCOMPARE(src.valueAt(1, 1), 40.0); // col 1, row 1
+    QCOMPARE(src.valueAt(0, 2), 50.0); // col 0, row 2
+    QCOMPARE(src.valueAt(1, 2), 60.0); // col 1, row 2
+}
+
+void TestMultiDataSource::rowMajorWithPadding()
+{
+    // 3 rows, 2 columns, stride=4 (2 padding elements per row)
+    //   row0: [10, 20, __, __]
+    //   row1: [30, 40, __, __]
+    //   row2: [50, 60, __, __]
+    std::vector<double> keys = {1.0, 2.0, 3.0};
+    std::vector<double> values = {10, 20, 99, 99,
+                                   30, 40, 99, 99,
+                                   50, 60, 99, 99};
+    QCPRowMajorMultiDataSource<double, double> src(
+        std::span<const double>(keys), values.data(), 3, 2, 4);
+
+    QCOMPARE(src.size(), 3);
+    QCOMPARE(src.columnCount(), 2);
+    QCOMPARE(src.valueAt(0, 0), 10.0);
+    QCOMPARE(src.valueAt(1, 0), 20.0);
+    QCOMPARE(src.valueAt(0, 1), 30.0);
+    QCOMPARE(src.valueAt(1, 1), 40.0);
+    QCOMPARE(src.valueAt(0, 2), 50.0);
+    QCOMPARE(src.valueAt(1, 2), 60.0);
+
+    // Verify StridedColumnView sees the right values
+    StridedColumnView<double> col0(values.data() + 0, 3, 4);
+    QCOMPARE(col0[0], 10.0);
+    QCOMPARE(col0[1], 30.0);
+    QCOMPARE(col0[2], 50.0);
+    QCOMPARE(col0.size(), 3);
+}
+
+void TestMultiDataSource::rowMajorGetLines()
+{
+    std::vector<double> keys = {1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector<double> values = {10, 20,
+                                   30, 40,
+                                   50, 60,
+                                   70, 80,
+                                   90, 100};
+    QCPRowMajorMultiDataSource<double, double> src(
+        std::span<const double>(keys), values.data(), 5, 2, 2);
+
+    auto lines0 = src.getLines(0, 0, 5, mPlot->xAxis, mPlot->yAxis);
+    auto lines1 = src.getLines(1, 0, 5, mPlot->xAxis, mPlot->yAxis);
+    QCOMPARE(lines0.size(), 5);
+    QCOMPARE(lines1.size(), 5);
+
+    auto optLines = src.getOptimizedLineData(0, 0, 5, 400,
+                                              mPlot->xAxis, mPlot->yAxis);
+    QVERIFY(optLines.size() > 0);
+    QVERIFY(optLines.size() <= 5);
 }

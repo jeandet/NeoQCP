@@ -11,7 +11,7 @@ template <typename V>
 class StridedColumnView {
 public:
     StridedColumnView(const V* base, int count, int stride)
-        : mBase(base), mCount(count), mStride(stride) {}
+        : mBase(base), mCount(count), mStride(stride) { Q_ASSERT(stride > 0); }
 
     struct Iterator {
         using iterator_category = std::random_access_iterator_tag;
@@ -65,8 +65,10 @@ public:
                                 int stride)
         : mKeys(keys), mValues(values), mRows(rows), mColumns(columns), mStride(stride)
     {
+        Q_ASSERT(rows >= 0 && columns >= 0 && stride > 0);
         Q_ASSERT(static_cast<int>(keys.size()) == rows);
         Q_ASSERT(stride >= columns);
+        Q_ASSERT(values != nullptr || rows == 0);
     }
 
     int columnCount() const override { return mColumns; }
