@@ -60,10 +60,8 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
     // Reuse composite shaders: position(float2) + texcoord(float2).
     // The shader requires a LayerParams UBO at binding 1 (always zero
     // translation for colormaps since they pre-compute NDC on the CPU).
-    QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
-        reinterpret_cast<const char*>(composite_vert_qsb_data), composite_vert_qsb_data_len));
-    QShader fragShader = QShader::fromSerialized(QByteArray::fromRawData(
-        reinterpret_cast<const char*>(composite_frag_qsb_data), composite_frag_qsb_data_len));
+    auto vertShader = qcp::rhi::loadEmbeddedShader(composite_vert_qsb_data, composite_vert_qsb_data_len);
+    auto fragShader = qcp::rhi::loadEmbeddedShader(composite_frag_qsb_data, composite_frag_qsb_data_len);
 
     if (!vertShader.isValid() || !fragShader.isValid())
     {
@@ -107,14 +105,7 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
     });
     mPipeline->setVertexInputLayout(inputLayout);
 
-    // Premultiplied alpha blending
-    QRhiGraphicsPipeline::TargetBlend blend;
-    blend.enable = true;
-    blend.srcColor = QRhiGraphicsPipeline::One;
-    blend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
-    blend.srcAlpha = QRhiGraphicsPipeline::One;
-    blend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
-    mPipeline->setTargetBlends({blend});
+    mPipeline->setTargetBlends({qcp::rhi::premultipliedAlphaBlend()});
 
     mPipeline->setFlags(QRhiGraphicsPipeline::UsesScissor);
     mPipeline->setTopology(QRhiGraphicsPipeline::TriangleStrip);
@@ -136,16 +127,8 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
     return true;
 }
 
-void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
-                                            const QSize& outputSize, float dpr,
-                                            bool isYUpInNDC,
-                                            QRhiBuffer* compositeUbo)
+bool QCPColormapRhiLayer::ensureTexture(QRhiBuffer* compositeUbo)
 {
-    PROFILE_HERE_N("QCPColormapRhiLayer::uploadResources");
-    if (mStagingImage.isNull())
-        return;
-
-    // (Re)create texture if size changed
     QSize imgSize = mStagingImage.size();
     bool textureRecreated = false;
     if (!mTexture || mTextureSize != imgSize)
@@ -160,14 +143,13 @@ void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
             mTexture = nullptr;
             delete mSrb;
             mSrb = nullptr;
-            return;
+            return false;
         }
         mTextureSize = imgSize;
         mTextureDirty = true;
         textureRecreated = true;
     }
 
-    // (Re)create SRB when texture changed or after invalidatePipeline
     if ((!mSrb || textureRecreated) && mTexture)
     {
         delete mSrb;
@@ -182,8 +164,61 @@ void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
         });
         mSrb->create();
     }
+    return true;
+}
 
-    // Upload texture data
+void QCPColormapRhiLayer::updateQuadGeometry(QRhiResourceUpdateBatch* updates,
+                                              const QSize& outputSize, float dpr,
+                                              bool isYUpInNDC)
+{
+    if (!mGeometryDirty && mVertexBuffer && mLastOutputSize == outputSize)
+        return;
+
+    mLastOutputSize = outputSize;
+    const float w = float(outputSize.width());
+    const float h = float(outputSize.height());
+    const float yFlip = isYUpInNDC ? -1.0f : 1.0f;
+
+    auto toNDC = [&](float px, float py) -> std::pair<float, float> {
+        float ndcX = (px * dpr / w) * 2.0f - 1.0f;
+        float ndcY = yFlip * ((py * dpr / h) * 2.0f - 1.0f);
+        return {ndcX, ndcY};
+    };
+
+    auto [x0, y0] = toNDC(mQuadPixelRect.left(), mQuadPixelRect.top());
+    auto [x1, y1] = toNDC(mQuadPixelRect.right(), mQuadPixelRect.bottom());
+
+    const float verts[] = {
+        x0, y0,  0.0f, 0.0f,
+        x1, y0,  1.0f, 0.0f,
+        x0, y1,  0.0f, 1.0f,
+        x1, y1,  1.0f, 1.0f,
+    };
+
+    if (!mVertexBuffer)
+    {
+        mVertexBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
+                                         QRhiBuffer::VertexBuffer,
+                                         sizeof(verts));
+        mVertexBuffer->create();
+    }
+
+    updates->updateDynamicBuffer(mVertexBuffer, 0, sizeof(verts), verts);
+    mGeometryDirty = false;
+}
+
+void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
+                                            const QSize& outputSize, float dpr,
+                                            bool isYUpInNDC,
+                                            QRhiBuffer* compositeUbo)
+{
+    PROFILE_HERE_N("QCPColormapRhiLayer::uploadResources");
+    if (mStagingImage.isNull())
+        return;
+
+    if (!ensureTexture(compositeUbo))
+        return;
+
     if (mTextureDirty)
     {
         QRhiTextureSubresourceUploadDescription subDesc(mStagingImage);
@@ -192,52 +227,7 @@ void QCPColormapRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
         mTextureDirty = false;
     }
 
-    // Update quad vertex buffer with NDC coordinates
-    // Recompute when geometry changes or output size changes (NDC depends on pixel dimensions)
-    if (mGeometryDirty || !mVertexBuffer || mLastOutputSize != outputSize)
-    {
-        mLastOutputSize = outputSize;
-        // Convert pixel rect to NDC: x_ndc = (x_px * dpr / width) * 2 - 1
-        const float w = float(outputSize.width());
-        const float h = float(outputSize.height());
-        const float yFlip = isYUpInNDC ? -1.0f : 1.0f;
-
-        auto toNDC = [&](float px, float py) -> std::pair<float, float> {
-            float ndcX = (px * dpr / w) * 2.0f - 1.0f;
-            float ndcY = yFlip * ((py * dpr / h) * 2.0f - 1.0f);
-            return {ndcX, ndcY};
-        };
-
-        auto [x0, y0] = toNDC(mQuadPixelRect.left(), mQuadPixelRect.top());
-        auto [x1, y1] = toNDC(mQuadPixelRect.right(), mQuadPixelRect.bottom());
-
-        // UV mapping: image top-left = (0,0), bottom-right = (1,1)
-        // In Y-up NDC (OpenGL), larger NDC Y = top of screen = top of image (v=0)
-        // In Y-down NDC (Metal/D3D), smaller NDC Y = top of screen = top of image (v=0)
-        // Since we compute y0 from the top pixel and y1 from the bottom pixel,
-        // and yFlip handles the NDC sign, UV is always (0,0) at top-left.
-        const float u0 = 0.0f, u1 = 1.0f;
-        const float v0 = 0.0f, v1 = 1.0f;
-
-        // Triangle strip: top-left, top-right, bottom-left, bottom-right
-        const float verts[] = {
-            x0, y0,  u0, v0,
-            x1, y0,  u1, v0,
-            x0, y1,  u0, v1,
-            x1, y1,  u1, v1,
-        };
-
-        if (!mVertexBuffer)
-        {
-            mVertexBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
-                                             QRhiBuffer::VertexBuffer,
-                                             sizeof(verts));
-            mVertexBuffer->create();
-        }
-
-        updates->updateDynamicBuffer(mVertexBuffer, 0, sizeof(verts), verts);
-        mGeometryDirty = false;
-    }
+    updateQuadGeometry(updates, outputSize, dpr, isYUpInNDC);
 }
 
 void QCPColormapRhiLayer::render(QRhiCommandBuffer* cb, const QSize& outputSize)

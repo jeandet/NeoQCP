@@ -1,4 +1,5 @@
 #include "span-rhi-layer.h"
+#include "rhi-utils.h"
 #include "Profiling.hpp"
 #include "embedded_shaders.h"
 
@@ -144,10 +145,8 @@ bool QCPSpanRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampl
 
     invalidatePipeline();
 
-    QShader vertShader = QShader::fromSerialized(QByteArray::fromRawData(
-        reinterpret_cast<const char*>(span_vert_qsb_data), span_vert_qsb_data_len));
-    QShader fragShader = QShader::fromSerialized(QByteArray::fromRawData(
-        reinterpret_cast<const char*>(plottable_frag_qsb_data), plottable_frag_qsb_data_len));
+    auto vertShader = qcp::rhi::loadEmbeddedShader(span_vert_qsb_data, span_vert_qsb_data_len);
+    auto fragShader = qcp::rhi::loadEmbeddedShader(plottable_frag_qsb_data, plottable_frag_qsb_data_len);
 
     if (!vertShader.isValid() || !fragShader.isValid())
     {
@@ -185,14 +184,7 @@ bool QCPSpanRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampl
     });
     mPipeline->setVertexInputLayout(inputLayout);
 
-    // Premultiplied alpha blending
-    QRhiGraphicsPipeline::TargetBlend blend;
-    blend.enable = true;
-    blend.srcColor = QRhiGraphicsPipeline::One;
-    blend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
-    blend.srcAlpha = QRhiGraphicsPipeline::One;
-    blend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
-    mPipeline->setTargetBlends({blend});
+    mPipeline->setTargetBlends({qcp::rhi::premultipliedAlphaBlend()});
 
     mPipeline->setFlags(QRhiGraphicsPipeline::UsesScissor);
     mPipeline->setTopology(QRhiGraphicsPipeline::Triangles);

@@ -1,4 +1,5 @@
 #include "plottable-multigraph.h"
+#include "plottable-linestyle.h"
 #include "../axis/axis.h"
 #include "../core.h"
 #include "../datasource/graph-resampler.h"
@@ -553,41 +554,14 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         : static_cast<int>(mKeyAxis->axisRect()->width());
 
     // --- Line caching with GPU translation ---
-    bool needFreshLines = mLineCacheDirty || mCachedLines.isEmpty();
-
-    QSize currentPlotSize(mKeyAxis->axisRect()->width(), mKeyAxis->axisRect()->height());
-    if (currentPlotSize != mCachedPlotSize)
-        needFreshLines = true;
-
-    if (!needFreshLines && mHasRenderedRange)
-    {
-        double keyRatio = mKeyAxis->range().size() / mRenderedRange.key.size();
-        double valRatio = mValueAxis->range().size() / mRenderedRange.value.size();
-        if (qAbs(keyRatio - 1.0) > 0.01 || qAbs(valRatio - 1.0) > 0.01)
-            needFreshLines = true;
-    }
-
-    QPointF gpuOffset;
-    if (!needFreshLines && mHasRenderedRange)
-    {
-        gpuOffset = qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
-                                               mRenderedRange.key, mRenderedRange.value);
-        const double keyDim = keyIsVertical
-            ? mKeyAxis->axisRect()->height()
-            : mKeyAxis->axisRect()->width();
-        const double valDim = keyIsVertical
-            ? mKeyAxis->axisRect()->width()
-            : mKeyAxis->axisRect()->height();
-        const double keyOff = qAbs(keyIsVertical ? gpuOffset.y() : gpuOffset.x());
-        const double valOff = qAbs(keyIsVertical ? gpuOffset.x() : gpuOffset.y());
-        if (keyOff > keyDim * 0.5 || valOff > valDim * 0.5)
-            needFreshLines = true;
-    }
-
+    const QSize currentPlotSize(mKeyAxis->axisRect()->width(), mKeyAxis->axisRect()->height());
     const bool isExportMode = painter->modes().testFlag(QCPPainter::pmNoCaching)
-                           || painter->modes().testFlag(QCPPainter::pmVectorized);
-    if (isExportMode)
-        needFreshLines = true;
+                            || painter->modes().testFlag(QCPPainter::pmVectorized);
+    auto [needFreshLines, gpuOffset] = qcp::evaluateLineCache(
+        mLineCacheDirty, mCachedLines.isEmpty(),
+        currentPlotSize, mCachedPlotSize,
+        mHasRenderedRange, mRenderedRange.key, mRenderedRange.value,
+        mKeyAxis.data(), mValueAxis.data(), isExportMode);
 
     QVector<QVector<QPointF>> exportLines;
     auto& linesTarget = isExportMode ? exportLines : mCachedLines;
@@ -634,10 +608,10 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         // Apply line style transform
         if (mLineStyle != lsNone && mLineStyle != lsLine) {
             switch (mLineStyle) {
-                case lsStepLeft:   lines = toStepLeftLines(lines, keyIsVertical); break;
-                case lsStepRight:  lines = toStepRightLines(lines, keyIsVertical); break;
-                case lsStepCenter: lines = toStepCenterLines(lines, keyIsVertical); break;
-                case lsImpulse:    lines = toImpulseLines(lines, keyIsVertical); break;
+                case lsStepLeft:   lines = qcp::toStepLeftLines(lines, keyIsVertical); break;
+                case lsStepRight:  lines = qcp::toStepRightLines(lines, keyIsVertical); break;
+                case lsStepCenter: lines = qcp::toStepCenterLines(lines, keyIsVertical); break;
+                case lsImpulse:    lines = qcp::toImpulseLines(lines, keyIsVertical, mValueAxis->coordToPixel(0)); break;
                 default: break;
             }
         }
@@ -663,13 +637,20 @@ void QCPMultiGraph::draw(QCPPainter* painter)
                     {
                         if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
                         {
-                            prl->setPixelOffset(gpuOffset);
+                            QVector<QPointF> translated;
+                            const QVector<QPointF>& src = (!gpuOffset.isNull()) ?
+                                [&]() -> const QVector<QPointF>& {
+                                    translated.resize(pts.size());
+                                    for (int i = 0; i < pts.size(); ++i)
+                                        translated[i] = pts[i] + gpuOffset;
+                                    return translated;
+                                }() : pts;
+
                             const double dpr = mParentPlot->bufferDevicePixelRatio();
-                            // Cosmetic pens (widthF==0) = 1 device pixel, independent of DPR
                             const float penWidth = (pen.isCosmetic() || qFuzzyIsNull(pen.widthF()))
                                 ? static_cast<float>(1.0 / dpr)
                                 : qMax(1.0f, static_cast<float>(pen.widthF()));
-                            auto strokeVerts = QCPLineExtruder::extrudePolyline(pts, penWidth, pen.color());
+                            auto strokeVerts = QCPLineExtruder::extrudePolyline(src, penWidth, pen.color());
                             if (!strokeVerts.isEmpty())
                             {
                                 const QSize outputSize = mParentPlot->rhiOutputSize();
@@ -682,7 +663,16 @@ void QCPMultiGraph::draw(QCPPainter* painter)
                     applyDefaultAntialiasingHint(painter);
                     painter->setPen(pen);
                     painter->setBrush(Qt::NoBrush);
-                    painter->drawPolyline(pts.constData(), pts.size());
+                    if (!gpuOffset.isNull())
+                    {
+                        painter->translate(gpuOffset);
+                        painter->drawPolyline(pts.constData(), pts.size());
+                        painter->translate(-gpuOffset);
+                    }
+                    else
+                    {
+                        painter->drawPolyline(pts.constData(), pts.size());
+                    }
                 };
                 drawPoly(lines, activePen);
             }
@@ -753,108 +743,3 @@ bool QCPMultiGraph::removeFromLegend(QCPLegend* legend) const
     return false;
 }
 
-// --- Line style transforms ---
-
-QVector<QPointF> QCPMultiGraph::toStepLeftLines(const QVector<QPointF>& lines, bool keyIsVertical)
-{
-    if (lines.size() < 2) return lines;
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-    if (keyIsVertical) {
-        double lastValue = lines.first().x();
-        for (int i = 0; i < lines.size(); ++i) {
-            const double key = lines[i].y();
-            result[i * 2 + 0] = QPointF(lastValue, key);
-            lastValue = lines[i].x();
-            result[i * 2 + 1] = QPointF(lastValue, key);
-        }
-    } else {
-        double lastValue = lines.first().y();
-        for (int i = 0; i < lines.size(); ++i) {
-            const double key = lines[i].x();
-            result[i * 2 + 0] = QPointF(key, lastValue);
-            lastValue = lines[i].y();
-            result[i * 2 + 1] = QPointF(key, lastValue);
-        }
-    }
-    return result;
-}
-
-QVector<QPointF> QCPMultiGraph::toStepRightLines(const QVector<QPointF>& lines, bool keyIsVertical)
-{
-    if (lines.size() < 2) return lines;
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-    if (keyIsVertical) {
-        double lastKey = lines.first().y();
-        for (int i = 0; i < lines.size(); ++i) {
-            const double value = lines[i].x();
-            result[i * 2 + 0] = QPointF(value, lastKey);
-            lastKey = lines[i].y();
-            result[i * 2 + 1] = QPointF(value, lastKey);
-        }
-    } else {
-        double lastKey = lines.first().x();
-        for (int i = 0; i < lines.size(); ++i) {
-            const double value = lines[i].y();
-            result[i * 2 + 0] = QPointF(lastKey, value);
-            lastKey = lines[i].x();
-            result[i * 2 + 1] = QPointF(lastKey, value);
-        }
-    }
-    return result;
-}
-
-QVector<QPointF> QCPMultiGraph::toStepCenterLines(const QVector<QPointF>& lines, bool keyIsVertical)
-{
-    if (lines.size() < 2) return lines;
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-    if (keyIsVertical) {
-        double lastKey = lines.first().y();
-        double lastValue = lines.first().x();
-        result[0] = QPointF(lastValue, lastKey);
-        for (int i = 1; i < lines.size(); ++i) {
-            const double midKey = (lines[i].y() + lastKey) * 0.5;
-            result[i * 2 - 1] = QPointF(lastValue, midKey);
-            lastValue = lines[i].x();
-            lastKey = lines[i].y();
-            result[i * 2 + 0] = QPointF(lastValue, midKey);
-        }
-        result[lines.size() * 2 - 1] = QPointF(lastValue, lastKey);
-    } else {
-        double lastKey = lines.first().x();
-        double lastValue = lines.first().y();
-        result[0] = QPointF(lastKey, lastValue);
-        for (int i = 1; i < lines.size(); ++i) {
-            const double midKey = (lines[i].x() + lastKey) * 0.5;
-            result[i * 2 - 1] = QPointF(midKey, lastValue);
-            lastValue = lines[i].y();
-            lastKey = lines[i].x();
-            result[i * 2 + 0] = QPointF(midKey, lastValue);
-        }
-        result[lines.size() * 2 - 1] = QPointF(lastKey, lastValue);
-    }
-    return result;
-}
-
-QVector<QPointF> QCPMultiGraph::toImpulseLines(const QVector<QPointF>& lines, bool keyIsVertical) const
-{
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-    const double zeroPixel = mValueAxis->coordToPixel(0);
-    if (keyIsVertical) {
-        for (int i = 0; i < lines.size(); ++i) {
-            const double key = lines[i].y();
-            result[i * 2 + 0] = QPointF(zeroPixel, key);
-            result[i * 2 + 1] = QPointF(lines[i].x(), key);
-        }
-    } else {
-        for (int i = 0; i < lines.size(); ++i) {
-            const double key = lines[i].x();
-            result[i * 2 + 0] = QPointF(key, zeroPixel);
-            result[i * 2 + 1] = QPointF(key, lines[i].y());
-        }
-    }
-    return result;
-}

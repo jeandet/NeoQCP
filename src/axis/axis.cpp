@@ -177,75 +177,42 @@ void QCPGrid::drawGridLines(QCPPainter* painter) const
         return;
     }
 
+    const auto* ar = mParentAxis->mAxisRect;
+    const bool horizontal = (mParentAxis->orientation() == Qt::Horizontal);
+    auto gridLine = [&](double t) {
+        return horizontal
+            ? QLineF(t, ar->bottom(), t, ar->top())
+            : QLineF(ar->left(), t, ar->right(), t);
+    };
+
     const int tickCount = mParentAxis->mTickVector.size();
-    double t; // helper variable, result of coordinate-to-pixel transforms
-    if (mParentAxis->orientation() == Qt::Horizontal)
+    int zeroLineIndex = -1;
+    if (mZeroLinePen.style() != Qt::NoPen && mParentAxis->mRange.lower < 0
+        && mParentAxis->mRange.upper > 0)
     {
-        // draw zeroline:
-        int zeroLineIndex = -1;
-        if (mZeroLinePen.style() != Qt::NoPen && mParentAxis->mRange.lower < 0
-            && mParentAxis->mRange.upper > 0)
-        {
-            applyAntialiasingHint(painter, mAntialiasedZeroLine, QCP::aeZeroLine);
-            painter->setPen(mZeroLinePen);
-            double epsilon = mParentAxis->range().size() * 1E-6; // for comparing double to zero
-            for (int i = 0; i < tickCount; ++i)
-            {
-                if (qAbs(mParentAxis->mTickVector.at(i)) < epsilon)
-                {
-                    zeroLineIndex = i;
-                    t = mParentAxis->coordToPixel(mParentAxis->mTickVector.at(i)); // x
-                    painter->drawLine(QLineF(t, mParentAxis->mAxisRect->bottom(), t,
-                                             mParentAxis->mAxisRect->top()));
-                    break;
-                }
-            }
-        }
-        // draw grid lines:
-        applyDefaultAntialiasingHint(painter);
-        painter->setPen(mPen);
+        applyAntialiasingHint(painter, mAntialiasedZeroLine, QCP::aeZeroLine);
+        painter->setPen(mZeroLinePen);
+        double epsilon = mParentAxis->range().size() * 1E-6;
         for (int i = 0; i < tickCount; ++i)
         {
-            if (i == zeroLineIndex)
-                continue; // don't draw a gridline on top of the zeroline
-            t = mParentAxis->coordToPixel(mParentAxis->mTickVector.at(i)); // x
-            painter->drawLine(
-                QLineF(t, mParentAxis->mAxisRect->bottom(), t, mParentAxis->mAxisRect->top()));
+            if (qAbs(mParentAxis->mTickVector.at(i)) < epsilon)
+            {
+                zeroLineIndex = i;
+                painter->drawLine(gridLine(
+                    mParentAxis->coordToPixel(mParentAxis->mTickVector.at(i))));
+                break;
+            }
         }
     }
-    else
+
+    applyDefaultAntialiasingHint(painter);
+    painter->setPen(mPen);
+    for (int i = 0; i < tickCount; ++i)
     {
-        // draw zeroline:
-        int zeroLineIndex = -1;
-        if (mZeroLinePen.style() != Qt::NoPen && mParentAxis->mRange.lower < 0
-            && mParentAxis->mRange.upper > 0)
-        {
-            applyAntialiasingHint(painter, mAntialiasedZeroLine, QCP::aeZeroLine);
-            painter->setPen(mZeroLinePen);
-            double epsilon = mParentAxis->mRange.size() * 1E-6; // for comparing double to zero
-            for (int i = 0; i < tickCount; ++i)
-            {
-                if (qAbs(mParentAxis->mTickVector.at(i)) < epsilon)
-                {
-                    zeroLineIndex = i;
-                    t = mParentAxis->coordToPixel(mParentAxis->mTickVector.at(i)); // y
-                    painter->drawLine(QLineF(mParentAxis->mAxisRect->left(), t,
-                                             mParentAxis->mAxisRect->right(), t));
-                    break;
-                }
-            }
-        }
-        // draw grid lines:
-        applyDefaultAntialiasingHint(painter);
-        painter->setPen(mPen);
-        for (int i = 0; i < tickCount; ++i)
-        {
-            if (i == zeroLineIndex)
-                continue; // don't draw a gridline on top of the zeroline
-            t = mParentAxis->coordToPixel(mParentAxis->mTickVector.at(i)); // y
-            painter->drawLine(
-                QLineF(mParentAxis->mAxisRect->left(), t, mParentAxis->mAxisRect->right(), t));
-        }
+        if (i == zeroLineIndex)
+            continue;
+        painter->drawLine(gridLine(
+            mParentAxis->coordToPixel(mParentAxis->mTickVector.at(i))));
     }
 }
 
@@ -263,26 +230,17 @@ void QCPGrid::drawSubGridLines(QCPPainter* painter) const
         return;
     }
 
+    const auto* ar = mParentAxis->mAxisRect;
+    const bool horizontal = (mParentAxis->orientation() == Qt::Horizontal);
+
     applyAntialiasingHint(painter, mAntialiasedSubGrid, QCP::aeSubGrid);
-    double t; // helper variable, result of coordinate-to-pixel transforms
     painter->setPen(mSubGridPen);
-    if (mParentAxis->orientation() == Qt::Horizontal)
+    for (double tickCoord : mParentAxis->mSubTickVector)
     {
-        for (double tickCoord : mParentAxis->mSubTickVector)
-        {
-            t = mParentAxis->coordToPixel(tickCoord); // x
-            painter->drawLine(
-                QLineF(t, mParentAxis->mAxisRect->bottom(), t, mParentAxis->mAxisRect->top()));
-        }
-    }
-    else
-    {
-        for (double tickCoord : mParentAxis->mSubTickVector)
-        {
-            t = mParentAxis->coordToPixel(tickCoord); // y
-            painter->drawLine(
-                QLineF(mParentAxis->mAxisRect->left(), t, mParentAxis->mAxisRect->right(), t));
-        }
+        double t = mParentAxis->coordToPixel(tickCoord);
+        painter->drawLine(horizontal
+            ? QLineF(t, ar->bottom(), t, ar->top())
+            : QLineF(ar->left(), t, ar->right(), t));
     }
 }
 

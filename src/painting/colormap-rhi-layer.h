@@ -52,4 +52,8 @@ private:
     int mLastSampleCount = 0;
     QSize mTextureSize;
     QSize mLastOutputSize;
+
+    bool ensureTexture(QRhiBuffer* compositeUbo);
+    void updateQuadGeometry(QRhiResourceUpdateBatch* updates,
+                            const QSize& outputSize, float dpr, bool isYUpInNDC);
 };

@@ -105,15 +105,7 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
     int l1Size = static_cast<int>(l1.keys.size());
     if (l1Size == 0 || l1.numColumns == 0) return nullptr;
 
-    auto beginIt = std::lower_bound(l1.keys.begin(), l1.keys.end(), vp.keyRange.lower);
-    auto endIt = std::upper_bound(l1.keys.begin(), l1.keys.end(), vp.keyRange.upper);
-    int l1Begin = std::max(0, static_cast<int>(beginIt - l1.keys.begin()) - 1);
-    int l1End = std::min(l1Size, static_cast<int>(endIt - l1.keys.begin()) + 1);
-
-    l1Begin = l1Begin & ~1;
-    l1End = (l1End + 1) & ~1;
-    l1End = std::min(l1End, l1Size);
-
+    auto [l1Begin, l1End] = l1ViewportBounds(l1.keys, l1Size, vp.keyRange);
     if (l1End <= l1Begin)
         return nullptr;
 

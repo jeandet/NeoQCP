@@ -10,3 +10,4 @@ manual = executable('manual',
 
 subdir('spans')
 subdir('gallery')
+subdir('massive_graph2')

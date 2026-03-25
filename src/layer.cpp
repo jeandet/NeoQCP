@@ -356,8 +356,6 @@ QPointF QCPLayer::pixelOffset() const
                 }
                 else if (ar != firstAxisRect)
                 {
-                    // Multiple axis rects with different pan states — cannot
-                    // apply a single offset. Degrade gracefully to no translation.
                     return {};
                 }
             }

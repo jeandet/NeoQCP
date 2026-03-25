@@ -1,4 +1,5 @@
 #include "plottable-graph2.h"
+#include "plottable-linestyle.h"
 #include "Profiling.hpp"
 #include "../datasource/graph-resampler.h"
 
@@ -309,146 +310,6 @@ QCPRange QCPGraph2::getValueRange(bool& foundRange, QCP::SignDomain inSignDomain
     return mDataSource->valueRange(foundRange, inSignDomain, inKeyRange);
 }
 
-// --- Line style transforms ---
-// These operate on pixel-coordinate points returned by the data source.
-// For horizontal key axis: x = key pixel, y = value pixel
-// For vertical key axis:   x = value pixel, y = key pixel
-
-QVector<QPointF> QCPGraph2::toStepLeftLines(const QVector<QPointF>& lines, bool keyIsVertical)
-{
-    if (lines.size() < 2)
-        return lines;
-
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-
-    if (keyIsVertical)
-    {
-        double lastValue = lines.first().x();
-        for (int i = 0; i < lines.size(); ++i)
-        {
-            const double key = lines[i].y();
-            result[i * 2 + 0] = QPointF(lastValue, key);
-            lastValue = lines[i].x();
-            result[i * 2 + 1] = QPointF(lastValue, key);
-        }
-    }
-    else
-    {
-        double lastValue = lines.first().y();
-        for (int i = 0; i < lines.size(); ++i)
-        {
-            const double key = lines[i].x();
-            result[i * 2 + 0] = QPointF(key, lastValue);
-            lastValue = lines[i].y();
-            result[i * 2 + 1] = QPointF(key, lastValue);
-        }
-    }
-    return result;
-}
-
-QVector<QPointF> QCPGraph2::toStepRightLines(const QVector<QPointF>& lines, bool keyIsVertical)
-{
-    if (lines.size() < 2)
-        return lines;
-
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-
-    if (keyIsVertical)
-    {
-        double lastKey = lines.first().y();
-        for (int i = 0; i < lines.size(); ++i)
-        {
-            const double value = lines[i].x();
-            result[i * 2 + 0] = QPointF(value, lastKey);
-            lastKey = lines[i].y();
-            result[i * 2 + 1] = QPointF(value, lastKey);
-        }
-    }
-    else
-    {
-        double lastKey = lines.first().x();
-        for (int i = 0; i < lines.size(); ++i)
-        {
-            const double value = lines[i].y();
-            result[i * 2 + 0] = QPointF(lastKey, value);
-            lastKey = lines[i].x();
-            result[i * 2 + 1] = QPointF(lastKey, value);
-        }
-    }
-    return result;
-}
-
-QVector<QPointF> QCPGraph2::toStepCenterLines(const QVector<QPointF>& lines, bool keyIsVertical)
-{
-    if (lines.size() < 2)
-        return lines;
-
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-
-    if (keyIsVertical)
-    {
-        double lastKey = lines.first().y();
-        double lastValue = lines.first().x();
-        result[0] = QPointF(lastValue, lastKey);
-        for (int i = 1; i < lines.size(); ++i)
-        {
-            const double midKey = (lines[i].y() + lastKey) * 0.5;
-            result[i * 2 - 1] = QPointF(lastValue, midKey);
-            lastValue = lines[i].x();
-            lastKey = lines[i].y();
-            result[i * 2 + 0] = QPointF(lastValue, midKey);
-        }
-        result[lines.size() * 2 - 1] = QPointF(lastValue, lastKey);
-    }
-    else
-    {
-        double lastKey = lines.first().x();
-        double lastValue = lines.first().y();
-        result[0] = QPointF(lastKey, lastValue);
-        for (int i = 1; i < lines.size(); ++i)
-        {
-            const double midKey = (lines[i].x() + lastKey) * 0.5;
-            result[i * 2 - 1] = QPointF(midKey, lastValue);
-            lastValue = lines[i].y();
-            lastKey = lines[i].x();
-            result[i * 2 + 0] = QPointF(midKey, lastValue);
-        }
-        result[lines.size() * 2 - 1] = QPointF(lastKey, lastValue);
-    }
-    return result;
-}
-
-QVector<QPointF> QCPGraph2::toImpulseLines(const QVector<QPointF>& lines, bool keyIsVertical) const
-{
-    QVector<QPointF> result;
-    result.resize(lines.size() * 2);
-
-    const double zeroPixel = mValueAxis->coordToPixel(0);
-
-    if (keyIsVertical)
-    {
-        for (int i = 0; i < lines.size(); ++i)
-        {
-            const double key = lines[i].y();
-            result[i * 2 + 0] = QPointF(zeroPixel, key);
-            result[i * 2 + 1] = QPointF(lines[i].x(), key);
-        }
-    }
-    else
-    {
-        for (int i = 0; i < lines.size(); ++i)
-        {
-            const double key = lines[i].x();
-            result[i * 2 + 0] = QPointF(key, zeroPixel);
-            result[i * 2 + 1] = QPointF(key, lines[i].y());
-        }
-    }
-    return result;
-}
-
 // --- Drawing ---
 
 QPointF QCPGraph2::stallPixelOffset() const
@@ -519,44 +380,14 @@ void QCPGraph2::draw(QCPPainter* painter)
     const bool keyIsVertical = mKeyAxis->orientation() == Qt::Vertical;
 
     // --- Line caching with GPU translation ---
-    bool needFreshLines = mLineCacheDirty || mCachedLines.isEmpty();
-
-    // Check plot resize
-    QSize currentPlotSize(mKeyAxis->axisRect()->width(), mKeyAxis->axisRect()->height());
-    if (currentPlotSize != mCachedPlotSize)
-        needFreshLines = true;
-
-    // Check zoom: if axis range size changed significantly, pixel mapping is stale
-    if (!needFreshLines && mHasRenderedRange)
-    {
-        double keyRatio = mKeyAxis->range().size() / mRenderedRange.key.size();
-        double valRatio = mValueAxis->range().size() / mRenderedRange.value.size();
-        if (qAbs(keyRatio - 1.0) > 0.01 || qAbs(valRatio - 1.0) > 0.01)
-            needFreshLines = true;
-    }
-
-    // Check translation: if pan offset exceeds half the plot in either axis, rebuild
-    QPointF gpuOffset;
-    if (!needFreshLines && mHasRenderedRange)
-    {
-        gpuOffset = qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
-                                               mRenderedRange.key, mRenderedRange.value);
-        const double keyDim = keyIsVertical
-            ? mKeyAxis->axisRect()->height()
-            : mKeyAxis->axisRect()->width();
-        const double valDim = keyIsVertical
-            ? mKeyAxis->axisRect()->width()
-            : mKeyAxis->axisRect()->height();
-        const double keyOffset = qAbs(keyIsVertical ? gpuOffset.y() : gpuOffset.x());
-        const double valOffset = qAbs(keyIsVertical ? gpuOffset.x() : gpuOffset.y());
-        if (keyOffset > keyDim * 0.5 || valOffset > valDim * 0.5)
-            needFreshLines = true;
-    }
-
-    // Export mode always recomputes
-    if (painter->modes().testFlag(QCPPainter::pmNoCaching)
-        || painter->modes().testFlag(QCPPainter::pmVectorized))
-        needFreshLines = true;
+    const QSize currentPlotSize(mKeyAxis->axisRect()->width(), mKeyAxis->axisRect()->height());
+    const bool isExportMode = painter->modes().testFlag(QCPPainter::pmNoCaching)
+                            || painter->modes().testFlag(QCPPainter::pmVectorized);
+    auto [needFreshLines, gpuOffset] = qcp::evaluateLineCache(
+        mLineCacheDirty, mCachedLines.isEmpty(),
+        currentPlotSize, mCachedPlotSize,
+        mHasRenderedRange, mRenderedRange.key, mRenderedRange.value,
+        mKeyAxis.data(), mValueAxis.data(), isExportMode);
 
     QVector<QPointF> lines;
     if (needFreshLines)
@@ -581,8 +412,7 @@ void QCPGraph2::draw(QCPPainter* painter)
         }
 
         // Cache for reuse (but not during export)
-        if (!painter->modes().testFlag(QCPPainter::pmNoCaching)
-            && !painter->modes().testFlag(QCPPainter::pmVectorized))
+        if (!isExportMode)
         {
             mCachedLines = lines;
             mRenderedRange = {mKeyAxis->range(), mValueAxis->range()};
@@ -615,14 +445,23 @@ void QCPGraph2::draw(QCPPainter* painter)
             {
                 if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
                 {
-                    prl->setPixelOffset(gpuOffset);
+                    // Pre-translate cached points instead of setting layer-wide offset,
+                    // so other plottables on the same layer are unaffected.
+                    QVector<QPointF> translated;
+                    const QVector<QPointF>& src = (!gpuOffset.isNull()) ?
+                        [&]() -> const QVector<QPointF>& {
+                            translated.resize(pts.size());
+                            for (int i = 0; i < pts.size(); ++i)
+                                translated[i] = pts[i] + gpuOffset;
+                            return translated;
+                        }() : pts;
+
                     const QColor penColor = mPen.color();
                     const double dpr = mParentPlot->bufferDevicePixelRatio();
-                    // Cosmetic pens (widthF==0) = 1 device pixel, independent of DPR
                     const float penWidth = (mPen.isCosmetic() || qFuzzyIsNull(mPen.widthF()))
                         ? static_cast<float>(1.0 / dpr)
                         : qMax(1.0f, static_cast<float>(mPen.widthF()));
-                    auto strokeVerts = QCPLineExtruder::extrudePolyline(pts, penWidth, penColor);
+                    auto strokeVerts = QCPLineExtruder::extrudePolyline(src, penWidth, penColor);
                     if (!strokeVerts.isEmpty())
                     {
                         const QSize outputSize = mParentPlot->rhiOutputSize();
@@ -636,7 +475,16 @@ void QCPGraph2::draw(QCPPainter* painter)
             applyDefaultAntialiasingHint(painter);
             painter->setPen(mPen);
             painter->setBrush(Qt::NoBrush);
-            painter->drawPolyline(pts.constData(), pts.size());
+            if (!gpuOffset.isNull())
+            {
+                painter->translate(gpuOffset);
+                painter->drawPolyline(pts.constData(), pts.size());
+                painter->translate(-gpuOffset);
+            }
+            else
+            {
+                painter->drawPolyline(pts.constData(), pts.size());
+            }
         };
 
         switch (mLineStyle)
@@ -647,17 +495,17 @@ void QCPGraph2::draw(QCPPainter* painter)
                 drawPoly(lines);
                 break;
             case lsStepLeft:
-                drawPoly(toStepLeftLines(lines, keyIsVertical));
+                drawPoly(qcp::toStepLeftLines(lines, keyIsVertical));
                 break;
             case lsStepRight:
-                drawPoly(toStepRightLines(lines, keyIsVertical));
+                drawPoly(qcp::toStepRightLines(lines, keyIsVertical));
                 break;
             case lsStepCenter:
-                drawPoly(toStepCenterLines(lines, keyIsVertical));
+                drawPoly(qcp::toStepCenterLines(lines, keyIsVertical));
                 break;
             case lsImpulse:
             {
-                auto impulse = toImpulseLines(lines, keyIsVertical);
+                auto impulse = qcp::toImpulseLines(lines, keyIsVertical, mValueAxis->coordToPixel(0));
                 applyDefaultAntialiasingHint(painter);
                 QPen impulsePen = mPen;
                 impulsePen.setCapStyle(Qt::FlatCap);

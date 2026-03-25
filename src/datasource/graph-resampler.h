@@ -18,6 +18,43 @@ struct BinResult {
     std::vector<double> values;
 };
 
+// Initialize bin keys and values for numBins min/max pairs.
+// keys: (binCenter, binCenter+halfWidth) per bin; values: NaN.
+inline void initBinKeysAndValues(BinResult& out, int numBins, double keyLo, double binWidth)
+{
+    const double halfWidth = binWidth * 0.5;
+    out.keys.resize(numBins * 2);
+    out.values.resize(numBins * 2);
+    for (int b = 0; b < numBins; ++b)
+    {
+        double binCenter = keyLo + (b + 0.5) * binWidth;
+        out.keys[b * 2 + 0] = binCenter;
+        out.keys[b * 2 + 1] = binCenter + halfWidth;
+        out.values[b * 2 + 0] = std::numeric_limits<double>::quiet_NaN();
+        out.values[b * 2 + 1] = std::numeric_limits<double>::quiet_NaN();
+    }
+}
+
+struct L1ViewportBounds {
+    int begin;
+    int end;
+};
+
+// Find the L1 index range covering the viewport, snapped to even bin-pair boundaries.
+inline L1ViewportBounds l1ViewportBounds(
+    const std::vector<double>& l1Keys, int l1Size, const QCPRange& keyRange)
+{
+    auto beginIt = std::lower_bound(l1Keys.begin(), l1Keys.end(), keyRange.lower);
+    auto endIt = std::upper_bound(l1Keys.begin(), l1Keys.end(), keyRange.upper);
+    int l1Begin = std::max(0, static_cast<int>(beginIt - l1Keys.begin()) - 1);
+    int l1End = std::min(l1Size, static_cast<int>(endIt - l1Keys.begin()) + 1);
+
+    l1Begin = l1Begin & ~1;
+    l1End = (l1End + 1) & ~1;
+    l1End = std::min(l1End, l1Size);
+    return {l1Begin, l1End};
+}
+
 // Bin source[begin..end) into numBins min/max pairs.
 // Output: 2*numBins points — (binCenter, min), (binCenter+halfWidth, max) per bin.
 // NaN values and non-finite keys are skipped. Empty bins produce NaN pairs.
@@ -32,21 +69,9 @@ inline BinResult binMinMax(
     if (numBins <= 0 || keyRange.size() <= 0)
         return out;
 
-    out.keys.resize(numBins * 2);
-    out.values.resize(numBins * 2);
-
     const double binWidth = keyRange.size() / numBins;
-    const double halfWidth = binWidth * 0.5;
     const double keyLo = keyRange.lower;
-
-    for (int b = 0; b < numBins; ++b)
-    {
-        double binCenter = keyLo + (b + 0.5) * binWidth;
-        out.keys[b * 2 + 0] = binCenter;
-        out.keys[b * 2 + 1] = binCenter + halfWidth;
-        out.values[b * 2 + 0] = std::numeric_limits<double>::quiet_NaN();
-        out.values[b * 2 + 1] = std::numeric_limits<double>::quiet_NaN();
-    }
+    initBinKeysAndValues(out, numBins, keyLo, binWidth);
 
     for (int i = begin; i < end; ++i)
     {
@@ -77,21 +102,9 @@ inline BinResult binMinMax(
     if (numBins <= 0 || keyRange.size() <= 0)
         return out;
 
-    out.keys.resize(numBins * 2);
-    out.values.resize(numBins * 2);
-
     const double binWidth = keyRange.size() / numBins;
-    const double halfWidth = binWidth * 0.5;
     const double keyLo = keyRange.lower;
-
-    for (int b = 0; b < numBins; ++b)
-    {
-        double binCenter = keyLo + (b + 0.5) * binWidth;
-        out.keys[b * 2 + 0] = binCenter;
-        out.keys[b * 2 + 1] = binCenter + halfWidth;
-        out.values[b * 2 + 0] = std::numeric_limits<double>::quiet_NaN();
-        out.values[b * 2 + 1] = std::numeric_limits<double>::quiet_NaN();
-    }
+    initBinKeysAndValues(out, numBins, keyLo, binWidth);
 
     for (int i = begin; i < end; ++i)
     {
@@ -129,22 +142,9 @@ inline BinResult binMinMaxParallel(
     if (numBins <= 0 || keyRange.size() <= 0)
         return out;
 
-    out.keys.resize(numBins * 2);
-    out.values.resize(numBins * 2);
-
     const double binWidth = keyRange.size() / numBins;
-    const double halfWidth = binWidth * 0.5;
     const double keyLo = keyRange.lower;
-
-    // Initialize all bins: keys are deterministic, values start as NaN
-    for (int b = 0; b < numBins; ++b)
-    {
-        double binCenter = keyLo + (b + 0.5) * binWidth;
-        out.keys[b * 2 + 0] = binCenter;
-        out.keys[b * 2 + 1] = binCenter + halfWidth;
-        out.values[b * 2 + 0] = std::numeric_limits<double>::quiet_NaN();
-        out.values[b * 2 + 1] = std::numeric_limits<double>::quiet_NaN();
-    }
+    initBinKeysAndValues(out, numBins, keyLo, binWidth);
 
     // Clamp thread count to available bins
     threadCount = std::min(threadCount, numBins);
@@ -402,15 +402,7 @@ inline std::shared_ptr<QCPAbstractDataSource> resampleL2(
     int l1Size = static_cast<int>(l1.keys.size());
     if (l1Size == 0) return nullptr;
 
-    auto beginIt = std::lower_bound(l1.keys.begin(), l1.keys.end(), vp.keyRange.lower);
-    auto endIt = std::upper_bound(l1.keys.begin(), l1.keys.end(), vp.keyRange.upper);
-    int l1Begin = std::max(0, static_cast<int>(beginIt - l1.keys.begin()) - 1);
-    int l1End = std::min(l1Size, static_cast<int>(endIt - l1.keys.begin()) + 1);
-
-    l1Begin = l1Begin & ~1;
-    l1End = (l1End + 1) & ~1;
-    l1End = std::min(l1End, l1Size);
-
+    auto [l1Begin, l1End] = l1ViewportBounds(l1.keys, l1Size, vp.keyRange);
     if (l1End <= l1Begin)
         return nullptr;
 

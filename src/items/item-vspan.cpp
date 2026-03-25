@@ -5,7 +5,7 @@
 #include "../painting/span-rhi-layer.h"
 
 QCPItemVSpan::QCPItemVSpan(QCustomPlot* parentPlot)
-    : QCPAbstractItem(parentPlot)
+    : QCPAbstractSpanItem(parentPlot)
     , lowerEdge(createPosition(QLatin1String("lowerEdge")))
     , upperEdge(createPosition(QLatin1String("upperEdge")))
     , center(createAnchor(QLatin1String("center"), aiCenter))
@@ -31,12 +31,6 @@ QCPItemVSpan::QCPItemVSpan(QCustomPlot* parentPlot)
     });
 }
 
-QCPItemVSpan::~QCPItemVSpan()
-{
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->unregisterSpan(this);
-}
-
 QCPRange QCPItemVSpan::range() const
 {
     return QCPRange(lowerEdge->coords().x(), upperEdge->coords().x());
@@ -50,54 +44,6 @@ void QCPItemVSpan::setRange(const QCPRange& range)
     if (mParentPlot && mParentPlot->spanRhiLayer())
         mParentPlot->spanRhiLayer()->markGeometryDirty();
 }
-
-void QCPItemVSpan::setPen(const QPen& pen)
-{
-    mPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
-}
-
-void QCPItemVSpan::setSelectedPen(const QPen& pen)
-{
-    mSelectedPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
-}
-
-void QCPItemVSpan::setBrush(const QBrush& brush)
-{
-    mBrush = brush;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
-}
-
-void QCPItemVSpan::setSelectedBrush(const QBrush& brush)
-{
-    mSelectedBrush = brush;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
-}
-
-void QCPItemVSpan::setBorderPen(const QPen& pen)
-{
-    mBorderPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
-}
-
-void QCPItemVSpan::setSelectedBorderPen(const QPen& pen)
-{
-    mSelectedBorderPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
-}
-
-void QCPItemVSpan::setMovable(bool movable) { mMovable = movable; }
-
-QPen QCPItemVSpan::mainPen() const { return mSelected ? mSelectedPen : mPen; }
-QBrush QCPItemVSpan::mainBrush() const { return mSelected ? mSelectedBrush : mBrush; }
-QPen QCPItemVSpan::mainBorderPen() const { return mSelected ? mSelectedBorderPen : mBorderPen; }
 
 double QCPItemVSpan::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
 {
@@ -116,7 +62,6 @@ double QCPItemVSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
 
     const double tolerance = mParentPlot->selectionTolerance();
 
-    // check edges first (priority)
     const double distLower = qAbs(pos.x() - lowerPx);
     const double distUpper = qAbs(pos.x() - upperPx);
 
@@ -133,7 +78,6 @@ double QCPItemVSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
         return distUpper;
     }
 
-    // check fill
     bool filledRect = mBrush.style() != Qt::NoBrush && mBrush.color().alpha() != 0;
     if (filledRect && pos.x() >= left && pos.x() <= right
         && pos.y() >= axisRect.top() && pos.y() <= axisRect.bottom())
@@ -148,13 +92,8 @@ double QCPItemVSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
 
 void QCPItemVSpan::draw(QCPPainter* painter)
 {
-    if (auto* layer = mParentPlot ? mParentPlot->spanRhiLayer() : nullptr)
-    {
-        layer->registerSpan(this); // idempotent — handles late RHI init
-        if (!painter->modes().testFlag(QCPPainter::pmVectorized)
-            && !painter->modes().testFlag(QCPPainter::pmNoCaching))
-            return;
-    }
+    if (tryRhiDraw(painter))
+        return;
 
     auto* keyAxis = lowerEdge->keyAxis();
     if (!keyAxis)
@@ -171,12 +110,10 @@ void QCPItemVSpan::draw(QCPPainter* painter)
     if (!spanRect.intersects(axRect))
         return;
 
-    // fill
     painter->setPen(mainPen());
     painter->setBrush(mainBrush());
     painter->drawRect(spanRect);
 
-    // border lines
     painter->setPen(mainBorderPen());
     painter->drawLine(QPointF(lowerPx, axRect.top()), QPointF(lowerPx, axRect.bottom()));
     painter->drawLine(QPointF(upperPx, axRect.top()), QPointF(upperPx, axRect.bottom()));
