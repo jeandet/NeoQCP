@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <span>
 
+namespace qcp::detail {
+
 // Lightweight non-owning view of a single column in a row-major 2D array.
 // Satisfies IndexableNumericRange (random_access_range + arithmetic value_type).
 // Uses index-based iteration to avoid out-of-bounds pointer arithmetic when
@@ -55,6 +57,8 @@ private:
     int mStride;
 };
 
+} // namespace qcp::detail
+
 // Non-owning multi-column data source for row-major (C-order) 2D arrays.
 // Data layout: values[row * stride + col], where stride >= columnCount.
 // Zero-copy: wraps the caller's buffer directly.
@@ -99,7 +103,7 @@ public:
                         const QCPRange& inKeyRange = QCPRange()) const override
     {
         Q_ASSERT(column >= 0 && column < mColumns);
-        StridedColumnView<V> colView(mValues + column, mRows, mStride);
+        qcp::detail::StridedColumnView<V> colView(mValues + column, mRows, mStride);
         return qcp::algo::valueRange(mKeys, colView, found, sd, inKeyRange);
     }
 
@@ -117,7 +121,7 @@ public:
                                            QCPAxis* keyAxis, QCPAxis* valueAxis) const override
     {
         Q_ASSERT(column >= 0 && column < mColumns);
-        StridedColumnView<V> colView(mValues + column, mRows, mStride);
+        qcp::detail::StridedColumnView<V> colView(mValues + column, mRows, mStride);
         return qcp::algo::optimizedLineData(mKeys, colView, begin, end, pixelWidth,
                                              keyAxis, valueAxis);
     }
@@ -126,7 +130,7 @@ public:
                                QCPAxis* keyAxis, QCPAxis* valueAxis) const override
     {
         Q_ASSERT(column >= 0 && column < mColumns);
-        StridedColumnView<V> colView(mValues + column, mRows, mStride);
+        qcp::detail::StridedColumnView<V> colView(mValues + column, mRows, mStride);
         return qcp::algo::linesToPixels(mKeys, colView, begin, end, keyAxis, valueAxis);
     }
 
