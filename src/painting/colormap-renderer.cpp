@@ -1,4 +1,5 @@
 #include "colormap-renderer.h"
+#include "rhi-utils.h"
 #include <plottables/plottable-colormap.h>
 #include <plottables/plottable.h>
 #include <painting/painter.h>
@@ -133,13 +134,10 @@ void QCPColormapRenderer::draw(QCPPainter* painter, QCPAxis* keyAxis, QCPAxis* v
             QCustomPlot* plot = mOwner->parentPlot();
             QRect clipRect = axisRect->rect();
             double dpr = plot->bufferDevicePixelRatio();
-            int sx = static_cast<int>(clipRect.x() * dpr);
-            int sy = static_cast<int>(clipRect.y() * dpr);
-            int sw = static_cast<int>(clipRect.width() * dpr);
-            int sh = static_cast<int>(clipRect.height() * dpr);
-            if (auto* rhi = plot->rhi(); rhi && rhi->isYUpInNDC())
-                sy = static_cast<int>(plot->height() * dpr) - sy - sh;
-            crl->setScissorRect(QRect(sx, sy, sw, sh));
+            auto* rhi = plot->rhi();
+            bool yUp = rhi && rhi->isYUpInNDC();
+            int outH = static_cast<int>(plot->height() * dpr);
+            crl->setScissorRect(qcp::rhi::computeScissor(clipRect, dpr, outH, yUp));
             return;
         }
     }
