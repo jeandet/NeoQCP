@@ -36,6 +36,7 @@ private:
     bool locateCurve(const QPointF& pixelPos);
     bool locateColorMap(const QPointF& pixelPos);
     bool locateColorMap2(const QPointF& pixelPos);
+    bool locateHistogram2D(const QPointF& pixelPos);
     bool locateMultiGraph(const QPointF& pixelPos);
 };
 

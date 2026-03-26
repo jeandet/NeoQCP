@@ -6,6 +6,7 @@
 #include "plottables/plottable-curve.h"
 #include "plottables/plottable-colormap.h"
 #include "plottables/plottable-colormap2.h"
+#include "plottables/plottable-histogram2d.h"
 #include "plottables/plottable-multigraph.h"
 #include "selection.h"
 
@@ -37,6 +38,8 @@ bool QCPDataLocator::locate(const QPointF& pixelPos)
         return locateColorMap2(pixelPos);
     if (qobject_cast<QCPColorMap*>(mPlottable))
         return locateColorMap(pixelPos);
+    if (qobject_cast<QCPHistogram2D*>(mPlottable))
+        return locateHistogram2D(pixelPos);
     if (qobject_cast<QCPMultiGraph*>(mPlottable))
         return locateMultiGraph(pixelPos);
 
@@ -166,6 +169,32 @@ bool QCPDataLocator::locateColorMap2(const QPointF& pixelPos)
     mValue = value;
     mData = src->zAt(xi, yj);
     mDataIndex = xi * src->ySize() + yj;
+    mHitPlottable = mPlottable;
+    mValid = true;
+    return true;
+}
+
+bool QCPDataLocator::locateHistogram2D(const QPointF& pixelPos)
+{
+    auto* hist = qobject_cast<QCPHistogram2D*>(mPlottable);
+    auto* mapData = hist->pipeline().result();
+    if (!mapData || mapData->isEmpty())
+        return false;
+
+    double key, value;
+    hist->pixelsToCoords(pixelPos, key, value);
+
+    int keyIndex, valueIndex;
+    mapData->coordToCell(key, value, &keyIndex, &valueIndex);
+
+    if (keyIndex < 0 || keyIndex >= mapData->keySize()
+        || valueIndex < 0 || valueIndex >= mapData->valueSize())
+        return false;
+
+    mKey = key;
+    mValue = value;
+    mData = mapData->cell(keyIndex, valueIndex);
+    mDataIndex = keyIndex * mapData->valueSize() + valueIndex;
     mHitPlottable = mPlottable;
     mValid = true;
     return true;
