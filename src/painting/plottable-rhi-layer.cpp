@@ -41,14 +41,7 @@ QCPPlottableRhiLayer::addPlottable(const QVector<float>& fillVerts,
 {
     PROFILE_HERE_N("QCPPlottableRhiLayer::addPlottable");
     DrawEntry entry;
-    int sx = clipRect.x() * dpr;
-    int sy = clipRect.y() * dpr;
-    int sw = clipRect.width() * dpr;
-    int sh = clipRect.height() * dpr;
-    // QRhi scissor Y origin is bottom for Y-up backends (OpenGL)
-    if (isYUpInNDC)
-        sy = outputHeight - sy - sh;
-    entry.scissorRect = QRect(sx, sy, sw, sh);
+    entry.scissorRect = qcp::rhi::computeScissor(clipRect, dpr, outputHeight, isYUpInNDC);
 
     if (!fillVerts.isEmpty())
     {

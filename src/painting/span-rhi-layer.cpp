@@ -350,12 +350,9 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
             continue;
 
         // Compute scissor rect in physical pixels
-        int sx = int(ar->left() * dpr);
-        int sy = int(ar->top() * dpr);
-        int sw = int(ar->width() * dpr);
-        int sh = int(ar->height() * dpr);
-        if (isYUpInNDC)
-            sy = outputHeight - sy - sh;
+        QRect scissor = qcp::rhi::computeScissor(
+            QRect(ar->left(), ar->top(), ar->width(), ar->height()),
+            dpr, outputHeight, isYUpInNDC);
 
         // Create per-group uniform buffer and SRB
         auto* ubo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBufferSize);
@@ -372,7 +369,7 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
         group.axisRect = ar;
         group.vertexOffset = groupVertexStart;
         group.vertexCount = groupVertexCount;
-        group.scissorRect = QRect(sx, sy, sw, sh);
+        group.scissorRect = scissor;
         group.uniformBuffer = ubo;
         group.srb = srb;
         mDrawGroups.append(group);
