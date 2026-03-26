@@ -325,14 +325,7 @@ void QCPGraph2::draw(QCPPainter* painter)
         auto* axisRect = mKeyAxis->axisRect();
         if (axisRect)
         {
-            ViewportParams vp;
-            vp.keyRange = mKeyAxis->range();
-            vp.valueRange = mValueAxis->range();
-            vp.plotWidthPx = axisRect->width();
-            vp.plotHeightPx = axisRect->height();
-            vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
-            vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
-            rebuildL2(vp);
+            rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
             mLineCacheDirty = true; // L2 data changed → cached pixel-space lines are stale
         }
         mL2Dirty = false;

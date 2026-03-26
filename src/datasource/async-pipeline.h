@@ -12,6 +12,9 @@
 #include <type_traits>
 #include "pipeline-scheduler.h"
 
+class QCPAxis;
+class QCPAxisRect;
+
 struct ViewportParams {
     QCPRange keyRange;
     QCPRange valueRange;
@@ -19,6 +22,8 @@ struct ViewportParams {
     int plotHeightPx = 0;
     bool keyLogScale = false;
     bool valueLogScale = false;
+
+    static ViewportParams fromAxes(const QCPAxis* keyAxis, const QCPAxis* valueAxis);
 };
 
 enum class TransformKind { ViewportIndependent, ViewportDependent };

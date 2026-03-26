@@ -55,9 +55,12 @@ void QCPItemRichText::draw(QCPPainter* painter)
         return;
     }
 
-    mDoc.setDefaultFont(mainFont());
-    mDoc.setHtml(mHtml);
-    mBoundingRect = QRectF(QPointF(0, 0), mDoc.size());
+    QFont currentFont = mainFont();
+    if (mDoc.defaultFont() != currentFont)
+    {
+        mDoc.setDefaultFont(currentFont);
+        mBoundingRect = QRectF(QPointF(0, 0), mDoc.size());
+    }
 
     QPointF pos(position->pixelPosition());
     QTransform transform = painter->transform();
