@@ -31,7 +31,7 @@ public:
     void setDataSource(std::unique_ptr<QCPAbstractMultiDataSource> source);
     virtual void setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> source);
     QCPAbstractMultiDataSource* dataSource() const { return mDataSource.get(); }
-    void dataChanged();
+    virtual void dataChanged();
 
     QCPMultiGraphPipeline& pipeline() { return mPipeline; }
     const QCPMultiGraphPipeline& pipeline() const { return mPipeline; }

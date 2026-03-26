@@ -62,6 +62,7 @@ public:
     void invalidateNormalization();
 
 protected:
+    void dataChanged() override;
     void draw(QCPPainter* painter) override;
     QCPRange getValueRange(bool& foundRange,
                            QCP::SignDomain inSignDomain = QCP::sdBoth,

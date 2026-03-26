@@ -69,7 +69,7 @@ void QCPMultiGraph::setDataSource(std::unique_ptr<QCPAbstractMultiDataSource> so
 
 static void ensureL1TransformMulti(QCPMultiGraphPipeline& pipeline, int sourceSize, int colCount)
 {
-    const bool needsResampling = colCount > 0 && sourceSize >= 100'000
+    const bool needsResampling = colCount > 0
         && static_cast<int64_t>(sourceSize) * colCount >= qcp::algo::kResampleThreshold;
     if (needsResampling)
     {
@@ -102,7 +102,6 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
     if (mDataSource)
     {
         mNeedsResampling = mDataSource->columnCount() > 0
-            && mDataSource->size() >= 100'000
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
@@ -120,14 +119,10 @@ void QCPMultiGraph::dataChanged()
     mCachedLines.clear();
     if (mDataSource)
     {
-        bool wasResampling = mNeedsResampling;
         mNeedsResampling = mDataSource->columnCount() > 0
-            && mDataSource->size() >= 100'000
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
-
-        if (mNeedsResampling != wasResampling)
-            ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
+        ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
     }
 
     mL1Cache.reset();
@@ -500,6 +495,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             vp.plotWidthPx = axisRect->width();
             vp.plotHeightPx = axisRect->height();
             vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
+            vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
             rebuildL2(vp);
             mLineCacheDirty = true; // L2 data changed → cached pixel-space lines are stale
         }
@@ -517,6 +513,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         vp.plotWidthPx = axisRect ? axisRect->width() : 800;
         vp.plotHeightPx = axisRect ? axisRect->height() : 600;
         vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
+        vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
         mPipeline.runSynchronously(vp);
         onL1Ready();
         if (mL1Cache)
@@ -596,18 +593,21 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         if (mLineStyle == lsNone && comp.scatterStyle.isNone()) continue;
 
         if (c >= linesTarget.size()) continue;
-        QVector<QPointF> lines = linesTarget[c];
-        if (lines.isEmpty()) continue;
+        const QVector<QPointF>& dataLines = linesTarget[c];
+        if (dataLines.isEmpty()) continue;
 
-        // Apply line style transform
+        // Apply line style transform (creates new vector; dataLines stays original)
+        QVector<QPointF> lines;
         if (mLineStyle != lsNone && mLineStyle != lsLine) {
             switch (mLineStyle) {
-                case lsStepLeft:   lines = qcp::toStepLeftLines(lines, keyIsVertical); break;
-                case lsStepRight:  lines = qcp::toStepRightLines(lines, keyIsVertical); break;
-                case lsStepCenter: lines = qcp::toStepCenterLines(lines, keyIsVertical); break;
-                case lsImpulse:    lines = qcp::toImpulseLines(lines, keyIsVertical, mValueAxis->coordToPixel(0)); break;
-                default: break;
+                case lsStepLeft:   lines = qcp::toStepLeftLines(dataLines, keyIsVertical); break;
+                case lsStepRight:  lines = qcp::toStepRightLines(dataLines, keyIsVertical); break;
+                case lsStepCenter: lines = qcp::toStepCenterLines(dataLines, keyIsVertical); break;
+                case lsImpulse:    lines = qcp::toImpulseLines(dataLines, keyIsVertical, mValueAxis->coordToPixel(0)); break;
+                default: lines = dataLines; break;
             }
+        } else {
+            lines = dataLines;
         }
 
         // Draw lines
@@ -672,13 +672,13 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             }
         }
 
-        // Draw scatters
+        // Draw scatters at original data positions (not step-transformed corners)
         if (!comp.scatterStyle.isNone()) {
             applyScattersAntialiasingHint(painter);
             comp.scatterStyle.applyTo(painter, comp.pen);
             const int skip = mScatterSkip + 1;
-            for (int i = 0; i < lines.size(); i += skip)
-                comp.scatterStyle.drawShape(painter, lines[i].x(), lines[i].y());
+            for (int i = 0; i < dataLines.size(); i += skip)
+                comp.scatterStyle.drawShape(painter, dataLines[i].x(), dataLines[i].y());
         }
     }
 }

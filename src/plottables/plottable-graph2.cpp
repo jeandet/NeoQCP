@@ -509,7 +509,7 @@ void QCPGraph2::draw(QCPPainter* painter)
         }
     }
 
-    // Draw scatters
+    // Draw scatters (step transforms don't modify lines — they return new vectors)
     if (!mScatterStyle.isNone())
     {
         applyScattersAntialiasingHint(painter);
