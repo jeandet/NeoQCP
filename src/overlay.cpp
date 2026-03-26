@@ -75,8 +75,8 @@ QColor QCPOverlay::levelColor() const
         case Info:    return QColor(46, 139, 87);
         case Warning: return QColor(204, 153, 0);
         case Error:   return QColor(178, 34, 34);
+        default:      return QColor(46, 139, 87);
     }
-    return QColor(46, 139, 87);
 }
 
 QRect QCPOverlay::overlayRect() const

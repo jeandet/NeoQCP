@@ -210,10 +210,7 @@ void QCPHistogram2D::draw(QCPPainter* painter)
         if (painter->modes().testFlag(QCPPainter::pmNoCaching))
         {
             // Export path: run transform synchronously since event loop is not pumped
-            ViewportParams vp;
-            vp.keyRange = mKeyAxis->range();
-            vp.valueRange = mValueAxis->range();
-            if (!mPipeline.runSynchronously(vp))
+            if (!mPipeline.runSynchronously(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data())))
                 return;
             binnedData = mPipeline.result();
             if (!binnedData) return;

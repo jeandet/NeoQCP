@@ -485,17 +485,9 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     // Lazy L2 rebuild from L1 cache
     if (mL2Dirty && mL1Cache)
     {
-        auto* axisRect = mKeyAxis->axisRect();
-        if (axisRect)
+        if (mKeyAxis->axisRect())
         {
-            ViewportParams vp;
-            vp.keyRange = mKeyAxis->range();
-            vp.valueRange = mValueAxis->range();
-            vp.plotWidthPx = axisRect->width();
-            vp.plotHeightPx = axisRect->height();
-            vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
-            vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
-            rebuildL2(vp);
+            rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
             mLineCacheDirty = true; // L2 data changed → cached pixel-space lines are stale
         }
         mL2Dirty = false;
@@ -505,14 +497,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     if (!mL2Result && mNeedsResampling
         && painter->modes().testFlag(QCPPainter::pmNoCaching))
     {
-        ViewportParams vp;
-        vp.keyRange = mKeyAxis->range();
-        vp.valueRange = mValueAxis->range();
-        auto* axisRect = mKeyAxis->axisRect();
-        vp.plotWidthPx = axisRect ? axisRect->width() : 800;
-        vp.plotHeightPx = axisRect ? axisRect->height() : 600;
-        vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
-        vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
+        auto vp = ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data());
         mPipeline.runSynchronously(vp);
         onL1Ready();
         if (mL1Cache)

@@ -1,6 +1,21 @@
 #include "async-pipeline.h"
 #include "pipeline-scheduler.h"
 #include "../Profiling.hpp"
+#include "../axis/axis.h"
+#include "../layoutelements/layoutelement-axisrect.h"
+
+ViewportParams ViewportParams::fromAxes(const QCPAxis* keyAxis, const QCPAxis* valueAxis)
+{
+    ViewportParams vp;
+    vp.keyRange = keyAxis->range();
+    vp.valueRange = valueAxis->range();
+    auto* axisRect = keyAxis->axisRect();
+    vp.plotWidthPx = axisRect ? axisRect->width() : 800;
+    vp.plotHeightPx = axisRect ? axisRect->height() : 600;
+    vp.keyLogScale = (keyAxis->scaleType() == QCPAxis::stLogarithmic);
+    vp.valueLogScale = (valueAxis->scaleType() == QCPAxis::stLogarithmic);
+    return vp;
+}
 
 QCPAsyncPipelineBase::QCPAsyncPipelineBase(QCPPipelineScheduler* scheduler,
                                              QObject* parent)

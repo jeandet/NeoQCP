@@ -198,15 +198,7 @@ void QCPColorMap2::onViewportChanged()
     auto* axisRect = mKeyAxis->axisRect();
     if (!axisRect) return;
 
-    ViewportParams vp;
-    vp.keyRange = mKeyAxis->range();
-    vp.valueRange = mValueAxis->range();
-    vp.plotWidthPx = axisRect->width();
-    vp.plotHeightPx = axisRect->height();
-    vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
-    vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
-
-    mPipeline.onViewportChanged(vp);
+    mPipeline.onViewportChanged(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
 }
 
 void QCPColorMap2::draw(QCPPainter* painter)
@@ -222,15 +214,7 @@ void QCPColorMap2::draw(QCPPainter* painter)
         if (painter->modes().testFlag(QCPPainter::pmNoCaching))
         {
             // Export path: run transform synchronously since event loop is not pumped
-            ViewportParams vp;
-            vp.keyRange = mKeyAxis->range();
-            vp.valueRange = mValueAxis->range();
-            auto* axisRect = mKeyAxis->axisRect();
-            vp.plotWidthPx = axisRect ? axisRect->width() : 800;
-            vp.plotHeightPx = axisRect ? axisRect->height() : 600;
-            vp.keyLogScale = (mKeyAxis->scaleType() == QCPAxis::stLogarithmic);
-            vp.valueLogScale = (mValueAxis->scaleType() == QCPAxis::stLogarithmic);
-            if (!mPipeline.runSynchronously(vp))
+            if (!mPipeline.runSynchronously(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data())))
                 return;
             resampledData = mPipeline.result();
             if (!resampledData) return;
