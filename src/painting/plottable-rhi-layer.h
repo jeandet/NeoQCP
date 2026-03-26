@@ -42,7 +42,7 @@ public:
     bool hasGeometry() const { return !mDrawEntries.isEmpty(); }
 
 private:
-    QRhi* mRhi;
+    QRhi* mRhi; // non-owned; lifetime managed by QRhiWidget
     QVector<float> mStagingVertices;
     QVector<DrawEntry> mDrawEntries;
 
