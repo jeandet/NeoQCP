@@ -9,6 +9,9 @@
 
 class QCPAbstractItem;
 class QCPAxisRect;
+class QCPItemVSpan;
+class QCPItemHSpan;
+class QCPItemRSpan;
 
 class QCPSpanRhiLayer
 {
@@ -40,9 +43,12 @@ public:
 
 private:
     void rebuildGeometry(float dpr, int outputHeight, bool isYUpInNDC);
+    void appendVSpanGeometry(QCPItemVSpan* vspan, QCPAxisRect* ar);
+    void appendHSpanGeometry(QCPItemHSpan* hspan, QCPAxisRect* ar);
+    void appendRSpanGeometry(QCPItemRSpan* rspan, QCPAxisRect* ar);
     void cleanupDrawGroups();
 
-    QRhi* mRhi;
+    QRhi* mRhi; // non-owned; lifetime managed by QRhiWidget
     QVector<QCPAbstractItem*> mSpans;
 
     QVector<float> mStagingVertices;

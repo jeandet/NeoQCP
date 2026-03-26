@@ -231,118 +231,11 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
         for (auto* span : spans)
         {
             if (auto* vspan = qobject_cast<QCPItemVSpan*>(span))
-            {
-                float dataX0 = float(vspan->lowerEdge->coords().x());
-                float dataX1 = float(vspan->upperEdge->coords().x());
-                float pixTop = float(ar->top());
-                float pixBot = float(ar->top() + ar->height());
-
-                // Fill quad: X = data coords, Y = pixel coords
-                const QBrush& fillBrush = vspan->selected() ? vspan->selectedBrush() : vspan->brush();
-                auto fillColor = premultiply(fillBrush.color());
-                if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
-                {
-                    appendQuad(mStagingVertices,
-                               dataX0, pixTop, dataX1, pixTop,
-                               dataX0, pixBot, dataX1, pixBot,
-                               fillColor, 0, 0, 0, 0, 1);
-                }
-
-                // Border lines (vertical edges)
-                const QPen& borderPenV = vspan->selected() ? vspan->selectedBorderPen() : vspan->borderPen();
-                auto borderColor = premultiply(borderPenV.color());
-                float penW = borderPenV.widthF();
-                float halfW = (penW == 0.0 || borderPenV.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
-                if (borderPenV.style() != Qt::NoPen && halfW > 0.0f)
-                {
-                    // Left border (at dataX0): vertical line from pixTop to pixBot
-                    appendBorder(mStagingVertices,
-                                 dataX0, pixTop, dataX0, pixBot,
-                                 borderColor, 1, 0, halfW, 0, 1);
-                    // Right border (at dataX1)
-                    appendBorder(mStagingVertices,
-                                 dataX1, pixTop, dataX1, pixBot,
-                                 borderColor, 1, 0, halfW, 0, 1);
-                }
-            }
+                appendVSpanGeometry(vspan, ar);
             else if (auto* hspan = qobject_cast<QCPItemHSpan*>(span))
-            {
-                float dataY0 = float(hspan->lowerEdge->coords().y());
-                float dataY1 = float(hspan->upperEdge->coords().y());
-                float pixLeft = float(ar->left());
-                float pixRight = float(ar->left() + ar->width());
-
-                // Fill quad: Y = data coords, X = pixel coords
-                const QBrush& fillBrush = hspan->selected() ? hspan->selectedBrush() : hspan->brush();
-                auto fillColor = premultiply(fillBrush.color());
-                if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
-                {
-                    appendQuad(mStagingVertices,
-                               pixLeft, dataY0, pixRight, dataY0,
-                               pixLeft, dataY1, pixRight, dataY1,
-                               fillColor, 0, 0, 0, 1, 0);
-                }
-
-                // Border lines (horizontal edges)
-                const QPen& borderPenH = hspan->selected() ? hspan->selectedBorderPen() : hspan->borderPen();
-                auto borderColor = premultiply(borderPenH.color());
-                float penW = borderPenH.widthF();
-                float halfW = (penW == 0.0 || borderPenH.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
-                if (borderPenH.style() != Qt::NoPen && halfW > 0.0f)
-                {
-                    // Top border (at dataY0): horizontal line from pixLeft to pixRight
-                    appendBorder(mStagingVertices,
-                                 pixLeft, dataY0, pixRight, dataY0,
-                                 borderColor, 0, 1, halfW, 1, 0);
-                    // Bottom border (at dataY1)
-                    appendBorder(mStagingVertices,
-                                 pixLeft, dataY1, pixRight, dataY1,
-                                 borderColor, 0, 1, halfW, 1, 0);
-                }
-            }
+                appendHSpanGeometry(hspan, ar);
             else if (auto* rspan = qobject_cast<QCPItemRSpan*>(span))
-            {
-                float dataLeft = float(rspan->leftEdge->coords().x());
-                float dataRight = float(rspan->rightEdge->coords().x());
-                float dataTop = float(rspan->topEdge->coords().y());
-                float dataBot = float(rspan->bottomEdge->coords().y());
-
-                // Fill quad: all data coords
-                const QBrush& fillBrush = rspan->selected() ? rspan->selectedBrush() : rspan->brush();
-                auto fillColor = premultiply(fillBrush.color());
-                if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
-                {
-                    appendQuad(mStagingVertices,
-                               dataLeft, dataTop, dataRight, dataTop,
-                               dataLeft, dataBot, dataRight, dataBot,
-                               fillColor, 0, 0, 0, 0, 0);
-                }
-
-                // 4 border lines
-                const QPen& borderPenR = rspan->selected() ? rspan->selectedBorderPen() : rspan->borderPen();
-                auto borderColor = premultiply(borderPenR.color());
-                float penW = borderPenR.widthF();
-                float halfW = (penW == 0.0 || borderPenR.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
-                if (borderPenR.style() != Qt::NoPen && halfW > 0.0f)
-                {
-                    // Left border: vertical line
-                    appendBorder(mStagingVertices,
-                                 dataLeft, dataTop, dataLeft, dataBot,
-                                 borderColor, 1, 0, halfW, 0, 0);
-                    // Right border
-                    appendBorder(mStagingVertices,
-                                 dataRight, dataTop, dataRight, dataBot,
-                                 borderColor, 1, 0, halfW, 0, 0);
-                    // Top border: horizontal line
-                    appendBorder(mStagingVertices,
-                                 dataLeft, dataTop, dataRight, dataTop,
-                                 borderColor, 0, 1, halfW, 0, 0);
-                    // Bottom border
-                    appendBorder(mStagingVertices,
-                                 dataLeft, dataBot, dataRight, dataBot,
-                                 borderColor, 0, 1, halfW, 0, 0);
-                }
-            }
+                appendRSpanGeometry(rspan, ar);
         }
 
         int groupVertexCount = mStagingVertices.size() / kFloatsPerVertex - groupVertexStart;
@@ -380,6 +273,108 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
     for (const auto& group : mDrawGroups)
         mLastAxisRectBounds[group.axisRect] = QRect(group.axisRect->left(), group.axisRect->top(),
                                                      group.axisRect->width(), group.axisRect->height());
+}
+
+void QCPSpanRhiLayer::appendVSpanGeometry(QCPItemVSpan* vspan, QCPAxisRect* ar)
+{
+    float dataX0 = float(vspan->lowerEdge->coords().x());
+    float dataX1 = float(vspan->upperEdge->coords().x());
+    float pixTop = float(ar->top());
+    float pixBot = float(ar->top() + ar->height());
+
+    const QBrush& fillBrush = vspan->selected() ? vspan->selectedBrush() : vspan->brush();
+    auto fillColor = premultiply(fillBrush.color());
+    if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
+    {
+        appendQuad(mStagingVertices,
+                   dataX0, pixTop, dataX1, pixTop,
+                   dataX0, pixBot, dataX1, pixBot,
+                   fillColor, 0, 0, 0, 0, 1);
+    }
+
+    const QPen& borderPen = vspan->selected() ? vspan->selectedBorderPen() : vspan->borderPen();
+    auto borderColor = premultiply(borderPen.color());
+    float penW = borderPen.widthF();
+    float halfW = (penW == 0.0 || borderPen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
+    if (borderPen.style() != Qt::NoPen && halfW > 0.0f)
+    {
+        appendBorder(mStagingVertices,
+                     dataX0, pixTop, dataX0, pixBot,
+                     borderColor, 1, 0, halfW, 0, 1);
+        appendBorder(mStagingVertices,
+                     dataX1, pixTop, dataX1, pixBot,
+                     borderColor, 1, 0, halfW, 0, 1);
+    }
+}
+
+void QCPSpanRhiLayer::appendHSpanGeometry(QCPItemHSpan* hspan, QCPAxisRect* ar)
+{
+    float dataY0 = float(hspan->lowerEdge->coords().y());
+    float dataY1 = float(hspan->upperEdge->coords().y());
+    float pixLeft = float(ar->left());
+    float pixRight = float(ar->left() + ar->width());
+
+    const QBrush& fillBrush = hspan->selected() ? hspan->selectedBrush() : hspan->brush();
+    auto fillColor = premultiply(fillBrush.color());
+    if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
+    {
+        appendQuad(mStagingVertices,
+                   pixLeft, dataY0, pixRight, dataY0,
+                   pixLeft, dataY1, pixRight, dataY1,
+                   fillColor, 0, 0, 0, 1, 0);
+    }
+
+    const QPen& borderPen = hspan->selected() ? hspan->selectedBorderPen() : hspan->borderPen();
+    auto borderColor = premultiply(borderPen.color());
+    float penW = borderPen.widthF();
+    float halfW = (penW == 0.0 || borderPen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
+    if (borderPen.style() != Qt::NoPen && halfW > 0.0f)
+    {
+        appendBorder(mStagingVertices,
+                     pixLeft, dataY0, pixRight, dataY0,
+                     borderColor, 0, 1, halfW, 1, 0);
+        appendBorder(mStagingVertices,
+                     pixLeft, dataY1, pixRight, dataY1,
+                     borderColor, 0, 1, halfW, 1, 0);
+    }
+}
+
+void QCPSpanRhiLayer::appendRSpanGeometry(QCPItemRSpan* rspan, [[maybe_unused]] QCPAxisRect* ar)
+{
+    float dataLeft = float(rspan->leftEdge->coords().x());
+    float dataRight = float(rspan->rightEdge->coords().x());
+    float dataTop = float(rspan->topEdge->coords().y());
+    float dataBot = float(rspan->bottomEdge->coords().y());
+
+    const QBrush& fillBrush = rspan->selected() ? rspan->selectedBrush() : rspan->brush();
+    auto fillColor = premultiply(fillBrush.color());
+    if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
+    {
+        appendQuad(mStagingVertices,
+                   dataLeft, dataTop, dataRight, dataTop,
+                   dataLeft, dataBot, dataRight, dataBot,
+                   fillColor, 0, 0, 0, 0, 0);
+    }
+
+    const QPen& borderPen = rspan->selected() ? rspan->selectedBorderPen() : rspan->borderPen();
+    auto borderColor = premultiply(borderPen.color());
+    float penW = borderPen.widthF();
+    float halfW = (penW == 0.0 || borderPen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
+    if (borderPen.style() != Qt::NoPen && halfW > 0.0f)
+    {
+        appendBorder(mStagingVertices,
+                     dataLeft, dataTop, dataLeft, dataBot,
+                     borderColor, 1, 0, halfW, 0, 0);
+        appendBorder(mStagingVertices,
+                     dataRight, dataTop, dataRight, dataBot,
+                     borderColor, 1, 0, halfW, 0, 0);
+        appendBorder(mStagingVertices,
+                     dataLeft, dataTop, dataRight, dataTop,
+                     borderColor, 0, 1, halfW, 0, 0);
+        appendBorder(mStagingVertices,
+                     dataLeft, dataBot, dataRight, dataBot,
+                     borderColor, 0, 1, halfW, 0, 0);
+    }
 }
 
 void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,

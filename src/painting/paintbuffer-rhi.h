@@ -55,7 +55,7 @@ protected:
     virtual void reallocateBuffer() override;
 
 private:
-    QRhi* mRhi;
+    QRhi* mRhi; // non-owned; lifetime managed by QRhiWidget
     QRhiTexture* mTexture = nullptr;
     QRhiShaderResourceBindings* mSrb = nullptr;
     QRhiTexture* mSrbBoundTexture = nullptr;

@@ -33,7 +33,7 @@ public:
     void clear();
 
 private:
-    QRhi* mRhi;
+    QRhi* mRhi; // non-owned; lifetime managed by QRhiWidget
     QCPLayer* mLayer = nullptr;
 
     // CPU staging
