@@ -106,9 +106,8 @@ void QCPAxisTickerLog::setSubTickCount(int subTicks)
 
   \seebaseclassmethod
 */
-int QCPAxisTickerLog::getSubTickCount(double tickStep)
+int QCPAxisTickerLog::getSubTickCount([[maybe_unused]] double tickStep)
 {
-    Q_UNUSED(tickStep)
     return mSubTickCount;
 }
 

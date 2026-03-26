@@ -114,22 +114,22 @@ public:
 
     QCPColorGradient();
     QCPColorGradient(GradientPreset preset);
-    bool operator==(const QCPColorGradient& other) const;
+    [[nodiscard]] bool operator==(const QCPColorGradient& other) const;
 
-    bool operator!=(const QCPColorGradient& other) const { return !(*this == other); }
+    [[nodiscard]] bool operator!=(const QCPColorGradient& other) const { return !(*this == other); }
 
     // getters:
-    int levelCount() const { return mLevelCount; }
+    [[nodiscard]] int levelCount() const { return mLevelCount; }
 
-    QMap<double, QColor> colorStops() const { return mColorStops; }
+    [[nodiscard]] QMap<double, QColor> colorStops() const { return mColorStops; }
 
-    ColorInterpolation colorInterpolation() const { return mColorInterpolation; }
+    [[nodiscard]] ColorInterpolation colorInterpolation() const { return mColorInterpolation; }
 
-    NanHandling nanHandling() const { return mNanHandling; }
+    [[nodiscard]] NanHandling nanHandling() const { return mNanHandling; }
 
-    QColor nanColor() const { return mNanColor; }
+    [[nodiscard]] QColor nanColor() const { return mNanColor; }
 
-    bool periodic() const { return mPeriodic; }
+    [[nodiscard]] bool periodic() const { return mPeriodic; }
 
     // setters:
     void setLevelCount(int n);
@@ -145,10 +145,10 @@ public:
                   int dataIndexFactor = 1, bool logarithmic = false);
     void colorize(const double* data, const unsigned char* alpha, const QCPRange& range,
                   QRgb* scanLine, int n, int dataIndexFactor = 1, bool logarithmic = false);
-    QRgb color(double position, const QCPRange& range, bool logarithmic = false);
+    [[nodiscard]] QRgb color(double position, const QCPRange& range, bool logarithmic = false);
     void loadPreset(GradientPreset preset);
     void clearColorStops();
-    QCPColorGradient inverted() const;
+    [[nodiscard]] QCPColorGradient inverted() const;
 
 protected:
     // property members:

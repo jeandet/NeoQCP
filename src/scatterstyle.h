@@ -126,17 +126,17 @@ public:
                     const QBrush& brush = Qt::NoBrush, double size = 6);
 
     // getters:
-    double size() const { return mSize; }
+    [[nodiscard]] double size() const { return mSize; }
 
-    ScatterShape shape() const { return mShape; }
+    [[nodiscard]] ScatterShape shape() const { return mShape; }
 
-    QPen pen() const { return mPen; }
+    [[nodiscard]] QPen pen() const { return mPen; }
 
-    QBrush brush() const { return mBrush; }
+    [[nodiscard]] QBrush brush() const { return mBrush; }
 
-    QPixmap pixmap() const { return mPixmap; }
+    [[nodiscard]] QPixmap pixmap() const { return mPixmap; }
 
-    QPainterPath customPath() const { return mCustomPath; }
+    [[nodiscard]] QPainterPath customPath() const { return mCustomPath; }
 
     // setters:
     void setFromOther(const QCPScatterStyle& other, ScatterProperties properties);
@@ -148,9 +148,9 @@ public:
     void setCustomPath(const QPainterPath& customPath);
 
     // non-property methods:
-    bool isNone() const { return mShape == ssNone; }
+    [[nodiscard]] bool isNone() const { return mShape == ssNone; }
 
-    bool isPenDefined() const { return mPenDefined; }
+    [[nodiscard]] bool isPenDefined() const { return mPenDefined; }
 
     void undefinePen();
     void applyTo(QCPPainter* painter, const QPen& defaultPen) const;

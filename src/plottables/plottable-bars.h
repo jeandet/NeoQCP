@@ -184,21 +184,21 @@ public:
     virtual ~QCPBars() override;
 
     // getters:
-    double width() const { return mWidth; }
+    [[nodiscard]] double width() const { return mWidth; }
 
-    WidthType widthType() const { return mWidthType; }
+    [[nodiscard]] WidthType widthType() const { return mWidthType; }
 
-    QCPBarsGroup* barsGroup() const { return mBarsGroup; }
+    [[nodiscard]] QCPBarsGroup* barsGroup() const { return mBarsGroup; }
 
-    double baseValue() const { return mBaseValue; }
+    [[nodiscard]] double baseValue() const { return mBaseValue; }
 
-    double stackingGap() const { return mStackingGap; }
+    [[nodiscard]] double stackingGap() const { return mStackingGap; }
 
-    QCPBars* barBelow() const { return mBarBelow.data(); }
+    [[nodiscard]] QCPBars* barBelow() const { return mBarBelow.data(); }
 
-    QCPBars* barAbove() const { return mBarAbove.data(); }
+    [[nodiscard]] QCPBars* barAbove() const { return mBarAbove.data(); }
 
-    QSharedPointer<QCPBarsDataContainer> data() const { return mDataContainer; }
+    [[nodiscard]] QSharedPointer<QCPBarsDataContainer> data() const { return mDataContainer; }
 
     // setters:
     void setData(QSharedPointer<QCPBarsDataContainer> data);

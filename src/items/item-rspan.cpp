@@ -36,8 +36,7 @@ QCPItemRSpan::QCPItemRSpan(QCustomPlot* parentPlot)
     setSelectedBorderPen(QPen(Qt::blue, 2));
 
     connect(this, &QCPAbstractItem::selectionChanged, this, [this](bool) {
-        if (mParentPlot && mParentPlot->spanRhiLayer())
-            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        markRhiDirty();
     });
 }
 
@@ -58,8 +57,7 @@ void QCPItemRSpan::setKeyRange(const QCPRange& range)
     emit keyRangeChanged(range);
     if (mParentPlot)
     {
-        if (mParentPlot->spanRhiLayer())
-            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        markRhiDirty();
         mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
@@ -71,8 +69,7 @@ void QCPItemRSpan::setValueRange(const QCPRange& range)
     emit valueRangeChanged(range);
     if (mParentPlot)
     {
-        if (mParentPlot->spanRhiLayer())
-            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        markRhiDirty();
         mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
@@ -268,15 +265,13 @@ void QCPItemRSpan::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
 
     if (mParentPlot)
     {
-        if (mParentPlot->spanRhiLayer())
-            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        markRhiDirty();
         mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
 
-void QCPItemRSpan::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPItemRSpan::mouseReleaseEvent([[maybe_unused]] QMouseEvent* event,
+                                     [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(startPos)
     mDragPart = hpNone;
 }

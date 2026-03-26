@@ -108,23 +108,6 @@ const double QCPRange::minRange = 1e-280;
 */
 const double QCPRange::maxRange = 1e250;
 
-/*!
-  Constructs a range with \a lower and \a upper set to zero.
-*/
-QCPRange::QCPRange() : lower(0), upper(0) { }
-
-/*! \overload
-
-  Constructs a range with the specified \a lower and \a upper values.
-
-  The resulting range will be normalized (see \ref normalize), so if \a lower is not numerically
-  smaller than \a upper, they will be swapped.
-*/
-QCPRange::QCPRange(double lower, double upper) : lower(lower), upper(upper)
-{
-    normalize();
-}
-
 /*! \overload
 
   Expands this range such that \a otherRange is contained in the new range. It is assumed that both

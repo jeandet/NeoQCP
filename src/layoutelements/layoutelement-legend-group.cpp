@@ -59,11 +59,10 @@ double QCPGroupLegendItem::selectTest(const QPointF& pos, bool onlySelectable, Q
     return mParentPlot->selectionTolerance() * 0.99;
 }
 
-void QCPGroupLegendItem::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
+void QCPGroupLegendItem::selectEvent([[maybe_unused]] QMouseEvent* event,
+                                     [[maybe_unused]] bool additive, const QVariant& details,
                                      bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(additive)
 
     if (!mSelectable || !mParentLegend->selectableParts().testFlag(QCPLegend::spItems))
         return;

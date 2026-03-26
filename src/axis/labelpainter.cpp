@@ -616,13 +616,7 @@ QCPLabelPainterPrivate::createCachedLabel(const LabelData& labelData) const
     {
         result->pixmap
             = QPixmap(labelData.rotatedTotalBounds.size() * mParentPlot->bufferDevicePixelRatio());
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
-#ifdef QCP_DEVICEPIXELRATIO_FLOAT
         result->pixmap.setDevicePixelRatio(mParentPlot->devicePixelRatioF());
-#else
-        result->pixmap.setDevicePixelRatio(mParentPlot->devicePixelRatio());
-#endif
-#endif
     }
     else
         result->pixmap = QPixmap(labelData.rotatedTotalBounds.size());

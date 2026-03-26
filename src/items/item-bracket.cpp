@@ -124,9 +124,9 @@ void QCPItemBracket::setStyle(QCPItemBracket::BracketStyle style)
 }
 
 /* inherits documentation from base class */
-double QCPItemBracket::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPItemBracket::selectTest(const QPointF& pos, bool onlySelectable,
+                                  [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 

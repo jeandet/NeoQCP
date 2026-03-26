@@ -111,17 +111,17 @@ public:
     virtual ~QCPGraph() override;
 
     // getters:
-    QSharedPointer<QCPGraphDataContainer> data() const { return mDataContainer; }
+    [[nodiscard]] QSharedPointer<QCPGraphDataContainer> data() const { return mDataContainer; }
 
-    LineStyle lineStyle() const { return mLineStyle; }
+    [[nodiscard]] LineStyle lineStyle() const { return mLineStyle; }
 
-    QCPScatterStyle scatterStyle() const { return mScatterStyle; }
+    [[nodiscard]] QCPScatterStyle scatterStyle() const { return mScatterStyle; }
 
-    int scatterSkip() const { return mScatterSkip; }
+    [[nodiscard]] int scatterSkip() const { return mScatterSkip; }
 
-    QCPGraph* channelFillGraph() const { return mChannelFillGraph.data(); }
+    [[nodiscard]] QCPGraph* channelFillGraph() const { return mChannelFillGraph.data(); }
 
-    bool adaptiveSampling() const { return mAdaptiveSampling; }
+    [[nodiscard]] bool adaptiveSampling() const { return mAdaptiveSampling; }
 
     // setters:
     void setData(QSharedPointer<QCPGraphDataContainer> data);

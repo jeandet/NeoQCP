@@ -795,9 +795,9 @@ QCPDataSelection QCPBars::selectTestRect(const QRectF& rect, bool onlySelectable
 
   \seebaseclassmethod \ref QCPAbstractPlottable::selectTest
 */
-double QCPBars::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPBars::selectTest(const QPointF& pos, bool onlySelectable,
+                           [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if ((onlySelectable && mSelectable == QCP::stNone) || mDataContainer->isEmpty())
         return -1;
     if (!mKeyAxis || !mValueAxis)

@@ -10,46 +10,46 @@ QCPAbstractSpanItem::~QCPAbstractSpanItem()
         mParentPlot->spanRhiLayer()->unregisterSpan(this);
 }
 
+void QCPAbstractSpanItem::markRhiDirty()
+{
+    if (mParentPlot && mParentPlot->spanRhiLayer())
+        mParentPlot->spanRhiLayer()->markGeometryDirty();
+}
+
 void QCPAbstractSpanItem::setPen(const QPen& pen)
 {
     mPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
+    markRhiDirty();
 }
 
 void QCPAbstractSpanItem::setSelectedPen(const QPen& pen)
 {
     mSelectedPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
+    markRhiDirty();
 }
 
 void QCPAbstractSpanItem::setBrush(const QBrush& brush)
 {
     mBrush = brush;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
+    markRhiDirty();
 }
 
 void QCPAbstractSpanItem::setSelectedBrush(const QBrush& brush)
 {
     mSelectedBrush = brush;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
+    markRhiDirty();
 }
 
 void QCPAbstractSpanItem::setBorderPen(const QPen& pen)
 {
     mBorderPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
+    markRhiDirty();
 }
 
 void QCPAbstractSpanItem::setSelectedBorderPen(const QPen& pen)
 {
     mSelectedBorderPen = pen;
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
+    markRhiDirty();
 }
 
 bool QCPAbstractSpanItem::tryRhiDraw(QCPPainter* painter)

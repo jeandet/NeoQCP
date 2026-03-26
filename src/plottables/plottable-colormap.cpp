@@ -949,9 +949,9 @@ void QCPColorMap::updateLegendIcon(Qt::TransformationMode transformMode, const Q
 }
 
 /* inherits documentation from base class */
-double QCPColorMap::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPColorMap::selectTest(const QPointF& pos, bool onlySelectable,
+                               [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if ((onlySelectable && mSelectable == QCP::stNone) || mMapData->isEmpty())
         return -1;
     if (!mKeyAxis || !mValueAxis)

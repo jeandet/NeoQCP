@@ -95,13 +95,9 @@ QCPMarginGroup::~QCPMarginGroup()
 */
 bool QCPMarginGroup::isEmpty() const
 {
-    QHashIterator<QCP::MarginSide, QList<QCPLayoutElement*>> it(mChildren);
-    while (it.hasNext())
-    {
-        it.next();
-        if (!it.value().isEmpty())
+    for (const auto& elements : mChildren)
+        if (!elements.isEmpty())
             return false;
-    }
     return true;
 }
 
@@ -112,10 +108,8 @@ bool QCPMarginGroup::isEmpty() const
 void QCPMarginGroup::clear()
 {
     // make all children remove themselves from this margin group:
-    QHashIterator<QCP::MarginSide, QList<QCPLayoutElement*>> it(mChildren);
-    while (it.hasNext())
+    for (auto it = mChildren.begin(); it != mChildren.end(); ++it)
     {
-        it.next();
         const QList<QCPLayoutElement*> elements = it.value();
         for (int i = elements.size() - 1; i >= 0; --i)
             elements.at(i)->setMarginGroup(
@@ -570,9 +564,8 @@ QSize QCPLayoutElement::maximumOuterSizeHint() const
   \warning There may be \c nullptr entries in the returned list. For example, QCPLayoutGrid may
   have empty cells which yield \c nullptr at the respective index.
 */
-QList<QCPLayoutElement*> QCPLayoutElement::elements(bool recursive) const
+QList<QCPLayoutElement*> QCPLayoutElement::elements([[maybe_unused]] bool recursive) const
 {
-    Q_UNUSED(recursive)
     return QList<QCPLayoutElement*>();
 }
 
@@ -588,9 +581,8 @@ QList<QCPLayoutElement*> QCPLayoutElement::elements(bool recursive) const
   behaviour.
 */
 double QCPLayoutElement::selectTest(const QPointF& pos, bool onlySelectable,
-                                    QVariant* details) const
+                                    [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
 
     if (onlySelectable)
         return -1;
@@ -2208,9 +2200,9 @@ bool QCPLayoutInset::take(QCPLayoutElement* element)
 
   See \ref QCPLayerable::selectTest for a general explanation of this virtual method.
 */
-double QCPLayoutInset::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPLayoutInset::selectTest(const QPointF& pos, bool onlySelectable,
+                                  [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable)
         return -1;
 

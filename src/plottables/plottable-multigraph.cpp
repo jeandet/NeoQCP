@@ -416,10 +416,9 @@ QCPDataSelection QCPMultiGraph::selectTestRect(const QRectF& rect, bool onlySele
     return unionResult;
 }
 
-void QCPMultiGraph::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                                 bool* selectionStateChanged)
+void QCPMultiGraph::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                                 const QVariant& details, bool* selectionStateChanged)
 {
-    Q_UNUSED(event);
 
     if (!additive) {
         for (auto& c : mComponents)

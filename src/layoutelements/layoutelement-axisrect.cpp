@@ -1217,9 +1217,8 @@ void QCPAxisRect::layoutChanged()
 
   \see mouseMoveEvent, mouseReleaseEvent
 */
-void QCPAxisRect::mousePressEvent(QMouseEvent* event, const QVariant& details)
+void QCPAxisRect::mousePressEvent(QMouseEvent* event, [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     if (event->buttons() & Qt::LeftButton)
     {
         mDragging = true;
@@ -1249,9 +1248,8 @@ void QCPAxisRect::mousePressEvent(QMouseEvent* event, const QVariant& details)
 
   \see mousePressEvent, mouseReleaseEvent
 */
-void QCPAxisRect::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPAxisRect::mouseMoveEvent(QMouseEvent* event, [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(startPos)
     // Mouse range dragging interaction:
     if (mDragging && mParentPlot->interactions().testFlag(QCP::iRangeDrag))
     {
@@ -1318,10 +1316,9 @@ void QCPAxisRect::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
 }
 
 /* inherits documentation from base class */
-void QCPAxisRect::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPAxisRect::mouseReleaseEvent([[maybe_unused]] QMouseEvent* event,
+                                    [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(startPos)
     mDragging = false;
     if (mParentPlot->noAntialiasingOnDrag())
     {

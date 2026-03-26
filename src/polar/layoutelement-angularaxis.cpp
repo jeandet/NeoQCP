@@ -517,9 +517,10 @@ QPointF QCPPolarAxisAngular::coordToPixel(double angleCoord, double radiusCoord)
 
   \see setSelectedParts, setSelectableParts, QCustomPlot::setInteractions
 */
-QCPPolarAxisAngular::SelectablePart QCPPolarAxisAngular::getPartAt(const QPointF& pos) const
+QCPPolarAxisAngular::SelectablePart
+QCPPolarAxisAngular::getPartAt([[maybe_unused]] const QPointF& pos) const
 {
-    Q_UNUSED(pos) // TODO remove later
+    // TODO remove later
 
     if (!mVisible)
         return spNone;
@@ -538,7 +539,7 @@ QCPPolarAxisAngular::SelectablePart QCPPolarAxisAngular::getPartAt(const QPointF
 
 /* inherits documentation from base class */
 double QCPPolarAxisAngular::selectTest(const QPointF& pos, bool onlySelectable,
-                                       QVariant* details) const
+                                       [[maybe_unused]] QVariant* details) const
 {
     /*
     if (!mParentPlot) return -1;
@@ -550,8 +551,6 @@ double QCPPolarAxisAngular::selectTest(const QPointF& pos, bool onlySelectable,
       details->setValue(part);
     return mParentPlot->selectionTolerance()*0.99;
     */
-
-    Q_UNUSED(details)
 
     if (onlySelectable)
         return -1;
@@ -1615,9 +1614,9 @@ QColor QCPPolarAxisAngular::getLabelColor() const
 
   \see mouseMoveEvent, mouseReleaseEvent
 */
-void QCPPolarAxisAngular::mousePressEvent(QMouseEvent* event, const QVariant& details)
+void QCPPolarAxisAngular::mousePressEvent(QMouseEvent* event,
+                                          [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     if (event->buttons() & Qt::LeftButton)
     {
         mDragging = true;
@@ -1645,9 +1644,9 @@ void QCPPolarAxisAngular::mousePressEvent(QMouseEvent* event, const QVariant& de
 
   \see mousePressEvent, mouseReleaseEvent
 */
-void QCPPolarAxisAngular::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPPolarAxisAngular::mouseMoveEvent(QMouseEvent* event,
+                                         [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(startPos)
     bool doReplot = false;
     // Mouse range dragging interaction:
     if (mDragging && mParentPlot->interactions().testFlag(QCP::iRangeDrag))
@@ -1700,10 +1699,9 @@ void QCPPolarAxisAngular::mouseMoveEvent(QMouseEvent* event, const QPointF& star
 }
 
 /* inherits documentation from base class */
-void QCPPolarAxisAngular::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPPolarAxisAngular::mouseReleaseEvent([[maybe_unused]] QMouseEvent* event,
+                                            [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(startPos)
     mDragging = false;
     if (mParentPlot->noAntialiasingOnDrag())
     {

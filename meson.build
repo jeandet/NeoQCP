@@ -27,8 +27,6 @@ config_data.set('NEOQCP_VERSION_MINOR', version[1])
 config_data.set('NEOQCP_VERSION_PATCH', version[2])
 config_data.set_quoted('NEOQCP_VERSION', meson.project_version())
 
-config_data.set('QCP_DEVICEPIXELRATIO_SUPPORTED', true)
-config_data.set('QCP_DEVICEPIXELRATIO_FLOAT', true)
 
 config_h = configure_file(
   output : 'neoqcp_config.h',

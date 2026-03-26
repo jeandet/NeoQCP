@@ -365,16 +365,8 @@ void QCPGraph::addData(const QVector<double>& keys, const QVector<double>& value
                  << values.size();
     const int n = qMin(keys.size(), values.size());
     QVector<QCPGraphData> tempData(n);
-    QVector<QCPGraphData>::iterator it = tempData.begin();
-    const QVector<QCPGraphData>::iterator itEnd = tempData.end();
-    int i = 0;
-    while (it != itEnd)
-    {
-        it->key = keys[i];
-        it->value = values[i];
-        ++it;
-        ++i;
-    }
+    for (int i = 0; i < n; ++i)
+        tempData[i] = QCPGraphData(keys[i], values[i]);
     mDataContainer->add(
         tempData, alreadySorted); // don't modify tempData beyond this to prevent copy on write
 }

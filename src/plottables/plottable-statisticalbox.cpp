@@ -458,9 +458,8 @@ QCPDataSelection QCPStatisticalBox::selectTestRect(const QRectF& rect, bool only
   \seebaseclassmethod \ref QCPAbstractPlottable::selectTest
 */
 double QCPStatisticalBox::selectTest(const QPointF& pos, bool onlySelectable,
-                                     QVariant* details) const
+                                     [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if ((onlySelectable && mSelectable == QCP::stNone) || mDataContainer->isEmpty())
         return -1;
     if (!mKeyAxis || !mValueAxis)

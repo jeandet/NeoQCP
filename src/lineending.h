@@ -77,13 +77,13 @@ public:
     QCPLineEnding(EndingStyle style, double width = 8, double length = 10, bool inverted = false);
 
     // getters:
-    EndingStyle style() const { return mStyle; }
+    [[nodiscard]] EndingStyle style() const { return mStyle; }
 
-    double width() const { return mWidth; }
+    [[nodiscard]] double width() const { return mWidth; }
 
-    double length() const { return mLength; }
+    [[nodiscard]] double length() const { return mLength; }
 
-    bool inverted() const { return mInverted; }
+    [[nodiscard]] bool inverted() const { return mInverted; }
 
     // setters:
     void setStyle(EndingStyle style);

@@ -98,13 +98,13 @@ public:
     virtual ~QCPCurve() override;
 
     // getters:
-    QSharedPointer<QCPCurveDataContainer> data() const { return mDataContainer; }
+    [[nodiscard]] QSharedPointer<QCPCurveDataContainer> data() const { return mDataContainer; }
 
-    QCPScatterStyle scatterStyle() const { return mScatterStyle; }
+    [[nodiscard]] QCPScatterStyle scatterStyle() const { return mScatterStyle; }
 
-    int scatterSkip() const { return mScatterSkip; }
+    [[nodiscard]] int scatterSkip() const { return mScatterSkip; }
 
-    LineStyle lineStyle() const { return mLineStyle; }
+    [[nodiscard]] LineStyle lineStyle() const { return mLineStyle; }
 
     // setters:
     void setData(QSharedPointer<QCPCurveDataContainer> data);

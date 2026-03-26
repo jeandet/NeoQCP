@@ -47,9 +47,9 @@ public:
     virtual ~QCPItemAnchor();
 
     // getters:
-    QString name() const { return mName; }
+    [[nodiscard]] QString name() const { return mName; }
 
-    virtual QPointF pixelPosition() const;
+    [[nodiscard]] virtual QPointF pixelPosition() const;
 
 protected:
     // property members:
@@ -117,30 +117,30 @@ public:
     virtual ~QCPItemPosition() override;
 
     // getters:
-    PositionType type() const { return typeX(); }
+    [[nodiscard]] PositionType type() const { return typeX(); }
 
-    PositionType typeX() const { return mPositionTypeX; }
+    [[nodiscard]] PositionType typeX() const { return mPositionTypeX; }
 
-    PositionType typeY() const { return mPositionTypeY; }
+    [[nodiscard]] PositionType typeY() const { return mPositionTypeY; }
 
-    QCPItemAnchor* parentAnchor() const { return parentAnchorX(); }
+    [[nodiscard]] QCPItemAnchor* parentAnchor() const { return parentAnchorX(); }
 
-    QCPItemAnchor* parentAnchorX() const { return mParentAnchorX; }
+    [[nodiscard]] QCPItemAnchor* parentAnchorX() const { return mParentAnchorX; }
 
-    QCPItemAnchor* parentAnchorY() const { return mParentAnchorY; }
+    [[nodiscard]] QCPItemAnchor* parentAnchorY() const { return mParentAnchorY; }
 
-    double key() const { return mKey; }
+    [[nodiscard]] double key() const { return mKey; }
 
-    double value() const { return mValue; }
+    [[nodiscard]] double value() const { return mValue; }
 
-    QPointF coords() const { return QPointF(mKey, mValue); }
+    [[nodiscard]] QPointF coords() const { return QPointF(mKey, mValue); }
 
-    QCPAxis* keyAxis() const { return mKeyAxis.data(); }
+    [[nodiscard]] QCPAxis* keyAxis() const { return mKeyAxis.data(); }
 
-    QCPAxis* valueAxis() const { return mValueAxis.data(); }
+    [[nodiscard]] QCPAxis* valueAxis() const { return mValueAxis.data(); }
 
-    QCPAxisRect* axisRect() const;
-    virtual QPointF pixelPosition() const override;
+    [[nodiscard]] QCPAxisRect* axisRect() const;
+    [[nodiscard]] virtual QPointF pixelPosition() const override;
 
     // setters:
     void setType(PositionType type);
@@ -186,13 +186,13 @@ public:
     virtual ~QCPAbstractItem() override;
 
     // getters:
-    bool clipToAxisRect() const { return mClipToAxisRect; }
+    [[nodiscard]] bool clipToAxisRect() const { return mClipToAxisRect; }
 
-    QCPAxisRect* clipAxisRect() const;
+    [[nodiscard]] QCPAxisRect* clipAxisRect() const;
 
-    bool selectable() const { return mSelectable; }
+    [[nodiscard]] bool selectable() const { return mSelectable; }
 
-    bool selected() const { return mSelected; }
+    [[nodiscard]] bool selected() const { return mSelected; }
 
     // setters:
     void setClipToAxisRect(bool clip);
@@ -206,13 +206,13 @@ public:
         = 0;
 
     // non-virtual methods:
-    QList<QCPItemPosition*> positions() const { return mPositions; }
+    [[nodiscard]] QList<QCPItemPosition*> positions() const { return mPositions; }
 
-    QList<QCPItemAnchor*> anchors() const { return mAnchors; }
+    [[nodiscard]] QList<QCPItemAnchor*> anchors() const { return mAnchors; }
 
-    QCPItemPosition* position(const QString& name) const;
-    QCPItemAnchor* anchor(const QString& name) const;
-    bool hasAnchor(const QString& name) const;
+    [[nodiscard]] QCPItemPosition* position(const QString& name) const;
+    [[nodiscard]] QCPItemAnchor* anchor(const QString& name) const;
+    [[nodiscard]] bool hasAnchor(const QString& name) const;
 
 signals:
     void selectionChanged(bool selected);

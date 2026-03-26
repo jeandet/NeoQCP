@@ -26,8 +26,7 @@ QCPItemHSpan::QCPItemHSpan(QCustomPlot* parentPlot)
     setSelectedBorderPen(QPen(Qt::blue, 2));
 
     connect(this, &QCPAbstractItem::selectionChanged, this, [this](bool) {
-        if (mParentPlot && mParentPlot->spanRhiLayer())
-            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        markRhiDirty();
     });
 }
 
@@ -43,8 +42,7 @@ void QCPItemHSpan::setRange(const QCPRange& range)
     emit rangeChanged(range);
     if (mParentPlot)
     {
-        if (mParentPlot->spanRhiLayer())
-            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        markRhiDirty();
         mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
@@ -180,15 +178,13 @@ void QCPItemHSpan::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
     emit rangeChanged(range());
     if (mParentPlot)
     {
-        if (mParentPlot->spanRhiLayer())
-            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        markRhiDirty();
         mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
 }
 
-void QCPItemHSpan::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPItemHSpan::mouseReleaseEvent([[maybe_unused]] QMouseEvent* event,
+                                     [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(startPos)
     mDragPart = hpNone;
 }

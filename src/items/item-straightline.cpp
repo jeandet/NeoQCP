@@ -83,9 +83,8 @@ void QCPItemStraightLine::setSelectedPen(const QPen& pen)
 
 /* inherits documentation from base class */
 double QCPItemStraightLine::selectTest(const QPointF& pos, bool onlySelectable,
-                                       QVariant* details) const
+                                       [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 

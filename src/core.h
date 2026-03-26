@@ -31,7 +31,6 @@
 #include "global.h"
 #include "painting/paintbuffer.h"
 #include "plottables/plottable.h"
-#include "neoqcp_config.h"
 
 #include <QPointer>
 #include <QRhiWidget>
@@ -129,54 +128,54 @@ public:
     virtual ~QCustomPlot() override;
 
     // getters:
-    QRect viewport() const { return mViewport; }
+    [[nodiscard]] QRect viewport() const { return mViewport; }
 
-    double bufferDevicePixelRatio() const { return mBufferDevicePixelRatio; }
+    [[nodiscard]] double bufferDevicePixelRatio() const { return mBufferDevicePixelRatio; }
 
-    QRhi* rhi() const { return mRhi; }
-    QCPPlottableRhiLayer* plottableRhiLayer(QCPLayer* layer);
+    [[nodiscard]] QRhi* rhi() const { return mRhi; }
+    [[nodiscard]] QCPPlottableRhiLayer* plottableRhiLayer(QCPLayer* layer);
     void registerColormapRhiLayer(QCPColormapRhiLayer* layer);
     void unregisterColormapRhiLayer(QCPColormapRhiLayer* layer);
-    QSize rhiOutputSize() const;
+    [[nodiscard]] QSize rhiOutputSize() const;
 
-    QPixmap background() const { return mBackgroundPixmap; }
-    QBrush backgroundBrush() const { return mBackgroundBrush; }
+    [[nodiscard]] QPixmap background() const { return mBackgroundPixmap; }
+    [[nodiscard]] QBrush backgroundBrush() const { return mBackgroundBrush; }
 
-    bool backgroundScaled() const { return mBackgroundScaled; }
+    [[nodiscard]] bool backgroundScaled() const { return mBackgroundScaled; }
 
-    Qt::AspectRatioMode backgroundScaledMode() const { return mBackgroundScaledMode; }
+    [[nodiscard]] Qt::AspectRatioMode backgroundScaledMode() const { return mBackgroundScaledMode; }
 
-    QCPLayoutGrid* plotLayout() const { return mPlotLayout; }
+    [[nodiscard]] QCPLayoutGrid* plotLayout() const { return mPlotLayout; }
 
-    QCP::AntialiasedElements antialiasedElements() const { return mAntialiasedElements; }
+    [[nodiscard]] QCP::AntialiasedElements antialiasedElements() const { return mAntialiasedElements; }
 
-    QCP::AntialiasedElements notAntialiasedElements() const { return mNotAntialiasedElements; }
+    [[nodiscard]] QCP::AntialiasedElements notAntialiasedElements() const { return mNotAntialiasedElements; }
 
-    bool autoAddPlottableToLegend() const { return mAutoAddPlottableToLegend; }
+    [[nodiscard]] bool autoAddPlottableToLegend() const { return mAutoAddPlottableToLegend; }
 
-    const QCP::Interactions interactions() const { return mInteractions; }
+    [[nodiscard]] const QCP::Interactions interactions() const { return mInteractions; }
 
-    int selectionTolerance() const { return mSelectionTolerance; }
+    [[nodiscard]] int selectionTolerance() const { return mSelectionTolerance; }
 
-    bool noAntialiasingOnDrag() const { return mNoAntialiasingOnDrag; }
+    [[nodiscard]] bool noAntialiasingOnDrag() const { return mNoAntialiasingOnDrag; }
 
-    QCP::PlottingHints plottingHints() const { return mPlottingHints; }
+    [[nodiscard]] QCP::PlottingHints plottingHints() const { return mPlottingHints; }
 
-    Qt::KeyboardModifier multiSelectModifier() const { return mMultiSelectModifier; }
+    [[nodiscard]] Qt::KeyboardModifier multiSelectModifier() const { return mMultiSelectModifier; }
 
-    QCP::SelectionRectMode selectionRectMode() const { return mSelectionRectMode; }
+    [[nodiscard]] QCP::SelectionRectMode selectionRectMode() const { return mSelectionRectMode; }
 
-    QCPSelectionRect* selectionRect() const { return mSelectionRect; }
+    [[nodiscard]] QCPSelectionRect* selectionRect() const { return mSelectionRect; }
 
     // Item creation mode
     void setItemCreator(ItemCreator creator);
-    const ItemCreator& itemCreator() const { return mItemCreator; }
+    [[nodiscard]] const ItemCreator& itemCreator() const { return mItemCreator; }
     void setItemPositioner(ItemPositioner positioner);
-    const ItemPositioner& itemPositioner() const { return mItemPositioner; }
+    [[nodiscard]] const ItemPositioner& itemPositioner() const { return mItemPositioner; }
     void setCreationModeEnabled(bool enabled);
-    bool creationModeEnabled() const { return mCreationModeEnabled; }
+    [[nodiscard]] bool creationModeEnabled() const { return mCreationModeEnabled; }
     void setCreationModifier(Qt::KeyboardModifier mod);
-    Qt::KeyboardModifier creationModifier() const { return mCreationModifier; }
+    [[nodiscard]] Qt::KeyboardModifier creationModifier() const { return mCreationModifier; }
 
     // setters:
     void setViewport(const QRect& rect);
@@ -203,112 +202,112 @@ public:
     void setSelectionRectMode(QCP::SelectionRectMode mode);
     void setSelectionRect(QCPSelectionRect* selectionRect);
     // theme:
-    QCPTheme* theme() const;
+    [[nodiscard]] QCPTheme* theme() const;
     void setTheme(QCPTheme* theme);
     void applyTheme();
-    QColor themeBackground() const;
+    [[nodiscard]] QColor themeBackground() const;
     void setThemeBackground(const QColor& color);
-    QColor themeForeground() const;
+    [[nodiscard]] QColor themeForeground() const;
     void setThemeForeground(const QColor& color);
-    QColor themeGrid() const;
+    [[nodiscard]] QColor themeGrid() const;
     void setThemeGrid(const QColor& color);
-    QColor themeSubGrid() const;
+    [[nodiscard]] QColor themeSubGrid() const;
     void setThemeSubGrid(const QColor& color);
-    QColor themeSelection() const;
+    [[nodiscard]] QColor themeSelection() const;
     void setThemeSelection(const QColor& color);
-    QColor themeLegendBackground() const;
+    [[nodiscard]] QColor themeLegendBackground() const;
     void setThemeLegendBackground(const QColor& color);
-    QColor themeLegendBorder() const;
+    [[nodiscard]] QColor themeLegendBorder() const;
     void setThemeLegendBorder(const QColor& color);
     // overlay:
     QCPOverlay* overlay();
     // span GPU layer:
     QCPSpanRhiLayer* spanRhiLayer();
     // pipeline:
-    QCPPipelineScheduler* pipelineScheduler() const { return mPipelineScheduler; }
+    [[nodiscard]] QCPPipelineScheduler* pipelineScheduler() const { return mPipelineScheduler; }
     void setMaxPipelineThreads(int count);
 
     // non-property methods:
     // plottable interface:
-    QCPAbstractPlottable* plottable(int index);
-    QCPAbstractPlottable* plottable();
-    bool removePlottable(QCPAbstractPlottable* plottable);
-    bool removePlottable(int index);
+    [[nodiscard]] QCPAbstractPlottable* plottable(int index);
+    [[nodiscard]] QCPAbstractPlottable* plottable();
+    [[nodiscard]] bool removePlottable(QCPAbstractPlottable* plottable);
+    [[nodiscard]] bool removePlottable(int index);
     int clearPlottables();
-    int plottableCount() const;
-    QList<QCPAbstractPlottable*> selectedPlottables() const;
+    [[nodiscard]] int plottableCount() const;
+    [[nodiscard]] QList<QCPAbstractPlottable*> selectedPlottables() const;
     template <class PlottableType>
-    PlottableType* plottableAt(const QPointF& pos, bool onlySelectable = false,
+    [[nodiscard]] PlottableType* plottableAt(const QPointF& pos, bool onlySelectable = false,
                                int* dataIndex = nullptr) const;
-    QCPAbstractPlottable* plottableAt(const QPointF& pos, bool onlySelectable = false,
+    [[nodiscard]] QCPAbstractPlottable* plottableAt(const QPointF& pos, bool onlySelectable = false,
                                       int* dataIndex = nullptr) const;
-    bool hasPlottable(QCPAbstractPlottable* plottable) const;
+    [[nodiscard]] bool hasPlottable(QCPAbstractPlottable* plottable) const;
 
     // specialized interface for QCPGraph:
-    QCPGraph* graph(int index) const;
-    QCPGraph* graph() const;
+    [[nodiscard]] QCPGraph* graph(int index) const;
+    [[nodiscard]] QCPGraph* graph() const;
     QCPGraph* addGraph(QCPAxis* keyAxis = nullptr, QCPAxis* valueAxis = nullptr);
-    bool removeGraph(QCPGraph* graph);
-    bool removeGraph(int index);
+    [[nodiscard]] bool removeGraph(QCPGraph* graph);
+    [[nodiscard]] bool removeGraph(int index);
     int clearGraphs();
-    int graphCount() const;
-    QList<QCPGraph*> selectedGraphs() const;
+    [[nodiscard]] int graphCount() const;
+    [[nodiscard]] QList<QCPGraph*> selectedGraphs() const;
 
     // item interface:
-    QCPAbstractItem* item(int index) const;
-    QCPAbstractItem* item() const;
-    bool removeItem(QCPAbstractItem* item);
-    bool removeItem(int index);
+    [[nodiscard]] QCPAbstractItem* item(int index) const;
+    [[nodiscard]] QCPAbstractItem* item() const;
+    [[nodiscard]] bool removeItem(QCPAbstractItem* item);
+    [[nodiscard]] bool removeItem(int index);
     int clearItems();
-    int itemCount() const;
-    QList<QCPAbstractItem*> selectedItems() const;
+    [[nodiscard]] int itemCount() const;
+    [[nodiscard]] QList<QCPAbstractItem*> selectedItems() const;
     template <class ItemType>
-    ItemType* itemAt(const QPointF& pos, bool onlySelectable = false) const;
-    QCPAbstractItem* itemAt(const QPointF& pos, bool onlySelectable = false) const;
-    bool hasItem(QCPAbstractItem* item) const;
+    [[nodiscard]] ItemType* itemAt(const QPointF& pos, bool onlySelectable = false) const;
+    [[nodiscard]] QCPAbstractItem* itemAt(const QPointF& pos, bool onlySelectable = false) const;
+    [[nodiscard]] bool hasItem(QCPAbstractItem* item) const;
 
     // layer interface:
-    QCPLayer* layer(const QString& name) const;
-    QCPLayer* layer(int index) const;
-    QCPLayer* currentLayer() const;
+    [[nodiscard]] QCPLayer* layer(const QString& name) const;
+    [[nodiscard]] QCPLayer* layer(int index) const;
+    [[nodiscard]] QCPLayer* currentLayer() const;
     bool setCurrentLayer(const QString& name);
     bool setCurrentLayer(QCPLayer* layer);
-    int layerCount() const;
-    bool addLayer(const QString& name, QCPLayer* otherLayer = nullptr,
+    [[nodiscard]] int layerCount() const;
+    [[nodiscard]] bool addLayer(const QString& name, QCPLayer* otherLayer = nullptr,
                   LayerInsertMode insertMode = limAbove);
-    bool removeLayer(QCPLayer* layer);
-    bool moveLayer(QCPLayer* layer, QCPLayer* otherLayer, LayerInsertMode insertMode = limAbove);
+    [[nodiscard]] bool removeLayer(QCPLayer* layer);
+    [[nodiscard]] bool moveLayer(QCPLayer* layer, QCPLayer* otherLayer, LayerInsertMode insertMode = limAbove);
 
     // axis rect/layout interface:
-    int axisRectCount() const;
-    QCPAxisRect* axisRect(int index = 0) const;
-    QList<QCPAxisRect*> axisRects() const;
-    QCPLayoutElement* layoutElementAt(const QPointF& pos) const;
-    QCPAxisRect* axisRectAt(const QPointF& pos) const;
+    [[nodiscard]] int axisRectCount() const;
+    [[nodiscard]] QCPAxisRect* axisRect(int index = 0) const;
+    [[nodiscard]] QList<QCPAxisRect*> axisRects() const;
+    [[nodiscard]] QCPLayoutElement* layoutElementAt(const QPointF& pos) const;
+    [[nodiscard]] QCPAxisRect* axisRectAt(const QPointF& pos) const;
     Q_SLOT void rescaleAxes(bool onlyVisiblePlottables = false);
 
-    QList<QCPAxis*> selectedAxes() const;
-    QList<QCPLegend*> selectedLegends() const;
+    [[nodiscard]] QList<QCPAxis*> selectedAxes() const;
+    [[nodiscard]] QList<QCPLegend*> selectedLegends() const;
     Q_SLOT void deselectAll();
 
-    bool savePdf(const QString& fileName, int width = 0, int height = 0,
+    [[nodiscard]] bool savePdf(const QString& fileName, int width = 0, int height = 0,
                  QCP::ExportPen exportPen = QCP::epAllowCosmetic,
                  const QString& pdfCreator = QString(), const QString& pdfTitle = QString());
-    bool savePng(const QString& fileName, int width = 0, int height = 0, double scale = 1.0,
+    [[nodiscard]] bool savePng(const QString& fileName, int width = 0, int height = 0, double scale = 1.0,
                  int quality = -1, int resolution = 96,
                  QCP::ResolutionUnit resolutionUnit = QCP::ruDotsPerInch);
-    bool saveJpg(const QString& fileName, int width = 0, int height = 0, double scale = 1.0,
+    [[nodiscard]] bool saveJpg(const QString& fileName, int width = 0, int height = 0, double scale = 1.0,
                  int quality = -1, int resolution = 96,
                  QCP::ResolutionUnit resolutionUnit = QCP::ruDotsPerInch);
-    bool saveBmp(const QString& fileName, int width = 0, int height = 0, double scale = 1.0,
+    [[nodiscard]] bool saveBmp(const QString& fileName, int width = 0, int height = 0, double scale = 1.0,
                  int resolution = 96, QCP::ResolutionUnit resolutionUnit = QCP::ruDotsPerInch);
-    bool saveRastered(const QString& fileName, int width, int height, double scale,
+    [[nodiscard]] bool saveRastered(const QString& fileName, int width, int height, double scale,
                       const char* format, int quality = -1, int resolution = 96,
                       QCP::ResolutionUnit resolutionUnit = QCP::ruDotsPerInch);
-    QPixmap toPixmap(int width = 0, int height = 0, double scale = 1.0);
+    [[nodiscard]] QPixmap toPixmap(int width = 0, int height = 0, double scale = 1.0);
     void toPainter(QCPPainter* painter, int width = 0, int height = 0);
     Q_SLOT void replot(QCustomPlot::RefreshPriority refreshPriority = QCustomPlot::rpImmediateRefresh);
-    double replotTime(bool average = false) const;
+    [[nodiscard]] double replotTime(bool average = false) const;
 
     QCPAxis *xAxis, *yAxis, *xAxis2, *yAxis2;
     QCPLegend* legend;
@@ -473,7 +472,7 @@ template <class PlottableType>
 PlottableType* QCustomPlot::plottableAt(const QPointF& pos, bool onlySelectable,
                                         int* dataIndex) const
 {
-    PlottableType* resultPlottable = 0;
+    PlottableType* resultPlottable = nullptr;
     QVariant resultDetails;
     double resultDistance
         = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance
@@ -530,7 +529,7 @@ PlottableType* QCustomPlot::plottableAt(const QPointF& pos, bool onlySelectable,
 template <class ItemType>
 ItemType* QCustomPlot::itemAt(const QPointF& pos, bool onlySelectable) const
 {
-    ItemType* resultItem = 0;
+    ItemType* resultItem = nullptr;
     double resultDistance
         = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance
                                // as selections, so initialize with that value

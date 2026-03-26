@@ -55,7 +55,6 @@
 #include "layoutelements/layoutelement-colorscale.h"
 
 #include <QTimer>
-#include "neoqcp_config.h"
 #include "datasource/pipeline-scheduler.h"
 
 
@@ -437,13 +436,7 @@ QCustomPlot::QCustomPlot(QWidget* parent)
     QLocale currentLocale = locale();
     currentLocale.setNumberOptions(QLocale::OmitGroupSeparator);
     setLocale(currentLocale);
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
-#ifdef QCP_DEVICEPIXELRATIO_FLOAT
     setBufferDevicePixelRatio(QWidget::devicePixelRatioF());
-#else
-    setBufferDevicePixelRatio(QWidget::devicePixelRatio());
-#endif
-#endif
 
     // create initial layers:
     mLayers.append(new QCPLayer(this, QLatin1String("background")));
@@ -658,7 +651,7 @@ QCPOverlay* QCustomPlot::overlay()
     if (!mOverlay) {
         auto* notifLayer = layer(QLatin1String("notification"));
         if (!notifLayer) {
-            addLayer(QLatin1String("notification"));
+            (void)addLayer(QLatin1String("notification"));
             notifLayer = layer(QLatin1String("notification"));
         }
         notifLayer->setMode(QCPLayer::lmBuffered);
@@ -1078,16 +1071,11 @@ void QCustomPlot::setBufferDevicePixelRatio(double ratio)
 {
     if (!qFuzzyCompare(ratio, mBufferDevicePixelRatio))
     {
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
         mBufferDevicePixelRatio = ratio;
         for (auto& buffer : mPaintBuffers)
         {
             buffer->setDevicePixelRatio(mBufferDevicePixelRatio);
         }
-#else
-        qDebug() << Q_FUNC_INFO << "Device pixel ratios not supported for Qt versions before 5.4";
-        mBufferDevicePixelRatio = 1.0;
-#endif
     }
 }
 
@@ -1291,7 +1279,7 @@ int QCustomPlot::clearPlottables()
 {
     int c = mPlottables.size();
     for (int i = c - 1; i >= 0; --i)
-        removePlottable(mPlottables[i]);
+        (void)removePlottable(mPlottables[i]);
     return c;
 }
 
@@ -1462,7 +1450,7 @@ int QCustomPlot::clearGraphs()
 {
     int c = mGraphs.size();
     for (int i = c - 1; i >= 0; --i)
-        removeGraph(mGraphs[i]);
+        (void)removeGraph(mGraphs[i]);
     return c;
 }
 
@@ -1582,7 +1570,7 @@ int QCustomPlot::clearItems()
 {
     int c = mItems.size();
     for (int i = c - 1; i >= 0; --i)
-        removeItem(mItems[i]);
+        (void)removeItem(mItems[i]);
     return c;
 }
 
@@ -2254,17 +2242,13 @@ void QCustomPlot::rescaleAxes(bool onlyVisiblePlottables)
 
   \see savePng, saveBmp, saveJpg, saveRastered
 */
-bool QCustomPlot::savePdf(const QString& fileName, int width, int height, QCP::ExportPen exportPen,
-                          const QString& pdfCreator, const QString& pdfTitle)
+bool QCustomPlot::savePdf([[maybe_unused]] const QString& fileName, [[maybe_unused]] int width,
+                          [[maybe_unused]] int height, [[maybe_unused]] QCP::ExportPen exportPen,
+                          [[maybe_unused]] const QString& pdfCreator,
+                          [[maybe_unused]] const QString& pdfTitle)
 {
     bool success = false;
 #ifdef QT_NO_PRINTER
-    Q_UNUSED(fileName)
-    Q_UNUSED(exportPen)
-    Q_UNUSED(width)
-    Q_UNUSED(height)
-    Q_UNUSED(pdfCreator)
-    Q_UNUSED(pdfTitle)
     qDebug() << Q_FUNC_INFO
              << "Qt was built without printer support (QT_NO_PRINTER). PDF not created.";
 #else
@@ -2876,9 +2860,8 @@ void QCustomPlot::releaseResources()
   Event handler for a resize of the QCustomPlot widget. The viewport (which becomes the outer rect
   of mPlotLayout) is resized appropriately. Finally a \ref replot is performed.
 */
-void QCustomPlot::resizeEvent(QResizeEvent* event)
+void QCustomPlot::resizeEvent([[maybe_unused]] QResizeEvent* event)
 {
-    Q_UNUSED(event)
     // resize and repaint the buffer:
     setViewport(rect());
     if (mSpanRhiLayer)
@@ -3527,9 +3510,8 @@ void QCustomPlot::processRectSelection(QRect rect, QMouseEvent* event)
 
   \see processRectSelection
 */
-void QCustomPlot::processRectZoom(QRect rect, QMouseEvent* event)
+void QCustomPlot::processRectZoom(QRect rect, [[maybe_unused]] QMouseEvent* event)
 {
-    Q_UNUSED(event)
     if (QCPAxisRect* axisRect = axisRectAt(rect.topLeft()))
     {
         QList<QCPAxis*> affectedAxes = QList<QCPAxis*>()

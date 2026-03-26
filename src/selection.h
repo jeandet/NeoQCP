@@ -34,21 +34,21 @@ public:
     QCPDataRange();
     QCPDataRange(int begin, int end);
 
-    bool operator==(const QCPDataRange& other) const
+    [[nodiscard]] bool operator==(const QCPDataRange& other) const
     {
         return mBegin == other.mBegin && mEnd == other.mEnd;
     }
 
-    bool operator!=(const QCPDataRange& other) const { return !(*this == other); }
+    [[nodiscard]] bool operator!=(const QCPDataRange& other) const { return !(*this == other); }
 
     // getters:
-    int begin() const { return mBegin; }
+    [[nodiscard]] int begin() const { return mBegin; }
 
-    int end() const { return mEnd; }
+    [[nodiscard]] int end() const { return mEnd; }
 
-    int size() const { return mEnd - mBegin; }
+    [[nodiscard]] int size() const { return mEnd - mBegin; }
 
-    int length() const { return size(); }
+    [[nodiscard]] int length() const { return size(); }
 
     // setters:
     void setBegin(int begin) { mBegin = begin; }
@@ -56,21 +56,21 @@ public:
     void setEnd(int end) { mEnd = end; }
 
     // non-property methods:
-    bool isValid() const { return (mEnd >= mBegin) && (mBegin >= 0); }
+    [[nodiscard]] bool isValid() const { return (mEnd >= mBegin) && (mBegin >= 0); }
 
-    bool isEmpty() const { return length() == 0; }
+    [[nodiscard]] bool isEmpty() const { return length() == 0; }
 
-    QCPDataRange bounded(const QCPDataRange& other) const;
-    QCPDataRange expanded(const QCPDataRange& other) const;
-    QCPDataRange intersection(const QCPDataRange& other) const;
+    [[nodiscard]] QCPDataRange bounded(const QCPDataRange& other) const;
+    [[nodiscard]] QCPDataRange expanded(const QCPDataRange& other) const;
+    [[nodiscard]] QCPDataRange intersection(const QCPDataRange& other) const;
 
-    QCPDataRange adjusted(int changeBegin, int changeEnd) const
+    [[nodiscard]] QCPDataRange adjusted(int changeBegin, int changeEnd) const
     {
         return QCPDataRange(mBegin + changeBegin, mEnd + changeEnd);
     }
 
-    bool intersects(const QCPDataRange& other) const;
-    bool contains(const QCPDataRange& other) const;
+    [[nodiscard]] bool intersects(const QCPDataRange& other) const;
+    [[nodiscard]] bool contains(const QCPDataRange& other) const;
 
 private:
     // property members:
@@ -85,9 +85,9 @@ public:
     explicit QCPDataSelection();
     explicit QCPDataSelection(const QCPDataRange& range);
 
-    bool operator==(const QCPDataSelection& other) const;
+    [[nodiscard]] bool operator==(const QCPDataSelection& other) const;
 
-    bool operator!=(const QCPDataSelection& other) const { return !(*this == other); }
+    [[nodiscard]] bool operator!=(const QCPDataSelection& other) const { return !(*this == other); }
 
     QCPDataSelection& operator+=(const QCPDataSelection& other);
     QCPDataSelection& operator+=(const QCPDataRange& other);
@@ -109,27 +109,27 @@ public:
     friend inline const QCPDataSelection operator-(const QCPDataRange& a, const QCPDataRange& b);
 
     // getters:
-    int dataRangeCount() const { return mDataRanges.size(); }
+    [[nodiscard]] int dataRangeCount() const { return mDataRanges.size(); }
 
-    int dataPointCount() const;
-    QCPDataRange dataRange(int index = 0) const;
+    [[nodiscard]] int dataPointCount() const;
+    [[nodiscard]] QCPDataRange dataRange(int index = 0) const;
 
-    QList<QCPDataRange> dataRanges() const { return mDataRanges; }
+    [[nodiscard]] QList<QCPDataRange> dataRanges() const { return mDataRanges; }
 
-    QCPDataRange span() const;
+    [[nodiscard]] QCPDataRange span() const;
 
     // non-property methods:
     void addDataRange(const QCPDataRange& dataRange, bool simplify = true);
     void clear();
 
-    bool isEmpty() const { return mDataRanges.isEmpty(); }
+    [[nodiscard]] bool isEmpty() const { return mDataRanges.isEmpty(); }
 
     void simplify();
     void enforceType(QCP::SelectionType type);
-    bool contains(const QCPDataSelection& other) const;
-    QCPDataSelection intersection(const QCPDataRange& other) const;
-    QCPDataSelection intersection(const QCPDataSelection& other) const;
-    QCPDataSelection inverse(const QCPDataRange& outerRange) const;
+    [[nodiscard]] bool contains(const QCPDataSelection& other) const;
+    [[nodiscard]] QCPDataSelection intersection(const QCPDataRange& other) const;
+    [[nodiscard]] QCPDataSelection intersection(const QCPDataSelection& other) const;
+    [[nodiscard]] QCPDataSelection inverse(const QCPDataRange& outerRange) const;
 
 private:
     // property members:

@@ -41,6 +41,8 @@ protected:
     QBrush mainBrush() const { return mSelected ? mSelectedBrush : mBrush; }
     QPen mainBorderPen() const { return mSelected ? mSelectedBorderPen : mBorderPen; }
 
+    void markRhiDirty();
+
     // Returns true if draw() should return early (RHI layer handles rendering)
     bool tryRhiDraw(QCPPainter* painter);
 };

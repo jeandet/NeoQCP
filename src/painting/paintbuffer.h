@@ -37,18 +37,18 @@ public:
     virtual ~QCPAbstractPaintBuffer();
 
     // getters:
-    QSize size() const { return mSize; }
+    [[nodiscard]] QSize size() const { return mSize; }
 
-    bool invalidated() const { return mInvalidated; }
+    [[nodiscard]] bool invalidated() const { return mInvalidated; }
 
-    double devicePixelRatio() const { return mDevicePixelRatio; }
+    [[nodiscard]] double devicePixelRatio() const { return mDevicePixelRatio; }
 
-    QString layerName() const { return mLayerName; }
+    [[nodiscard]] QString layerName() const { return mLayerName; }
 
     // setters:
     void setSize(const QSize& size);
     void setInvalidated(bool invalidated = true);
-    bool contentDirty() const { return mContentDirty; }
+    [[nodiscard]] bool contentDirty() const { return mContentDirty; }
     void setContentDirty(bool dirty = true);
     void setDevicePixelRatio(double ratio);
 

@@ -23,17 +23,17 @@ class QCP_LIB_DECL QCPTheme : public QObject
 public:
     explicit QCPTheme(QObject* parent = nullptr);
 
-    QColor background() const { return mBackground; }
-    QColor foreground() const { return mForeground; }
-    QColor grid() const { return mGrid; }
-    QColor subGrid() const { return mSubGrid; }
-    QColor selection() const { return mSelection; }
-    QColor legendBackground() const { return mLegendBackground; }
-    QColor legendBorder() const { return mLegendBorder; }
-    QString busyIndicatorSymbol() const { return mBusyIndicatorSymbol; }
-    qreal busyFadeAlpha() const { return mBusyFadeAlpha; }
-    int busyShowDelayMs() const { return mBusyShowDelayMs; }
-    int busyHideDelayMs() const { return mBusyHideDelayMs; }
+    [[nodiscard]] QColor background() const { return mBackground; }
+    [[nodiscard]] QColor foreground() const { return mForeground; }
+    [[nodiscard]] QColor grid() const { return mGrid; }
+    [[nodiscard]] QColor subGrid() const { return mSubGrid; }
+    [[nodiscard]] QColor selection() const { return mSelection; }
+    [[nodiscard]] QColor legendBackground() const { return mLegendBackground; }
+    [[nodiscard]] QColor legendBorder() const { return mLegendBorder; }
+    [[nodiscard]] QString busyIndicatorSymbol() const { return mBusyIndicatorSymbol; }
+    [[nodiscard]] qreal busyFadeAlpha() const { return mBusyFadeAlpha; }
+    [[nodiscard]] int busyShowDelayMs() const { return mBusyShowDelayMs; }
+    [[nodiscard]] int busyHideDelayMs() const { return mBusyHideDelayMs; }
 
     void setBackground(const QColor& color);
     void setForeground(const QColor& color);
