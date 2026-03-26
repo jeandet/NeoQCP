@@ -613,7 +613,7 @@ bool QCPPolarGraph::removeFromLegend(QCPLegend* legend) const
     }
 
 
-    QCPPolarLegendItem* removableItem = 0;
+    QCPPolarLegendItem* removableItem = nullptr;
     for (int i = 0; i < legend->itemCount();
          ++i) // TODO: reduce this to code in QCPAbstractPlottable::removeFromLegend once unified
     {
@@ -776,10 +776,9 @@ void QCPPolarGraph::applyDefaultAntialiasingHint(QCPPainter* painter) const
 }
 
 /* inherits documentation from base class */
-void QCPPolarGraph::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                                bool* selectionStateChanged)
+void QCPPolarGraph::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                                const QVariant& details, bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
 
     if (mSelectable != QCP::stNone)
     {

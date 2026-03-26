@@ -21,15 +21,15 @@ public:
     ~QCPOverlay() override = default;
 
     // getters:
-    QString text() const { return mText; }
-    Level level() const { return mLevel; }
-    SizeMode sizeMode() const { return mSizeMode; }
-    Position position() const { return mPosition; }
-    bool isCollapsible() const { return mCollapsible; }
-    bool isCollapsed() const { return mCollapsed; }
-    qreal opacity() const { return mOpacity; }
-    QFont font() const { return mFont; }
-    QRect overlayRect() const;
+    [[nodiscard]] QString text() const { return mText; }
+    [[nodiscard]] Level level() const { return mLevel; }
+    [[nodiscard]] SizeMode sizeMode() const { return mSizeMode; }
+    [[nodiscard]] Position position() const { return mPosition; }
+    [[nodiscard]] bool isCollapsible() const { return mCollapsible; }
+    [[nodiscard]] bool isCollapsed() const { return mCollapsed; }
+    [[nodiscard]] qreal opacity() const { return mOpacity; }
+    [[nodiscard]] QFont font() const { return mFont; }
+    [[nodiscard]] QRect overlayRect() const;
 
     // actions:
     void showMessage(const QString& text, Level level = Info,

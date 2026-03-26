@@ -161,9 +161,8 @@ void QCPAbstractLegendItem::setSelected(bool selected)
 
 /* inherits documentation from base class */
 double QCPAbstractLegendItem::selectTest(const QPointF& pos, bool onlySelectable,
-                                         QVariant* details) const
+                                         [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (!mParentPlot)
         return -1;
     if (onlySelectable
@@ -189,11 +188,10 @@ QRect QCPAbstractLegendItem::clipRect() const
 }
 
 /* inherits documentation from base class */
-void QCPAbstractLegendItem::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
+void QCPAbstractLegendItem::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                                        [[maybe_unused]] const QVariant& details,
                                         bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(details)
     if (mSelectable && mParentLegend->selectableParts().testFlag(QCPLegend::spItems))
     {
         bool selBefore = mSelected;
@@ -946,10 +944,9 @@ double QCPLegend::selectTest(const QPointF& pos, bool onlySelectable, QVariant* 
 }
 
 /* inherits documentation from base class */
-void QCPLegend::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                            bool* selectionStateChanged)
+void QCPLegend::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                            const QVariant& details, bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
     mSelectedParts = selectedParts(); // in case item selection has changed
     if (details.value<SelectablePart>() == spLegendBox && mSelectableParts.testFlag(spLegendBox))
     {

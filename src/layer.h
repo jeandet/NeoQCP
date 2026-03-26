@@ -70,19 +70,19 @@ public:
     virtual ~QCPLayer();
 
     // getters:
-    QCustomPlot* parentPlot() const { return mParentPlot; }
+    [[nodiscard]] QCustomPlot* parentPlot() const { return mParentPlot; }
 
-    QString name() const { return mName; }
+    [[nodiscard]] QString name() const { return mName; }
 
-    int index() const { return mIndex; }
+    [[nodiscard]] int index() const { return mIndex; }
 
-    QList<QCPLayerable*> children() const { return mChildren; }
+    [[nodiscard]] QList<QCPLayerable*> children() const { return mChildren; }
 
-    bool visible() const { return mVisible; }
+    [[nodiscard]] bool visible() const { return mVisible; }
 
-    LayerMode mode() const { return mMode; }
+    [[nodiscard]] LayerMode mode() const { return mMode; }
 
-    QPointF pixelOffset() const;
+    [[nodiscard]] QPointF pixelOffset() const;
 
     // setters:
     void setVisible(bool visible);
@@ -136,15 +136,15 @@ public:
     virtual ~QCPLayerable();
 
     // getters:
-    bool visible() const { return mVisible; }
+    [[nodiscard]] bool visible() const { return mVisible; }
 
-    QCustomPlot* parentPlot() const { return mParentPlot; }
+    [[nodiscard]] QCustomPlot* parentPlot() const { return mParentPlot; }
 
-    QCPLayerable* parentLayerable() const { return mParentLayerable.data(); }
+    [[nodiscard]] QCPLayerable* parentLayerable() const { return mParentLayerable.data(); }
 
-    QCPLayer* layer() const { return mLayer; }
+    [[nodiscard]] QCPLayer* layer() const { return mLayer; }
 
-    bool antialiased() const { return mAntialiased; }
+    [[nodiscard]] bool antialiased() const { return mAntialiased; }
 
     // setters:
     void setVisible(bool on);
@@ -157,7 +157,7 @@ public:
                               QVariant* details = nullptr) const;
 
     // non-property methods:
-    bool realVisibility() const;
+    [[nodiscard]] bool realVisibility() const;
 
 signals:
     void layerChanged(QCPLayer* newLayer);

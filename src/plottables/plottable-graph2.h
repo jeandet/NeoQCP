@@ -27,7 +27,7 @@ public:
     // Data source
     void setDataSource(std::unique_ptr<QCPAbstractDataSource> source);
     void setDataSource(std::shared_ptr<QCPAbstractDataSource> source);
-    QCPAbstractDataSource* dataSource() const { return mDataSource.get(); }
+    [[nodiscard]] QCPAbstractDataSource* dataSource() const { return mDataSource.get(); }
 
     // Convenience: owning
     template <IndexableNumericRange KC, IndexableNumericRange VC>
@@ -60,21 +60,21 @@ public:
     // Pipeline
     QCPGraphPipeline& pipeline() { return mPipeline; }
     const QCPGraphPipeline& pipeline() const { return mPipeline; }
-    bool hasRenderedRange() const { return mHasRenderedRange; }
+    [[nodiscard]] bool hasRenderedRange() const { return mHasRenderedRange; }
     QPointF stallPixelOffset() const override;
 
     // Line style
-    LineStyle lineStyle() const { return mLineStyle; }
+    [[nodiscard]] LineStyle lineStyle() const { return mLineStyle; }
     void setLineStyle(LineStyle style) { mLineStyle = style; }
 
     // Scatter style
-    QCPScatterStyle scatterStyle() const { return mScatterStyle; }
+    [[nodiscard]] QCPScatterStyle scatterStyle() const { return mScatterStyle; }
     void setScatterStyle(const QCPScatterStyle& style) { mScatterStyle = style; }
-    int scatterSkip() const { return mScatterSkip; }
+    [[nodiscard]] int scatterSkip() const { return mScatterSkip; }
     void setScatterSkip(int skip) { mScatterSkip = qMax(0, skip); }
 
     // Adaptive sampling control
-    bool adaptiveSampling() const { return mAdaptiveSampling; }
+    [[nodiscard]] bool adaptiveSampling() const { return mAdaptiveSampling; }
     void setAdaptiveSampling(bool enabled)
     {
         mAdaptiveSampling = enabled;
@@ -83,16 +83,16 @@ public:
     }
 
     // QCPPlottableInterface1D
-    int dataCount() const override;
-    double dataMainKey(int index) const override;
-    double dataSortKey(int index) const override;
-    double dataMainValue(int index) const override;
-    QCPRange dataValueRange(int index) const override;
-    QPointF dataPixelPosition(int index) const override;
-    bool sortKeyIsMainKey() const override { return true; }
+    [[nodiscard]] int dataCount() const override;
+    [[nodiscard]] double dataMainKey(int index) const override;
+    [[nodiscard]] double dataSortKey(int index) const override;
+    [[nodiscard]] double dataMainValue(int index) const override;
+    [[nodiscard]] QCPRange dataValueRange(int index) const override;
+    [[nodiscard]] QPointF dataPixelPosition(int index) const override;
+    [[nodiscard]] bool sortKeyIsMainKey() const override { return true; }
     QCPDataSelection selectTestRect(const QRectF& rect, bool onlySelectable) const override;
-    int findBegin(double sortKey, bool expandedRange = true) const override;
-    int findEnd(double sortKey, bool expandedRange = true) const override;
+    [[nodiscard]] int findBegin(double sortKey, bool expandedRange = true) const override;
+    [[nodiscard]] int findEnd(double sortKey, bool expandedRange = true) const override;
 
     // QCPAbstractPlottable
     QCPPlottableInterface1D* interface1D() override { return this; }

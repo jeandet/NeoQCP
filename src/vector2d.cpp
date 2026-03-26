@@ -109,17 +109,6 @@
 /* end documentation of inline functions */
 
 /*!
-  Creates a QCPVector2D object and initializes the x and y coordinates to 0.
-*/
-QCPVector2D::QCPVector2D() : mX(0), mY(0) { }
-
-/*!
-  Creates a QCPVector2D object and initializes the \a x and \a y coordinates with the specified
-  values.
-*/
-QCPVector2D::QCPVector2D(double x, double y) : mX(x), mY(y) { }
-
-/*!
   Creates a QCPVector2D object and initializes the x and y coordinates respective coordinates of
   the specified \a point.
 */

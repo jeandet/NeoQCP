@@ -292,11 +292,10 @@ int QCPAxisTickerDateTime::getSubTickCount(double tickStep)
 
   \seebaseclassmethod
 */
-QString QCPAxisTickerDateTime::getTickLabel(double tick, const QLocale& locale, QChar formatChar,
-                                            int precision)
+QString QCPAxisTickerDateTime::getTickLabel(double tick, const QLocale& locale,
+                                            [[maybe_unused]] QChar formatChar,
+                                            [[maybe_unused]] int precision)
 {
-    Q_UNUSED(precision)
-    Q_UNUSED(formatChar)
     if (mDateTimeSpec == Qt::TimeZone)
         return locale.toString(keyToDateTime(tick).toTimeZone(mTimeZone), mDateTimeFormat);
     else

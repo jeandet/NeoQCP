@@ -1314,11 +1314,10 @@ QCPItemAnchor* QCPAbstractItem::createAnchor(const QString& name, int anchorId)
 }
 
 /* inherits documentation from base class */
-void QCPAbstractItem::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
+void QCPAbstractItem::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                                  [[maybe_unused]] const QVariant& details,
                                   bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(details)
     if (mSelectable)
     {
         bool selBefore = mSelected;

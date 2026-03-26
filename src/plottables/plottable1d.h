@@ -39,16 +39,16 @@ class QCPPlottableInterface1D
 public:
     virtual ~QCPPlottableInterface1D() = default;
     // introduced pure virtual methods:
-    virtual int dataCount() const = 0;
-    virtual double dataMainKey(int index) const = 0;
-    virtual double dataSortKey(int index) const = 0;
-    virtual double dataMainValue(int index) const = 0;
-    virtual QCPRange dataValueRange(int index) const = 0;
-    virtual QPointF dataPixelPosition(int index) const = 0;
-    virtual bool sortKeyIsMainKey() const = 0;
+    [[nodiscard]] virtual int dataCount() const = 0;
+    [[nodiscard]] virtual double dataMainKey(int index) const = 0;
+    [[nodiscard]] virtual double dataSortKey(int index) const = 0;
+    [[nodiscard]] virtual double dataMainValue(int index) const = 0;
+    [[nodiscard]] virtual QCPRange dataValueRange(int index) const = 0;
+    [[nodiscard]] virtual QPointF dataPixelPosition(int index) const = 0;
+    [[nodiscard]] virtual bool sortKeyIsMainKey() const = 0;
     virtual QCPDataSelection selectTestRect(const QRectF& rect, bool onlySelectable) const = 0;
-    virtual int findBegin(double sortKey, bool expandedRange = true) const = 0;
-    virtual int findEnd(double sortKey, bool expandedRange = true) const = 0;
+    [[nodiscard]] virtual int findBegin(double sortKey, bool expandedRange = true) const = 0;
+    [[nodiscard]] virtual int findEnd(double sortKey, bool expandedRange = true) const = 0;
 };
 
 template <class DataType>
@@ -64,17 +64,17 @@ public:
     virtual ~QCPAbstractPlottable1D() override;
 
     // virtual methods of 1d plottable interface:
-    virtual int dataCount() const override;
-    virtual double dataMainKey(int index) const override;
-    virtual double dataSortKey(int index) const override;
-    virtual double dataMainValue(int index) const override;
-    virtual QCPRange dataValueRange(int index) const override;
-    virtual QPointF dataPixelPosition(int index) const override;
-    virtual bool sortKeyIsMainKey() const override;
+    [[nodiscard]] virtual int dataCount() const override;
+    [[nodiscard]] virtual double dataMainKey(int index) const override;
+    [[nodiscard]] virtual double dataSortKey(int index) const override;
+    [[nodiscard]] virtual double dataMainValue(int index) const override;
+    [[nodiscard]] virtual QCPRange dataValueRange(int index) const override;
+    [[nodiscard]] virtual QPointF dataPixelPosition(int index) const override;
+    [[nodiscard]] virtual bool sortKeyIsMainKey() const override;
     virtual QCPDataSelection selectTestRect(const QRectF& rect,
                                             bool onlySelectable) const override;
-    virtual int findBegin(double sortKey, bool expandedRange = true) const override;
-    virtual int findEnd(double sortKey, bool expandedRange = true) const override;
+    [[nodiscard]] virtual int findBegin(double sortKey, bool expandedRange = true) const override;
+    [[nodiscard]] virtual int findEnd(double sortKey, bool expandedRange = true) const override;
 
     // reimplemented virtual methods:
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
@@ -90,6 +90,14 @@ protected:
     void getDataSegments(QList<QCPDataRange>& selectedSegments,
                          QList<QCPDataRange>& unselectedSegments) const;
     void drawPolyline(QCPPainter* painter, const QVector<QPointF>& lineData) const;
+
+    const DataType* dataAt(int index) const
+    {
+        if (index >= 0 && index < mDataContainer->size())
+            return &*(mDataContainer->constBegin() + index);
+        qDebug() << Q_FUNC_INFO << "Index out of bounds" << index;
+        return nullptr;
+    }
 
 private:
     Q_DISABLE_COPY(QCPAbstractPlottable1D)
@@ -308,15 +316,8 @@ int QCPAbstractPlottable1D<DataType>::dataCount() const
 template <class DataType>
 double QCPAbstractPlottable1D<DataType>::dataMainKey(int index) const
 {
-    if (index >= 0 && index < mDataContainer->size())
-    {
-        return (mDataContainer->constBegin() + index)->mainKey();
-    }
-    else
-    {
-        qDebug() << Q_FUNC_INFO << "Index out of bounds" << index;
-        return 0;
-    }
+    if (auto* d = dataAt(index)) return d->mainKey();
+    return 0;
 }
 
 /*!
@@ -325,15 +326,8 @@ double QCPAbstractPlottable1D<DataType>::dataMainKey(int index) const
 template <class DataType>
 double QCPAbstractPlottable1D<DataType>::dataSortKey(int index) const
 {
-    if (index >= 0 && index < mDataContainer->size())
-    {
-        return (mDataContainer->constBegin() + index)->sortKey();
-    }
-    else
-    {
-        qDebug() << Q_FUNC_INFO << "Index out of bounds" << index;
-        return 0;
-    }
+    if (auto* d = dataAt(index)) return d->sortKey();
+    return 0;
 }
 
 /*!
@@ -342,15 +336,8 @@ double QCPAbstractPlottable1D<DataType>::dataSortKey(int index) const
 template <class DataType>
 double QCPAbstractPlottable1D<DataType>::dataMainValue(int index) const
 {
-    if (index >= 0 && index < mDataContainer->size())
-    {
-        return (mDataContainer->constBegin() + index)->mainValue();
-    }
-    else
-    {
-        qDebug() << Q_FUNC_INFO << "Index out of bounds" << index;
-        return 0;
-    }
+    if (auto* d = dataAt(index)) return d->mainValue();
+    return 0;
 }
 
 /*!
@@ -359,15 +346,8 @@ double QCPAbstractPlottable1D<DataType>::dataMainValue(int index) const
 template <class DataType>
 QCPRange QCPAbstractPlottable1D<DataType>::dataValueRange(int index) const
 {
-    if (index >= 0 && index < mDataContainer->size())
-    {
-        return (mDataContainer->constBegin() + index)->valueRange();
-    }
-    else
-    {
-        qDebug() << Q_FUNC_INFO << "Index out of bounds" << index;
-        return QCPRange(0, 0);
-    }
+    if (auto* d = dataAt(index)) return d->valueRange();
+    return QCPRange(0, 0);
 }
 
 /*!
@@ -376,17 +356,8 @@ QCPRange QCPAbstractPlottable1D<DataType>::dataValueRange(int index) const
 template <class DataType>
 QPointF QCPAbstractPlottable1D<DataType>::dataPixelPosition(int index) const
 {
-    if (index >= 0 && index < mDataContainer->size())
-    {
-        const typename QCPDataContainer<DataType>::const_iterator it
-            = mDataContainer->constBegin() + index;
-        return coordsToPixels(it->mainKey(), it->mainValue());
-    }
-    else
-    {
-        qDebug() << Q_FUNC_INFO << "Index out of bounds" << index;
-        return QPointF();
-    }
+    if (auto* d = dataAt(index)) return coordsToPixels(d->mainKey(), d->mainValue());
+    return QPointF();
 }
 
 /*!
@@ -423,8 +394,8 @@ QCPDataSelection QCPAbstractPlottable1D<DataType>::selectTestRect(const QRectF& 
         key1,
         key2); // QCPRange normalizes internally so we don't have to care about whether key1 < key2
     QCPRange valueRange(value1, value2);
-    typename QCPDataContainer<DataType>::const_iterator begin = mDataContainer->constBegin();
-    typename QCPDataContainer<DataType>::const_iterator end = mDataContainer->constEnd();
+    auto begin = mDataContainer->constBegin();
+    auto end = mDataContainer->constEnd();
     if (DataType::sortKeyIsMainKey()) // we can assume that data is sorted by main key, so can
                                       // reduce the searched key interval:
     {
@@ -434,21 +405,17 @@ QCPDataSelection QCPAbstractPlottable1D<DataType>::selectTestRect(const QRectF& 
     if (begin == end)
         return result;
 
-    int currentSegmentBegin
-        = -1; // -1 means we're currently not in a segment that's contained in rect
-    for (typename QCPDataContainer<DataType>::const_iterator it = begin; it != end; ++it)
+    int currentSegmentBegin = -1;
+    for (auto it = begin; it != end; ++it)
     {
-        if (currentSegmentBegin == -1)
+        const bool inRect = valueRange.contains(it->mainValue())
+                            && keyRange.contains(it->mainKey());
+        const int idx = int(it - mDataContainer->constBegin());
+        if (currentSegmentBegin == -1 && inRect)
+            currentSegmentBegin = idx;
+        else if (currentSegmentBegin != -1 && !inRect)
         {
-            if (valueRange.contains(it->mainValue())
-                && keyRange.contains(it->mainKey())) // start segment
-                currentSegmentBegin = int(it - mDataContainer->constBegin());
-        }
-        else if (!valueRange.contains(it->mainValue())
-                 || !keyRange.contains(it->mainKey())) // segment just ended
-        {
-            result.addDataRange(
-                QCPDataRange(currentSegmentBegin, int(it - mDataContainer->constBegin())), false);
+            result.addDataRange(QCPDataRange(currentSegmentBegin, idx), false);
             currentSegmentBegin = -1;
         }
     }
@@ -502,8 +469,8 @@ double QCPAbstractPlottable1D<DataType>::selectTest(const QPointF& pos, bool onl
     double minDistSqr = (std::numeric_limits<double>::max)();
     int minDistIndex = mDataContainer->size();
 
-    typename QCPDataContainer<DataType>::const_iterator begin = mDataContainer->constBegin();
-    typename QCPDataContainer<DataType>::const_iterator end = mDataContainer->constEnd();
+    auto begin = mDataContainer->constBegin();
+    auto end = mDataContainer->constEnd();
     if (DataType::sortKeyIsMainKey()) // we can assume that data is sorted by main key, so can
                                       // reduce the searched key interval:
     {
@@ -525,7 +492,7 @@ double QCPAbstractPlottable1D<DataType>::selectTest(const QPointF& pos, bool onl
         return -1;
     QCPRange keyRange(mKeyAxis->range());
     QCPRange valueRange(mValueAxis->range());
-    for (typename QCPDataContainer<DataType>::const_iterator it = begin; it != end; ++it)
+    for (auto it = begin; it != end; ++it)
     {
         const double mainKey = it->mainKey();
         const double mainValue = it->mainValue();

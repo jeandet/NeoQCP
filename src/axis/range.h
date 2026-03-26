@@ -33,73 +33,77 @@ class QCP_LIB_DECL QCPRange
 public:
     double lower, upper;
 
-    QCPRange();
-    QCPRange(double lower, double upper);
+    constexpr QCPRange() : lower(0), upper(0) {}
+    constexpr QCPRange(double lower, double upper) : lower(lower), upper(upper) { normalize(); }
 
-    bool operator==(const QCPRange& other) const
+    [[nodiscard]] constexpr bool operator==(const QCPRange& other) const
     {
         return lower == other.lower && upper == other.upper;
     }
 
-    bool operator!=(const QCPRange& other) const { return !(*this == other); }
+    [[nodiscard]] constexpr bool operator!=(const QCPRange& other) const { return !(*this == other); }
 
-    QCPRange& operator+=(const double& value)
+    constexpr QCPRange& operator+=(const double& value)
     {
         lower += value;
         upper += value;
         return *this;
     }
 
-    QCPRange& operator-=(const double& value)
+    constexpr QCPRange& operator-=(const double& value)
     {
         lower -= value;
         upper -= value;
         return *this;
     }
 
-    QCPRange& operator*=(const double& value)
+    constexpr QCPRange& operator*=(const double& value)
     {
         lower *= value;
         upper *= value;
         return *this;
     }
 
-    QCPRange& operator/=(const double& value)
+    constexpr QCPRange& operator/=(const double& value)
     {
         lower /= value;
         upper /= value;
         return *this;
     }
 
-    friend inline const QCPRange operator+(const QCPRange&, double);
-    friend inline const QCPRange operator+(double, const QCPRange&);
-    friend inline const QCPRange operator-(const QCPRange& range, double value);
-    friend inline const QCPRange operator*(const QCPRange& range, double value);
-    friend inline const QCPRange operator*(double value, const QCPRange& range);
-    friend inline const QCPRange operator/(const QCPRange& range, double value);
+    friend inline constexpr QCPRange operator+(const QCPRange&, double);
+    friend inline constexpr QCPRange operator+(double, const QCPRange&);
+    friend inline constexpr QCPRange operator-(const QCPRange& range, double value);
+    friend inline constexpr QCPRange operator*(const QCPRange& range, double value);
+    friend inline constexpr QCPRange operator*(double value, const QCPRange& range);
+    friend inline constexpr QCPRange operator/(const QCPRange& range, double value);
 
-    double size() const { return upper - lower; }
+    [[nodiscard]] constexpr double size() const { return upper - lower; }
 
-    double center() const { return (upper + lower) * 0.5; }
+    [[nodiscard]] constexpr double center() const { return (upper + lower) * 0.5; }
 
-    void normalize()
+    constexpr void normalize()
     {
         if (lower > upper)
-            qSwap(lower, upper);
+        {
+            double tmp = lower;
+            lower = upper;
+            upper = tmp;
+        }
     }
 
     void expand(const QCPRange& otherRange);
     void expand(double includeCoord);
-    QCPRange expanded(const QCPRange& otherRange) const;
-    QCPRange expanded(double includeCoord) const;
-    QCPRange bounded(double lowerBound, double upperBound) const;
-    QCPRange sanitizedForLogScale() const;
-    QCPRange sanitizedForLinScale() const;
+    [[nodiscard]] QCPRange expanded(const QCPRange& otherRange) const;
+    [[nodiscard]] QCPRange expanded(double includeCoord) const;
+    [[nodiscard]] QCPRange bounded(double lowerBound, double upperBound) const;
+    [[nodiscard]] QCPRange sanitizedForLogScale() const;
+    [[nodiscard]] QCPRange sanitizedForLinScale() const;
 
-    bool contains(double value) const { return value >= lower && value <= upper; }
+    [[nodiscard]] constexpr bool contains(double value) const { return value >= lower && value <= upper; }
 
-    static bool validRange(double lower, double upper);
-    static bool validRange(const QCPRange& range);
+    [[nodiscard]] static bool validRange(double lower, double upper);
+    [[nodiscard]] static bool validRange(const QCPRange& range);
     static const double minRange;
     static const double maxRange;
 };
@@ -119,61 +123,49 @@ inline QDebug operator<<(QDebug d, const QCPRange& range)
 /*!
   Adds \a value to both boundaries of the range.
 */
-inline const QCPRange operator+(const QCPRange& range, double value)
+inline constexpr QCPRange operator+(const QCPRange& range, double value)
 {
-    QCPRange result(range);
-    result += value;
-    return result;
+    return QCPRange(range.lower + value, range.upper + value);
 }
 
 /*!
   Adds \a value to both boundaries of the range.
 */
-inline const QCPRange operator+(double value, const QCPRange& range)
+inline constexpr QCPRange operator+(double value, const QCPRange& range)
 {
-    QCPRange result(range);
-    result += value;
-    return result;
+    return QCPRange(range.lower + value, range.upper + value);
 }
 
 /*!
   Subtracts \a value from both boundaries of the range.
 */
-inline const QCPRange operator-(const QCPRange& range, double value)
+inline constexpr QCPRange operator-(const QCPRange& range, double value)
 {
-    QCPRange result(range);
-    result -= value;
-    return result;
+    return QCPRange(range.lower - value, range.upper - value);
 }
 
 /*!
   Multiplies both boundaries of the range by \a value.
 */
-inline const QCPRange operator*(const QCPRange& range, double value)
+inline constexpr QCPRange operator*(const QCPRange& range, double value)
 {
-    QCPRange result(range);
-    result *= value;
-    return result;
+    return QCPRange(range.lower * value, range.upper * value);
 }
 
 /*!
   Multiplies both boundaries of the range by \a value.
 */
-inline const QCPRange operator*(double value, const QCPRange& range)
+inline constexpr QCPRange operator*(double value, const QCPRange& range)
 {
-    QCPRange result(range);
-    result *= value;
-    return result;
+    return QCPRange(range.lower * value, range.upper * value);
 }
 
 /*!
   Divides both boundaries of the range by \a value.
 */
-inline const QCPRange operator/(const QCPRange& range, double value)
+inline constexpr QCPRange operator/(const QCPRange& range, double value)
 {
-    QCPRange result(range);
-    result /= value;
-    return result;
+    return QCPRange(range.lower / value, range.upper / value);
 }
 
 #endif // QCP_RANGE_H

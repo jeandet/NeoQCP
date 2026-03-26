@@ -224,12 +224,10 @@ int QCPAxisTickerTime::getSubTickCount(double tickStep)
 
   \seebaseclassmethod
 */
-QString QCPAxisTickerTime::getTickLabel(double tick, const QLocale& locale, QChar formatChar,
-                                        int precision)
+QString QCPAxisTickerTime::getTickLabel(double tick, [[maybe_unused]] const QLocale& locale,
+                                        [[maybe_unused]] QChar formatChar,
+                                        [[maybe_unused]] int precision)
 {
-    Q_UNUSED(precision)
-    Q_UNUSED(formatChar)
-    Q_UNUSED(locale)
     bool negative = tick < 0;
     if (negative)
         tick *= -1;

@@ -28,12 +28,11 @@ void QCPItemRichText::clearHtml()
 }
 
 double QCPItemRichText::selectTest(const QPointF& pos, bool onlySelectable,
-                                    QVariant* details) const
+                                    [[maybe_unused]] QVariant* details) const
 {
     if (!mUseHtml)
         return QCPItemText::selectTest(pos, onlySelectable, details);
 
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 

@@ -51,11 +51,11 @@ public:
     QCPDataContainer();
 
     // getters:
-    int size() const { return mData.size() - mPreallocSize; }
+    [[nodiscard]] int size() const { return mData.size() - mPreallocSize; }
 
-    bool isEmpty() const { return size() == 0; }
+    [[nodiscard]] bool isEmpty() const { return size() == 0; }
 
-    bool autoSqueeze() const { return mAutoSqueeze; }
+    [[nodiscard]] bool autoSqueeze() const { return mAutoSqueeze; }
 
     // setters:
     void setAutoSqueeze(bool enabled);
@@ -74,9 +74,9 @@ public:
     void sort();
     void squeeze(bool preAllocation = true, bool postAllocation = true);
 
-    const_iterator constBegin() const { return mData.constBegin() + mPreallocSize; }
+    [[nodiscard]] const_iterator constBegin() const { return mData.constBegin() + mPreallocSize; }
 
-    const_iterator constEnd() const { return mData.constEnd(); }
+    [[nodiscard]] const_iterator constEnd() const { return mData.constEnd(); }
 
     iterator begin() { return mData.begin() + mPreallocSize; }
 

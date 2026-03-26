@@ -175,10 +175,10 @@ bool QCPPainter::begin(QPaintDevice* device)
 */
 void QCPPainter::setMode(QCPPainter::PainterMode mode, bool enabled)
 {
-    if (!enabled && mModes.testFlag(mode))
-        mModes &= ~mode;
-    else if (enabled && !mModes.testFlag(mode))
+    if (enabled)
         mModes |= mode;
+    else
+        mModes &= ~mode;
 }
 
 /*!

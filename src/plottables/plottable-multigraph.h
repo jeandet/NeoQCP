@@ -30,12 +30,12 @@ public:
     // Data source
     void setDataSource(std::unique_ptr<QCPAbstractMultiDataSource> source);
     virtual void setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> source);
-    QCPAbstractMultiDataSource* dataSource() const { return mDataSource.get(); }
+    [[nodiscard]] QCPAbstractMultiDataSource* dataSource() const { return mDataSource.get(); }
     virtual void dataChanged();
 
     QCPMultiGraphPipeline& pipeline() { return mPipeline; }
     const QCPMultiGraphPipeline& pipeline() const { return mPipeline; }
-    bool hasRenderedRange() const { return mHasRenderedRange; }
+    [[nodiscard]] bool hasRenderedRange() const { return mHasRenderedRange; }
     QPointF stallPixelOffset() const override;
 
     // Convenience: owning
@@ -68,7 +68,7 @@ public:
     }
 
     // Components
-    int componentCount() const { return mComponents.size(); }
+    [[nodiscard]] int componentCount() const { return mComponents.size(); }
     QCPGraphComponent& component(int index) { return mComponents[index]; }
     const QCPGraphComponent& component(int index) const { return mComponents[index]; }
     void setComponentNames(const QStringList& names);
@@ -76,31 +76,31 @@ public:
     void setComponentPens(const QList<QPen>& pens);
 
     // Per-component value access (for tracers/tooltips)
-    double componentValueAt(int column, int index) const;
+    [[nodiscard]] double componentValueAt(int column, int index) const;
 
     // Shared style
-    LineStyle lineStyle() const { return mLineStyle; }
+    [[nodiscard]] LineStyle lineStyle() const { return mLineStyle; }
     void setLineStyle(LineStyle style) { mLineStyle = style; }
-    bool adaptiveSampling() const { return mAdaptiveSampling; }
+    [[nodiscard]] bool adaptiveSampling() const { return mAdaptiveSampling; }
     void setAdaptiveSampling(bool enabled) { if (mAdaptiveSampling != enabled) { mAdaptiveSampling = enabled; mLineCacheDirty = true; mCachedLines.clear(); } }
-    int scatterSkip() const { return mScatterSkip; }
+    [[nodiscard]] int scatterSkip() const { return mScatterSkip; }
     void setScatterSkip(int skip) { mScatterSkip = qMax(0, skip); }
 
     // Per-component selection
-    QCPDataSelection componentSelection(int index) const;
+    [[nodiscard]] QCPDataSelection componentSelection(int index) const;
     void setComponentSelection(int index, const QCPDataSelection& sel);
 
     // QCPPlottableInterface1D
-    int dataCount() const override;
-    double dataMainKey(int index) const override;
-    double dataSortKey(int index) const override;
-    double dataMainValue(int index) const override;
-    QCPRange dataValueRange(int index) const override;
-    QPointF dataPixelPosition(int index) const override;
-    bool sortKeyIsMainKey() const override { return true; }
+    [[nodiscard]] int dataCount() const override;
+    [[nodiscard]] double dataMainKey(int index) const override;
+    [[nodiscard]] double dataSortKey(int index) const override;
+    [[nodiscard]] double dataMainValue(int index) const override;
+    [[nodiscard]] QCPRange dataValueRange(int index) const override;
+    [[nodiscard]] QPointF dataPixelPosition(int index) const override;
+    [[nodiscard]] bool sortKeyIsMainKey() const override { return true; }
     QCPDataSelection selectTestRect(const QRectF& rect, bool onlySelectable) const override;
-    int findBegin(double sortKey, bool expandedRange = true) const override;
-    int findEnd(double sortKey, bool expandedRange = true) const override;
+    [[nodiscard]] int findBegin(double sortKey, bool expandedRange = true) const override;
+    [[nodiscard]] int findEnd(double sortKey, bool expandedRange = true) const override;
 
     // QCPAbstractPlottable
     QCPPlottableInterface1D* interface1D() override { return this; }

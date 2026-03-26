@@ -175,10 +175,9 @@ void QCPAxisTickerText::addTicks(const QVector<double>& positions, const QVector
 
   \seebaseclassmethod
 */
-double QCPAxisTickerText::getTickStep(const QCPRange& range)
+double QCPAxisTickerText::getTickStep([[maybe_unused]] const QCPRange& range)
 {
     // text axis ticker has manual tick positions, so doesn't need this method
-    Q_UNUSED(range)
     return 1.0;
 }
 
@@ -187,9 +186,8 @@ double QCPAxisTickerText::getTickStep(const QCPRange& range)
 
   \seebaseclassmethod
 */
-int QCPAxisTickerText::getSubTickCount(double tickStep)
+int QCPAxisTickerText::getSubTickCount([[maybe_unused]] double tickStep)
 {
-    Q_UNUSED(tickStep)
     return mSubTickCount;
 }
 
@@ -199,12 +197,10 @@ int QCPAxisTickerText::getSubTickCount(double tickStep)
 
   \seebaseclassmethod
 */
-QString QCPAxisTickerText::getTickLabel(double tick, const QLocale& locale, QChar formatChar,
-                                        int precision)
+QString QCPAxisTickerText::getTickLabel(double tick, [[maybe_unused]] const QLocale& locale,
+                                        [[maybe_unused]] QChar formatChar,
+                                        [[maybe_unused]] int precision)
 {
-    Q_UNUSED(locale)
-    Q_UNUSED(formatChar)
-    Q_UNUSED(precision)
     return mTicks.value(tick);
 }
 
@@ -215,9 +211,9 @@ QString QCPAxisTickerText::getTickLabel(double tick, const QLocale& locale, QCha
 
   \seebaseclassmethod
 */
-QVector<double> QCPAxisTickerText::createTickVector(double tickStep, const QCPRange& range)
+QVector<double> QCPAxisTickerText::createTickVector([[maybe_unused]] double tickStep,
+                                                    const QCPRange& range)
 {
-    Q_UNUSED(tickStep)
     QVector<double> result;
     if (mTicks.isEmpty())
         return result;

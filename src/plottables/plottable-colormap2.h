@@ -22,7 +22,7 @@ public:
     // Data source management
     void setDataSource(std::unique_ptr<QCPAbstractDataSource2D> source);
     void setDataSource(std::shared_ptr<QCPAbstractDataSource2D> source);
-    QCPAbstractDataSource2D* dataSource() const { return mDataSource.get(); }
+    [[nodiscard]] QCPAbstractDataSource2D* dataSource() const { return mDataSource.get(); }
     void dataChanged();
 
     // Owning setData
@@ -54,12 +54,12 @@ public:
 
     // Properties
     void setGapThreshold(double threshold) { mGapThreshold.store(threshold, std::memory_order_relaxed); }
-    double gapThreshold() const { return mGapThreshold.load(std::memory_order_relaxed); }
+    [[nodiscard]] double gapThreshold() const { return mGapThreshold.load(std::memory_order_relaxed); }
 
-    QCPColorGradient gradient() const { return mRenderer.gradient(); }
-    QCPColorScale* colorScale() const { return mRenderer.colorScale(); }
-    QCPRange dataRange() const { return mRenderer.dataRange(); }
-    QCPAxis::ScaleType dataScaleType() const { return mRenderer.dataScaleType(); }
+    [[nodiscard]] QCPColorGradient gradient() const { return mRenderer.gradient(); }
+    [[nodiscard]] QCPColorScale* colorScale() const { return mRenderer.colorScale(); }
+    [[nodiscard]] QCPRange dataRange() const { return mRenderer.dataRange(); }
+    [[nodiscard]] QCPAxis::ScaleType dataScaleType() const { return mRenderer.dataScaleType(); }
     void setDataScaleType(QCPAxis::ScaleType type);
 
     void setColorScale(QCPColorScale* colorScale);

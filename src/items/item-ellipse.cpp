@@ -116,9 +116,9 @@ void QCPItemEllipse::setSelectedBrush(const QBrush& brush)
 }
 
 /* inherits documentation from base class */
-double QCPItemEllipse::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPItemEllipse::selectTest(const QPointF& pos, bool onlySelectable,
+                                  [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 

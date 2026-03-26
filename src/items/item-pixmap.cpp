@@ -122,9 +122,9 @@ void QCPItemPixmap::setSelectedPen(const QPen& pen)
 }
 
 /* inherits documentation from base class */
-double QCPItemPixmap::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPItemPixmap::selectTest(const QPointF& pos, bool onlySelectable,
+                                 [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 
@@ -206,11 +206,7 @@ void QCPItemPixmap::updateScaledPixmap(QRect finalRect, bool flipHorz, bool flip
 
     if (mScaled)
     {
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
         double devicePixelRatio = mPixmap.devicePixelRatio();
-#else
-        double devicePixelRatio = 1.0;
-#endif
         if (finalRect.isNull())
             finalRect = getFinalRect(&flipHorz, &flipVert);
         if (mScaledPixmapInvalidated || finalRect.size() != mScaledPixmap.size() / devicePixelRatio)
@@ -220,9 +216,7 @@ void QCPItemPixmap::updateScaledPixmap(QRect finalRect, bool flipHorz, bool flip
             if (flipHorz || flipVert)
                 mScaledPixmap
                     = QPixmap::fromImage(mScaledPixmap.toImage().mirrored(flipHorz, flipVert));
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
             mScaledPixmap.setDevicePixelRatio(devicePixelRatio);
-#endif
         }
     }
     else if (!mScaledPixmap.isNull())
@@ -270,21 +264,13 @@ QRect QCPItemPixmap::getFinalRect(bool* flippedHorz, bool* flippedVert) const
             topLeft.setY(p2.y());
         }
         QSize scaledSize = mPixmap.size();
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
         scaledSize /= mPixmap.devicePixelRatio();
         scaledSize.scale(newSize * mPixmap.devicePixelRatio(), mAspectRatioMode);
-#else
-        scaledSize.scale(newSize, mAspectRatioMode);
-#endif
         result = QRect(topLeft, scaledSize);
     }
     else
     {
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
         result = QRect(p1, mPixmap.size() / mPixmap.devicePixelRatio());
-#else
-        result = QRect(p1, mPixmap.size());
-#endif
     }
     if (flippedHorz)
         *flippedHorz = flipHorz;

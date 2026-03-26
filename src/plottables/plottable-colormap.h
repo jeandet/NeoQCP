@@ -118,19 +118,19 @@ public:
     virtual ~QCPColorMap() override;
 
     // getters:
-    QCPColorMapData* data() const { return mMapData; }
+    [[nodiscard]] QCPColorMapData* data() const { return mMapData; }
 
-    QCPRange dataRange() const { return mDataRange; }
+    [[nodiscard]] QCPRange dataRange() const { return mDataRange; }
 
-    QCPAxis::ScaleType dataScaleType() const { return mDataScaleType; }
+    [[nodiscard]] QCPAxis::ScaleType dataScaleType() const { return mDataScaleType; }
 
-    bool interpolate() const { return mInterpolate; }
+    [[nodiscard]] bool interpolate() const { return mInterpolate; }
 
-    bool tightBoundary() const { return mTightBoundary; }
+    [[nodiscard]] bool tightBoundary() const { return mTightBoundary; }
 
-    QCPColorGradient gradient() const { return mGradient; }
+    [[nodiscard]] QCPColorGradient gradient() const { return mGradient; }
 
-    QCPColorScale* colorScale() const { return mColorScale.data(); }
+    [[nodiscard]] QCPColorScale* colorScale() const { return mColorScale.data(); }
 
     // setters:
     void setData(QCPColorMapData* data, bool copy = false);

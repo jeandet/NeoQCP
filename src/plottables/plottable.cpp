@@ -180,10 +180,9 @@ void QCPSelectionDecorator::copyFrom(const QCPSelectionDecorator* other)
   The default base class implementation of \ref QCPSelectionDecorator has no special decoration, so
   this method does nothing.
 */
-void QCPSelectionDecorator::drawDecoration(QCPPainter* painter, QCPDataSelection selection)
+void QCPSelectionDecorator::drawDecoration([[maybe_unused]] QCPPainter* painter,
+                                           [[maybe_unused]] QCPDataSelection selection)
 {
-    Q_UNUSED(painter)
-    Q_UNUSED(selection)
 }
 
 /*! \internal
@@ -1007,10 +1006,9 @@ void QCPAbstractPlottable::applyScattersAntialiasingHint(QCPPainter* painter) co
 }
 
 /* inherits documentation from base class */
-void QCPAbstractPlottable::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                                       bool* selectionStateChanged)
+void QCPAbstractPlottable::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                                       const QVariant& details, bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
 
     if (mSelectable != QCP::stNone)
     {

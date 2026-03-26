@@ -210,9 +210,9 @@ void QCPItemTracer::setInterpolating(bool enabled)
 }
 
 /* inherits documentation from base class */
-double QCPItemTracer::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPItemTracer::selectTest(const QPointF& pos, bool onlySelectable,
+                                 [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 

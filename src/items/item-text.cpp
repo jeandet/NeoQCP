@@ -217,9 +217,9 @@ void QCPItemText::setPadding(const QMargins& padding)
 }
 
 /* inherits documentation from base class */
-double QCPItemText::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPItemText::selectTest(const QPointF& pos, bool onlySelectable,
+                               [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 

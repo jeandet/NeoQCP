@@ -612,11 +612,10 @@ bool QCPLayerable::realVisibility() const
   \see selectEvent, deselectEvent, mousePressEvent, wheelEvent, QCustomPlot::setInteractions,
   QCPAbstractPlottable1D::selectTestRect
 */
-double QCPLayerable::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPLayerable::selectTest([[maybe_unused]] const QPointF& pos,
+                                [[maybe_unused]] bool onlySelectable,
+                                [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(pos)
-    Q_UNUSED(onlySelectable)
-    Q_UNUSED(details)
     return -1.0;
 }
 
@@ -735,9 +734,8 @@ void QCPLayerable::applyAntialiasingHint(QCPPainter* painter, bool localAntialia
 
   \see initializeParentPlot
 */
-void QCPLayerable::parentPlotInitialized(QCustomPlot* parentPlot)
+void QCPLayerable::parentPlotInitialized([[maybe_unused]] QCustomPlot* parentPlot)
 {
-    Q_UNUSED(parentPlot)
 }
 
 /*! \internal
@@ -801,13 +799,10 @@ QRect QCPLayerable::clipRect() const
 
   \see selectTest, deselectEvent
 */
-void QCPLayerable::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                               bool* selectionStateChanged)
+void QCPLayerable::selectEvent([[maybe_unused]] QMouseEvent* event, [[maybe_unused]] bool additive,
+                               [[maybe_unused]] const QVariant& details,
+                               [[maybe_unused]] bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(additive)
-    Q_UNUSED(details)
-    Q_UNUSED(selectionStateChanged)
 }
 
 /*! \internal
@@ -822,9 +817,8 @@ void QCPLayerable::selectEvent(QMouseEvent* event, bool additive, const QVariant
 
   \see selectTest, selectEvent
 */
-void QCPLayerable::deselectEvent(bool* selectionStateChanged)
+void QCPLayerable::deselectEvent([[maybe_unused]] bool* selectionStateChanged)
 {
-    Q_UNUSED(selectionStateChanged)
 }
 
 /*!
@@ -852,9 +846,8 @@ void QCPLayerable::deselectEvent(bool* selectionStateChanged)
 
   \see mouseMoveEvent, mouseReleaseEvent, mouseDoubleClickEvent, wheelEvent
 */
-void QCPLayerable::mousePressEvent(QMouseEvent* event, const QVariant& details)
+void QCPLayerable::mousePressEvent(QMouseEvent* event, [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     event->ignore();
 }
 
@@ -870,9 +863,8 @@ void QCPLayerable::mousePressEvent(QMouseEvent* event, const QVariant& details)
 
   \see mousePressEvent, mouseReleaseEvent, mouseDoubleClickEvent, wheelEvent
 */
-void QCPLayerable::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPLayerable::mouseMoveEvent(QMouseEvent* event, [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(startPos)
     event->ignore();
 }
 
@@ -888,9 +880,8 @@ void QCPLayerable::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
 
   \see mousePressEvent, mouseMoveEvent, mouseDoubleClickEvent, wheelEvent
 */
-void QCPLayerable::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPLayerable::mouseReleaseEvent(QMouseEvent* event, [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(startPos)
     event->ignore();
 }
 
@@ -920,9 +911,8 @@ void QCPLayerable::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos
 
   \see mousePressEvent, mouseMoveEvent, mouseReleaseEvent, wheelEvent
 */
-void QCPLayerable::mouseDoubleClickEvent(QMouseEvent* event, const QVariant& details)
+void QCPLayerable::mouseDoubleClickEvent(QMouseEvent* event, [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     event->ignore();
 }
 

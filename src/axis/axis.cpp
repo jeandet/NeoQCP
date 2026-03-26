@@ -1760,10 +1760,9 @@ QCPAxis::AxisType QCPAxis::opposite(QCPAxis::AxisType type)
 }
 
 /* inherits documentation from base class */
-void QCPAxis::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                          bool* selectionStateChanged)
+void QCPAxis::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                          const QVariant& details, bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
     SelectablePart part = details.value<SelectablePart>();
     if (mSelectableParts.testFlag(part))
     {
@@ -1798,9 +1797,8 @@ void QCPAxis::deselectEvent(bool* selectionStateChanged)
   \note The dragging of possibly multiple axes at once by starting the drag anywhere in the axis
   rect is handled by the axis rect's mouse event, e.g. \ref QCPAxisRect::mousePressEvent.
 */
-void QCPAxis::mousePressEvent(QMouseEvent* event, const QVariant& details)
+void QCPAxis::mousePressEvent(QMouseEvent* event, [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     if (!mParentPlot->interactions().testFlag(QCP::iRangeDrag)
         || !mAxisRect->rangeDrag().testFlag(orientation())
         || !mAxisRect->rangeDragAxes(orientation()).contains(this))
@@ -1872,10 +1870,9 @@ void QCPAxis::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
 
   \see QCPAxis::mousePressEvent
 */
-void QCPAxis::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPAxis::mouseReleaseEvent([[maybe_unused]] QMouseEvent* event,
+                                [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(startPos)
     mDragging = false;
     if (mParentPlot->noAntialiasingOnDrag())
     {
@@ -2607,13 +2604,7 @@ void QCPAxisPainterPrivate::placeTickLabel(QCPPainter* painter, double position,
             {
                 cachedLabel->pixmap = QPixmap(labelData.rotatedTotalBounds.size()
                                               * mParentPlot->bufferDevicePixelRatio());
-#ifdef QCP_DEVICEPIXELRATIO_SUPPORTED
-#ifdef QCP_DEVICEPIXELRATIO_FLOAT
                 cachedLabel->pixmap.setDevicePixelRatio(mParentPlot->devicePixelRatioF());
-#else
-                cachedLabel->pixmap.setDevicePixelRatio(mParentPlot->devicePixelRatio());
-#endif
-#endif
             }
             else
                 cachedLabel->pixmap = QPixmap(labelData.rotatedTotalBounds.size());

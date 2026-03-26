@@ -338,11 +338,10 @@ QSize QCPTextElement::maximumOuterSizeHint() const
 }
 
 /* inherits documentation from base class */
-void QCPTextElement::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
+void QCPTextElement::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                                 [[maybe_unused]] const QVariant& details,
                                  bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(details)
     if (mSelectable)
     {
         bool selBefore = mSelected;
@@ -374,9 +373,9 @@ void QCPTextElement::deselectEvent(bool* selectionStateChanged)
 
   \seebaseclassmethod
 */
-double QCPTextElement::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPTextElement::selectTest(const QPointF& pos, bool onlySelectable,
+                                  [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if (onlySelectable && !mSelectable)
         return -1;
 
@@ -392,9 +391,8 @@ double QCPTextElement::selectTest(const QPointF& pos, bool onlySelectable, QVari
 
   \seebaseclassmethod
 */
-void QCPTextElement::mousePressEvent(QMouseEvent* event, const QVariant& details)
+void QCPTextElement::mousePressEvent(QMouseEvent* event, [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     event->accept();
 }
 
@@ -415,9 +413,9 @@ void QCPTextElement::mouseReleaseEvent(QMouseEvent* event, const QPointF& startP
 
   \seebaseclassmethod
 */
-void QCPTextElement::mouseDoubleClickEvent(QMouseEvent* event, const QVariant& details)
+void QCPTextElement::mouseDoubleClickEvent(QMouseEvent* event,
+                                           [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     emit doubleClicked(event);
 }
 

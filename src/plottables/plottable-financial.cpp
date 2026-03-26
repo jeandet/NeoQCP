@@ -439,9 +439,9 @@ QCPDataSelection QCPFinancial::selectTestRect(const QRectF& rect, bool onlySelec
 
   \seebaseclassmethod \ref QCPAbstractPlottable::selectTest
 */
-double QCPFinancial::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
+double QCPFinancial::selectTest(const QPointF& pos, bool onlySelectable,
+                                [[maybe_unused]] QVariant* details) const
 {
-    Q_UNUSED(details)
     if ((onlySelectable && mSelectable == QCP::stNone) || mDataContainer->isEmpty())
         return -1;
     if (!mKeyAxis || !mValueAxis)

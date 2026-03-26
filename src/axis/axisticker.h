@@ -54,11 +54,11 @@ public:
     virtual ~QCPAxisTicker();
 
     // getters:
-    TickStepStrategy tickStepStrategy() const { return mTickStepStrategy; }
+    [[nodiscard]] TickStepStrategy tickStepStrategy() const { return mTickStepStrategy; }
 
-    int tickCount() const { return mTickCount; }
+    [[nodiscard]] int tickCount() const { return mTickCount; }
 
-    double tickOrigin() const { return mTickOrigin; }
+    [[nodiscard]] double tickOrigin() const { return mTickOrigin; }
 
     // setters:
     void setTickStepStrategy(TickStepStrategy strategy);

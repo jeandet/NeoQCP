@@ -1053,9 +1053,8 @@ void QCPPolarAxisRadial::scaleRange(double factor, double center)
 
   \see QCPAbstractPlottable::rescaleAxes, QCustomPlot::rescaleAxes
 */
-void QCPPolarAxisRadial::rescale(bool onlyVisiblePlottables)
+void QCPPolarAxisRadial::rescale([[maybe_unused]] bool onlyVisiblePlottables)
 {
-    Q_UNUSED(onlyVisiblePlottables)
     /* TODO
     QList<QCPAbstractPlottable*> p = plottables();
     QCPRange newRange;
@@ -1181,9 +1180,10 @@ double QCPPolarAxisRadial::radiusToCoord(double radius) const
 
   \see setSelectedParts, setSelectableParts, QCustomPlot::setInteractions
 */
-QCPPolarAxisRadial::SelectablePart QCPPolarAxisRadial::getPartAt(const QPointF& pos) const
+QCPPolarAxisRadial::SelectablePart
+QCPPolarAxisRadial::getPartAt([[maybe_unused]] const QPointF& pos) const
 {
-    Q_UNUSED(pos) // TODO remove later
+    // TODO remove later
     if (!mVisible)
         return spNone;
 
@@ -1215,10 +1215,9 @@ double QCPPolarAxisRadial::selectTest(const QPointF& pos, bool onlySelectable,
 }
 
 /* inherits documentation from base class */
-void QCPPolarAxisRadial::selectEvent(QMouseEvent* event, bool additive, const QVariant& details,
-                                     bool* selectionStateChanged)
+void QCPPolarAxisRadial::selectEvent([[maybe_unused]] QMouseEvent* event, bool additive,
+                                     const QVariant& details, bool* selectionStateChanged)
 {
-    Q_UNUSED(event)
     SelectablePart part = details.value<SelectablePart>();
     if (mSelectableParts.testFlag(part))
     {
@@ -1253,9 +1252,9 @@ void QCPPolarAxisRadial::deselectEvent(bool* selectionStateChanged)
   \note The dragging of possibly multiple axes at once by starting the drag anywhere in the axis
   rect is handled by the axis rect's mouse event, e.g. \ref QCPAxisRect::mousePressEvent.
 */
-void QCPPolarAxisRadial::mousePressEvent(QMouseEvent* event, const QVariant& details)
+void QCPPolarAxisRadial::mousePressEvent(QMouseEvent* event,
+                                         [[maybe_unused]] const QVariant& details)
 {
-    Q_UNUSED(details)
     if (!mParentPlot->interactions().testFlag(QCP::iRangeDrag))
     {
         event->ignore();
@@ -1289,10 +1288,10 @@ void QCPPolarAxisRadial::mousePressEvent(QMouseEvent* event, const QVariant& det
 
   \see QCPAxis::mousePressEvent
 */
-void QCPPolarAxisRadial::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPPolarAxisRadial::mouseMoveEvent([[maybe_unused]] QMouseEvent* event,
+                                        [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(event) // TODO remove later
-    Q_UNUSED(startPos) // TODO remove later
+    // TODO remove later
     if (mDragging)
     {
         /* TODO
@@ -1327,10 +1326,9 @@ void QCPPolarAxisRadial::mouseMoveEvent(QMouseEvent* event, const QPointF& start
 
   \see QCPAxis::mousePressEvent
 */
-void QCPPolarAxisRadial::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)
+void QCPPolarAxisRadial::mouseReleaseEvent([[maybe_unused]] QMouseEvent* event,
+                                           [[maybe_unused]] const QPointF& startPos)
 {
-    Q_UNUSED(event)
-    Q_UNUSED(startPos)
     mDragging = false;
     if (mParentPlot->noAntialiasingOnDrag())
     {

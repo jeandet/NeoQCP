@@ -120,27 +120,27 @@ public:
     virtual ~QCPAbstractPlottable() override;
 
     // getters:
-    QString name() const { return mName; }
+    [[nodiscard]] QString name() const { return mName; }
 
-    bool antialiasedFill() const { return mAntialiasedFill; }
+    [[nodiscard]] bool antialiasedFill() const { return mAntialiasedFill; }
 
-    bool antialiasedScatters() const { return mAntialiasedScatters; }
+    [[nodiscard]] bool antialiasedScatters() const { return mAntialiasedScatters; }
 
-    QPen pen() const { return mPen; }
+    [[nodiscard]] QPen pen() const { return mPen; }
 
-    QBrush brush() const { return mBrush; }
+    [[nodiscard]] QBrush brush() const { return mBrush; }
 
-    QCPAxis* keyAxis() const { return mKeyAxis.data(); }
+    [[nodiscard]] QCPAxis* keyAxis() const { return mKeyAxis.data(); }
 
-    QCPAxis* valueAxis() const { return mValueAxis.data(); }
+    [[nodiscard]] QCPAxis* valueAxis() const { return mValueAxis.data(); }
 
-    QCP::SelectionType selectable() const { return mSelectable; }
+    [[nodiscard]] QCP::SelectionType selectable() const { return mSelectable; }
 
-    bool selected() const { return !mSelection.isEmpty(); }
+    [[nodiscard]] bool selected() const { return !mSelection.isEmpty(); }
 
-    QCPDataSelection selection() const { return mSelection; }
+    [[nodiscard]] QCPDataSelection selection() const { return mSelection; }
 
-    QCPSelectionDecorator* selectionDecorator() const { return mSelectionDecorator; }
+    [[nodiscard]] QCPSelectionDecorator* selectionDecorator() const { return mSelectionDecorator; }
 
     // setters:
     void setName(const QString& name);
