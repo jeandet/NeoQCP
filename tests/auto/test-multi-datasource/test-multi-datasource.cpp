@@ -235,7 +235,7 @@ void TestMultiDataSource::rowMajorWithPadding()
     QCOMPARE(src.valueAt(1, 2), 60.0);
 
     // Verify StridedColumnView sees the right values
-    StridedColumnView<double> col0(values.data() + 0, 3, 4);
+    qcp::detail::StridedColumnView<double> col0(values.data() + 0, 3, 4);
     QCOMPARE(col0[0], 10.0);
     QCOMPARE(col0[1], 30.0);
     QCOMPARE(col0[2], 50.0);
