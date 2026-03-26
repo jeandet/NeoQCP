@@ -16,11 +16,6 @@ static constexpr int kFloatsPerVertex = 11;
 // Uniform buffer size: 14 data floats + 2 padding = 16 floats = 64 bytes (std140)
 static constexpr int kUniformBufferSize = 64;
 
-static auto premultiply(const QColor& c) -> std::array<float, 4>
-{
-    float a = c.alphaF();
-    return {float(c.redF() * a), float(c.greenF() * a), float(c.blueF() * a), a};
-}
 
 static void appendVertex(QVector<float>& buf, float x, float y,
                           const std::array<float, 4>& rgba,
@@ -157,14 +152,22 @@ bool QCPSpanRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampl
     // Layout-only UBO + SRB: the SRB defines the binding layout for the pipeline.
     // Per-group SRBs with real data are used at draw time.
     mLayoutUbo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBufferSize);
-    mLayoutUbo->create();
+    if (!mLayoutUbo->create())
+    {
+        qDebug() << Q_FUNC_INFO << "Failed to create span layout UBO";
+        return false;
+    }
 
     mLayoutSrb = mRhi->newShaderResourceBindings();
     mLayoutSrb->setBindings({
         QRhiShaderResourceBinding::uniformBuffer(
             0, QRhiShaderResourceBinding::VertexStage, mLayoutUbo)
     });
-    mLayoutSrb->create();
+    if (!mLayoutSrb->create())
+    {
+        qDebug() << Q_FUNC_INFO << "Failed to create span layout SRB";
+        return false;
+    }
 
     mPipeline = mRhi->newGraphicsPipeline();
     mPipeline->setShaderStages({
@@ -249,14 +252,25 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
 
         // Create per-group uniform buffer and SRB
         auto* ubo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBufferSize);
-        ubo->create();
+        if (!ubo->create())
+        {
+            qDebug() << Q_FUNC_INFO << "Failed to create per-group UBO";
+            delete ubo;
+            continue;
+        }
 
         auto* srb = mRhi->newShaderResourceBindings();
         srb->setBindings({
             QRhiShaderResourceBinding::uniformBuffer(
                 0, QRhiShaderResourceBinding::VertexStage, ubo)
         });
-        srb->create();
+        if (!srb->create())
+        {
+            qDebug() << Q_FUNC_INFO << "Failed to create per-group SRB";
+            delete srb;
+            delete ubo;
+            continue;
+        }
 
         DrawGroup group;
         group.axisRect = ar;
@@ -283,7 +297,7 @@ void QCPSpanRhiLayer::appendVSpanGeometry(QCPItemVSpan* vspan, QCPAxisRect* ar)
     float pixBot = float(ar->top() + ar->height());
 
     const QBrush& fillBrush = vspan->selected() ? vspan->selectedBrush() : vspan->brush();
-    auto fillColor = premultiply(fillBrush.color());
+    auto fillColor = qcp::rhi::premultipliedColor(fillBrush.color());
     if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
     {
         appendQuad(mStagingVertices,
@@ -293,7 +307,7 @@ void QCPSpanRhiLayer::appendVSpanGeometry(QCPItemVSpan* vspan, QCPAxisRect* ar)
     }
 
     const QPen& borderPen = vspan->selected() ? vspan->selectedBorderPen() : vspan->borderPen();
-    auto borderColor = premultiply(borderPen.color());
+    auto borderColor = qcp::rhi::premultipliedColor(borderPen.color());
     float penW = borderPen.widthF();
     float halfW = (penW == 0.0 || borderPen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
     if (borderPen.style() != Qt::NoPen && halfW > 0.0f)
@@ -315,7 +329,7 @@ void QCPSpanRhiLayer::appendHSpanGeometry(QCPItemHSpan* hspan, QCPAxisRect* ar)
     float pixRight = float(ar->left() + ar->width());
 
     const QBrush& fillBrush = hspan->selected() ? hspan->selectedBrush() : hspan->brush();
-    auto fillColor = premultiply(fillBrush.color());
+    auto fillColor = qcp::rhi::premultipliedColor(fillBrush.color());
     if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
     {
         appendQuad(mStagingVertices,
@@ -325,7 +339,7 @@ void QCPSpanRhiLayer::appendHSpanGeometry(QCPItemHSpan* hspan, QCPAxisRect* ar)
     }
 
     const QPen& borderPen = hspan->selected() ? hspan->selectedBorderPen() : hspan->borderPen();
-    auto borderColor = premultiply(borderPen.color());
+    auto borderColor = qcp::rhi::premultipliedColor(borderPen.color());
     float penW = borderPen.widthF();
     float halfW = (penW == 0.0 || borderPen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
     if (borderPen.style() != Qt::NoPen && halfW > 0.0f)
@@ -347,7 +361,7 @@ void QCPSpanRhiLayer::appendRSpanGeometry(QCPItemRSpan* rspan, [[maybe_unused]] 
     float dataBot = float(rspan->bottomEdge->coords().y());
 
     const QBrush& fillBrush = rspan->selected() ? rspan->selectedBrush() : rspan->brush();
-    auto fillColor = premultiply(fillBrush.color());
+    auto fillColor = qcp::rhi::premultipliedColor(fillBrush.color());
     if (fillBrush.style() != Qt::NoBrush && fillColor[3] > 0.0f)
     {
         appendQuad(mStagingVertices,
@@ -357,7 +371,7 @@ void QCPSpanRhiLayer::appendRSpanGeometry(QCPItemRSpan* rspan, [[maybe_unused]] 
     }
 
     const QPen& borderPen = rspan->selected() ? rspan->selectedBorderPen() : rspan->borderPen();
-    auto borderColor = premultiply(borderPen.color());
+    auto borderColor = qcp::rhi::premultipliedColor(borderPen.color());
     float penW = borderPen.widthF();
     float halfW = (penW == 0.0 || borderPen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
     if (borderPen.style() != Qt::NoPen && halfW > 0.0f)
@@ -412,7 +426,14 @@ void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
                 mVertexBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
                                                  QRhiBuffer::VertexBuffer,
                                                  requiredSize);
-                mVertexBuffer->create();
+                if (!mVertexBuffer->create())
+                {
+                    qDebug() << Q_FUNC_INFO << "Failed to create span vertex buffer";
+                    delete mVertexBuffer;
+                    mVertexBuffer = nullptr;
+                    mVertexBufferSize = 0;
+                    return;
+                }
                 mVertexBufferSize = requiredSize;
             }
             updates->updateDynamicBuffer(mVertexBuffer, 0, requiredSize,

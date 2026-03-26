@@ -1,4 +1,5 @@
 #include "line-extruder.h"
+#include "rhi-utils.h"
 #include "Profiling.hpp"
 #include <QtMath>
 #include <array>
@@ -16,11 +17,6 @@ struct Vertex
     float x, y, r, g, b, a;
 };
 
-std::array<float, 4> colorToFloats(const QColor& c)
-{
-    float a = float(c.alphaF());
-    return {float(c.redF()) * a, float(c.greenF()) * a, float(c.blueF()) * a, a};
-}
 
 void pushVertex(QVector<float>& out, float x, float y, const std::array<float, 4>& rgba)
 {
@@ -174,7 +170,7 @@ QVector<float> extrudePolyline(const QVector<QPointF>& points, float penWidth,
         return {};
     PROFILE_PASS_VALUE(points.size());
 
-    auto rgba = colorToFloats(color);
+    auto rgba = qcp::rhi::premultipliedColor(color);
     float halfWidth = penWidth / 2.0f;
 
     auto segments = splitByNaN(points);
@@ -194,7 +190,7 @@ QVector<float> tessellateFillPolygon(const QPolygonF& polygon, const QColor& col
         return {};
     PROFILE_PASS_VALUE(polygon.size());
 
-    auto rgba = colorToFloats(color);
+    auto rgba = qcp::rhi::premultipliedColor(color);
     QVector<float> out;
 
     const QPointF base0 = polygon.first();

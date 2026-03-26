@@ -64,26 +64,26 @@ public:
     virtual ~QCPBarsGroup();
 
     // getters:
-    SpacingType spacingType() const { return mSpacingType; }
+    [[nodiscard]] SpacingType spacingType() const { return mSpacingType; }
 
-    double spacing() const { return mSpacing; }
+    [[nodiscard]] double spacing() const { return mSpacing; }
 
     // setters:
     void setSpacingType(SpacingType spacingType);
     void setSpacing(double spacing);
 
     // non-virtual methods:
-    QList<QCPBars*> bars() const { return mBars; }
+    [[nodiscard]] QList<QCPBars*> bars() const { return mBars; }
 
-    QCPBars* bars(int index) const;
+    [[nodiscard]] QCPBars* bars(int index) const;
 
-    int size() const { return mBars.size(); }
+    [[nodiscard]] int size() const { return mBars.size(); }
 
-    bool isEmpty() const { return mBars.isEmpty(); }
+    [[nodiscard]] bool isEmpty() const { return mBars.isEmpty(); }
 
     void clear();
 
-    bool contains(QCPBars* bars) const { return mBars.contains(bars); }
+    [[nodiscard]] bool contains(QCPBars* bars) const { return mBars.contains(bars); }
 
     void append(QCPBars* bars);
     void insert(int i, QCPBars* bars);

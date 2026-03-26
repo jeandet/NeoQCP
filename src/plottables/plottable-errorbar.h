@@ -95,15 +95,15 @@ public:
     virtual ~QCPErrorBars() override;
 
     // getters:
-    QSharedPointer<QCPErrorBarsDataContainer> data() const { return mDataContainer; }
+    [[nodiscard]] QSharedPointer<QCPErrorBarsDataContainer> data() const { return mDataContainer; }
 
-    QCPAbstractPlottable* dataPlottable() const { return mDataPlottable.data(); }
+    [[nodiscard]] QCPAbstractPlottable* dataPlottable() const { return mDataPlottable.data(); }
 
-    ErrorType errorType() const { return mErrorType; }
+    [[nodiscard]] ErrorType errorType() const { return mErrorType; }
 
-    double whiskerWidth() const { return mWhiskerWidth; }
+    [[nodiscard]] double whiskerWidth() const { return mWhiskerWidth; }
 
-    double symbolGap() const { return mSymbolGap; }
+    [[nodiscard]] double symbolGap() const { return mSymbolGap; }
 
     // setters:
     void setData(QSharedPointer<QCPErrorBarsDataContainer> data);

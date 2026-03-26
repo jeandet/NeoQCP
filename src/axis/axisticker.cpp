@@ -24,6 +24,7 @@
 ****************************************************************************/
 
 #include "axisticker.h"
+#include "axisticker-utils.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPAxisTicker
@@ -185,9 +186,7 @@ void QCPAxisTicker::generate(const QCPRange& range, const QLocale& locale, QChar
 */
 double QCPAxisTicker::getTickStep(const QCPRange& range)
 {
-    double exactStep = range.size()
-        / double(mTickCount + 1e-10); // mTickCount ticks on average, the small addition is to
-                                      // prevent jitter on exact integers
+    double exactStep = range.size() / double(mTickCount + qcp::kTickCountEpsilon);
     return cleanMantissa(exactStep);
 }
 

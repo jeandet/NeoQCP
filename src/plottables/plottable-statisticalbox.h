@@ -59,9 +59,8 @@ public:
     inline QCPRange valueRange() const
     {
         QCPRange result(minimum, maximum);
-        for (QVector<double>::const_iterator it = outliers.constBegin(); it != outliers.constEnd();
-             ++it)
-            result.expand(*it);
+        for (double outlier : outliers)
+            result.expand(outlier);
         return result;
     }
 
@@ -101,21 +100,21 @@ public:
     explicit QCPStatisticalBox(QCPAxis* keyAxis, QCPAxis* valueAxis);
 
     // getters:
-    QSharedPointer<QCPStatisticalBoxDataContainer> data() const { return mDataContainer; }
+    [[nodiscard]] QSharedPointer<QCPStatisticalBoxDataContainer> data() const { return mDataContainer; }
 
-    double width() const { return mWidth; }
+    [[nodiscard]] double width() const { return mWidth; }
 
-    double whiskerWidth() const { return mWhiskerWidth; }
+    [[nodiscard]] double whiskerWidth() const { return mWhiskerWidth; }
 
-    QPen whiskerPen() const { return mWhiskerPen; }
+    [[nodiscard]] QPen whiskerPen() const { return mWhiskerPen; }
 
-    QPen whiskerBarPen() const { return mWhiskerBarPen; }
+    [[nodiscard]] QPen whiskerBarPen() const { return mWhiskerBarPen; }
 
-    bool whiskerAntialiased() const { return mWhiskerAntialiased; }
+    [[nodiscard]] bool whiskerAntialiased() const { return mWhiskerAntialiased; }
 
-    QPen medianPen() const { return mMedianPen; }
+    [[nodiscard]] QPen medianPen() const { return mMedianPen; }
 
-    QCPScatterStyle outlierStyle() const { return mOutlierStyle; }
+    [[nodiscard]] QCPScatterStyle outlierStyle() const { return mOutlierStyle; }
 
     // setters:
     void setData(QSharedPointer<QCPStatisticalBoxDataContainer> data);

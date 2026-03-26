@@ -25,6 +25,7 @@
 
 #include "axistickertime.h"
 #include "axisticker-utils.h"
+#include <array>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPAxisTickerTime
@@ -151,9 +152,7 @@ void QCPAxisTickerTime::setFieldWidth(QCPAxisTickerTime::TimeUnit unit, int widt
 */
 double QCPAxisTickerTime::getTickStep(const QCPRange& range)
 {
-    double result = range.size()
-        / double(mTickCount + 1e-10); // mTickCount ticks on average, the small addition is to
-                                      // prevent jitter on exact integers
+    double result = range.size() / double(mTickCount + qcp::kTickCountEpsilon);
 
     if (result < 1) // ideal tick step is below 1 second -> use normal clean mantissa algorithm in
                     // units of seconds
@@ -231,10 +230,9 @@ QString QCPAxisTickerTime::getTickLabel(double tick, [[maybe_unused]] const QLoc
     bool negative = tick < 0;
     if (negative)
         tick *= -1;
-    double values[tuDays + 1]; // contains the msec/sec/min/... value with its respective modulo
-                               // (e.g. minute 0..59)
-    double restValues[tuDays + 1]; // contains the msec/sec/min/... value as if it's the largest
-                                   // available unit and thus consumes the remaining time
+    static_assert(tuDays == 4, "update array size if TimeUnit enum changes");
+    std::array<double, tuDays + 1> values{};    // msec/sec/min/... with modulo (e.g. minute 0..59)
+    std::array<double, tuDays + 1> restValues{}; // as if it's the largest available unit
 
     restValues[tuMilliseconds] = tick * 1000;
     values[tuMilliseconds] = modf(restValues[tuMilliseconds] / 1000, &restValues[tuSeconds]) * 1000;

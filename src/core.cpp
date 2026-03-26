@@ -487,15 +487,7 @@ QCustomPlot::QCustomPlot(QWidget* parent)
 
     mOwnedTheme = new QCPTheme(this);
     mTheme = mOwnedTheme;
-    connect(mTheme, &QCPTheme::changed, this, [this]() {
-        if (!mThemeDirty) {
-            mThemeDirty = true;
-            QTimer::singleShot(0, this, [this]() {
-                mThemeDirty = false;
-                applyTheme();
-            });
-        }
-    });
+    connectThemeSignal();
 
     mPipelineScheduler = new QCPPipelineScheduler(0, this);
 
@@ -538,6 +530,12 @@ void QCustomPlot::setTheme(QCPTheme* theme)
     if (mTheme)
         disconnect(mTheme, &QCPTheme::changed, this, nullptr);
     mTheme = resolved;
+    connectThemeSignal();
+    applyTheme();
+}
+
+void QCustomPlot::connectThemeSignal()
+{
     connect(mTheme, &QCPTheme::changed, this, [this]() {
         if (!mThemeDirty) {
             mThemeDirty = true;
@@ -547,7 +545,6 @@ void QCustomPlot::setTheme(QCPTheme* theme)
             });
         }
     });
-    applyTheme();
 }
 
 void QCustomPlot::applyTheme()
@@ -1278,8 +1275,8 @@ bool QCustomPlot::removePlottable(int index)
 int QCustomPlot::clearPlottables()
 {
     int c = mPlottables.size();
-    for (int i = c - 1; i >= 0; --i)
-        (void)removePlottable(mPlottables[i]);
+    while (!mPlottables.isEmpty())
+        (void)removePlottable(mPlottables.last());
     return c;
 }
 
@@ -1449,8 +1446,8 @@ bool QCustomPlot::removeGraph(int index)
 int QCustomPlot::clearGraphs()
 {
     int c = mGraphs.size();
-    for (int i = c - 1; i >= 0; --i)
-        (void)removeGraph(mGraphs[i]);
+    while (!mGraphs.isEmpty())
+        (void)removeGraph(mGraphs.last());
     return c;
 }
 
@@ -1569,8 +1566,8 @@ bool QCustomPlot::removeItem(int index)
 int QCustomPlot::clearItems()
 {
     int c = mItems.size();
-    for (int i = c - 1; i >= 0; --i)
-        (void)removeItem(mItems[i]);
+    while (!mItems.isEmpty())
+        (void)removeItem(mItems.last());
     return c;
 }
 
@@ -1809,8 +1806,8 @@ bool QCustomPlot::removeLayer(QCPLayer* layer)
         pb->setInvalidated();
 
     // remove layer:
-    delete layer;
     mLayers.removeOne(layer);
+    delete layer;
     updateLayerIndices();
     return true;
 }
@@ -2009,16 +2006,11 @@ QCPAxisRect* QCustomPlot::axisRectAt(const QPointF& pos) const
 */
 QList<QCPAxis*> QCustomPlot::selectedAxes() const
 {
-    QList<QCPAxis*> result, allAxes;
+    QList<QCPAxis*> result;
     for (QCPAxisRect* rect : axisRects())
-        allAxes << rect->axes();
-
-    for (QCPAxis* axis : allAxes)
-    {
-        if (axis->selectedParts() != QCPAxis::spNone)
-            result.append(axis);
-    }
-
+        for (QCPAxis* axis : rect->axes())
+            if (axis->selectedParts() != QCPAxis::spNone)
+                result.append(axis);
     return result;
 }
 

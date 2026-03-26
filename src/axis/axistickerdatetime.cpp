@@ -198,9 +198,7 @@ void QCPAxisTickerDateTime::setTickOrigin(const QDateTime& origin)
 */
 double QCPAxisTickerDateTime::getTickStep(const QCPRange& range)
 {
-    double result = range.size()
-        / double(mTickCount + 1e-10); // mTickCount ticks on average, the small addition is to
-                                      // prevent jitter on exact integers
+    double result = range.size() / double(mTickCount + qcp::kTickCountEpsilon);
 
     mDateStrategy = dsNone; // leaving it at dsNone means tick coordinates will not be tuned in any
                             // special way in createTickVector

@@ -24,6 +24,7 @@
 ****************************************************************************/
 
 #include "axistickerpi.h"
+#include "axisticker-utils.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPAxisTickerPi
@@ -113,9 +114,7 @@ void QCPAxisTickerPi::setFractionStyle(QCPAxisTickerPi::FractionStyle style)
 */
 double QCPAxisTickerPi::getTickStep(const QCPRange& range)
 {
-    mPiTickStep = range.size() / mPiValue
-        / double(mTickCount + 1e-10); // mTickCount ticks on average, the small addition is to
-                                      // prevent jitter on exact integers
+    mPiTickStep = range.size() / mPiValue / double(mTickCount + qcp::kTickCountEpsilon);
     mPiTickStep = cleanMantissa(mPiTickStep);
     return mPiTickStep * mPiValue;
 }

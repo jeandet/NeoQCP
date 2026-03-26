@@ -124,23 +124,23 @@ public:
     virtual ~QCPFinancial() override;
 
     // getters:
-    QSharedPointer<QCPFinancialDataContainer> data() const { return mDataContainer; }
+    [[nodiscard]] QSharedPointer<QCPFinancialDataContainer> data() const { return mDataContainer; }
 
-    ChartStyle chartStyle() const { return mChartStyle; }
+    [[nodiscard]] ChartStyle chartStyle() const { return mChartStyle; }
 
-    double width() const { return mWidth; }
+    [[nodiscard]] double width() const { return mWidth; }
 
-    WidthType widthType() const { return mWidthType; }
+    [[nodiscard]] WidthType widthType() const { return mWidthType; }
 
-    bool twoColored() const { return mTwoColored; }
+    [[nodiscard]] bool twoColored() const { return mTwoColored; }
 
-    QBrush brushPositive() const { return mBrushPositive; }
+    [[nodiscard]] QBrush brushPositive() const { return mBrushPositive; }
 
-    QBrush brushNegative() const { return mBrushNegative; }
+    [[nodiscard]] QBrush brushNegative() const { return mBrushNegative; }
 
-    QPen penPositive() const { return mPenPositive; }
+    [[nodiscard]] QPen penPositive() const { return mPenPositive; }
 
-    QPen penNegative() const { return mPenNegative; }
+    [[nodiscard]] QPen penNegative() const { return mPenNegative; }
 
     // setters:
     void setData(QSharedPointer<QCPFinancialDataContainer> data);

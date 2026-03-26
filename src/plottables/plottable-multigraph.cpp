@@ -1,4 +1,5 @@
 #include "plottable-multigraph.h"
+#include "plottable-draw-utils.h"
 #include "plottable-l1-cache.h"
 #include "plottable-linestyle.h"
 #include "../axis/axis.h"
@@ -7,9 +8,7 @@
 #include "../datasource/resampled-multi-datasource.h"
 #include "../layoutelements/layoutelement-axisrect.h"
 #include "../layoutelements/layoutelement-legend-group.h"
-#include "../painting/line-extruder.h"
 #include "../painting/painter.h"
-#include "../painting/plottable-rhi-layer.h"
 #include "../painting/viewport-offset.h"
 #include "../vector2d.h"
 
@@ -553,9 +552,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         for (int c = 0; c < mComponents.size(); ++c)
         {
             if (!mComponents[c].visible) { linesTarget[c].clear(); continue; }
-            if (mL2Result)
-                linesTarget[c] = ds->getLines(c, cacheBegin, cacheEnd, mKeyAxis.data(), mValueAxis.data());
-            else if (mAdaptiveSampling)
+            if (mAdaptiveSampling && !mL2Result)
                 linesTarget[c] = ds->getOptimizedLineData(c, cacheBegin, cacheEnd, pixelWidth,
                                                            mKeyAxis.data(), mValueAxis.data());
             else
@@ -604,55 +601,9 @@ void QCPMultiGraph::draw(QCPPainter* painter)
                 painter->setPen(impulsePen);
                 painter->drawLines(lines);
             } else {
-                // Try GPU path, fall back to QPainter.
-                // Disabled for export: pmVectorized (SVG/PDF) and pmNoCaching (raster
-                // export via toPixmap/saveRastered) don't composite plottable RHI layers.
-                auto drawPoly = [&](const QVector<QPointF>& pts, const QPen& pen) {
-                    if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
-                        rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
-                            && !painter->modes().testFlag(QCPPainter::pmNoCaching)
-                            && pen.style() == Qt::SolidLine)
-                    {
-                        if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
-                        {
-                            QVector<QPointF> translated;
-                            const QVector<QPointF>& src = (!gpuOffset.isNull()) ?
-                                [&]() -> const QVector<QPointF>& {
-                                    translated.resize(pts.size());
-                                    for (int i = 0; i < pts.size(); ++i)
-                                        translated[i] = pts[i] + gpuOffset;
-                                    return translated;
-                                }() : pts;
-
-                            const double dpr = mParentPlot->bufferDevicePixelRatio();
-                            const float penWidth = (pen.isCosmetic() || qFuzzyIsNull(pen.widthF()))
-                                ? static_cast<float>(1.0 / dpr)
-                                : qMax(1.0f, static_cast<float>(pen.widthF()));
-                            auto strokeVerts = QCPLineExtruder::extrudePolyline(src, penWidth, pen.color());
-                            if (!strokeVerts.isEmpty())
-                            {
-                                const QSize outputSize = mParentPlot->rhiOutputSize();
-                                prl->addPlottable({}, strokeVerts, clipRect(), dpr,
-                                                   outputSize.height(), rhi->isYUpInNDC());
-                                return;
-                            }
-                        }
-                    }
-                    applyDefaultAntialiasingHint(painter);
-                    painter->setPen(pen);
-                    painter->setBrush(Qt::NoBrush);
-                    if (!gpuOffset.isNull())
-                    {
-                        painter->translate(gpuOffset);
-                        painter->drawPolyline(pts.constData(), pts.size());
-                        painter->translate(-gpuOffset);
-                    }
-                    else
-                    {
-                        painter->drawPolyline(pts.constData(), pts.size());
-                    }
-                };
-                drawPoly(lines, activePen);
+                applyDefaultAntialiasingHint(painter);
+                qcp::drawPolylineWithGpuFallback(painter, mParentPlot, mLayer, lines,
+                                                  activePen, gpuOffset, clipRect());
             }
         }
 
