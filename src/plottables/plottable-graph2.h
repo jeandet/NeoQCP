@@ -77,6 +77,8 @@ public:
     [[nodiscard]] bool adaptiveSampling() const { return mAdaptiveSampling; }
     void setAdaptiveSampling(bool enabled)
     {
+        if (mAdaptiveSampling == enabled)
+            return;
         mAdaptiveSampling = enabled;
         mLineCacheDirty = true;
         mCachedLines.clear();

@@ -24,6 +24,7 @@
 ****************************************************************************/
 
 #include "axistickerlog.h"
+#include "axisticker-utils.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPAxisTickerLog
@@ -132,7 +133,7 @@ QVector<double> QCPAxisTickerLog::createTickVector(double tickStep, const QCPRan
         if (baseTickCount < 1.6) // if too few log ticks would be visible in axis range, fall back
                                  // to regular tick vector generation
             return QCPAxisTicker::createTickVector(tickStep, range);
-        const double exactPowerStep = baseTickCount / double(mTickCount + 1e-10);
+        const double exactPowerStep = baseTickCount / double(mTickCount + qcp::kTickCountEpsilon);
         const double newLogBase = qPow(mLogBase, qMax(int(cleanMantissa(exactPowerStep)), 1));
         double currentTick = qPow(newLogBase, qFloor(qLn(range.lower) / qLn(newLogBase)));
         result.append(currentTick);
@@ -150,7 +151,7 @@ QVector<double> QCPAxisTickerLog::createTickVector(double tickStep, const QCPRan
         if (baseTickCount < 1.6) // if too few log ticks would be visible in axis range, fall back
                                  // to regular tick vector generation
             return QCPAxisTicker::createTickVector(tickStep, range);
-        const double exactPowerStep = baseTickCount / double(mTickCount + 1e-10);
+        const double exactPowerStep = baseTickCount / double(mTickCount + qcp::kTickCountEpsilon);
         const double newLogBase = qPow(mLogBase, qMax(int(cleanMantissa(exactPowerStep)), 1));
         double currentTick = -qPow(newLogBase, qCeil(qLn(-range.lower) / qLn(newLogBase)));
         result.append(currentTick);

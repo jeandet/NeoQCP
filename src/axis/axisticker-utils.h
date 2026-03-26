@@ -4,6 +4,11 @@
 
 namespace qcp {
 
+/// Small epsilon added to mTickCount when computing tick steps, to prevent
+/// jitter that would arise from exact integer rounding (e.g. a range exactly
+/// divisible by the tick count).
+inline constexpr double kTickCountEpsilon = 1e-10;
+
 /// Returns the hand-chosen sub-tick count for minute/hour tick intervals
 /// (5 min through 24 h). Returns -1 if tickStep doesn't match any known interval.
 inline int minuteHourSubTickCount(double tickStep)

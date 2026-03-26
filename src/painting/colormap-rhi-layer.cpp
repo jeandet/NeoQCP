@@ -74,7 +74,13 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
         mSampler = mRhi->newSampler(QRhiSampler::Nearest, QRhiSampler::Nearest,
                                      QRhiSampler::None,
                                      QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
-        mSampler->create();
+        if (!mSampler->create())
+        {
+            qDebug() << Q_FUNC_INFO << "Failed to create colormap sampler";
+            delete mSampler;
+            mSampler = nullptr;
+            return false;
+        }
     }
 
     // Layout-only SRB for pipeline creation (nullptr texture is valid for layout)
@@ -88,7 +94,12 @@ bool QCPColormapRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
             1, QRhiShaderResourceBinding::VertexStage,
             compositeUbo)
     });
-    layoutSrb->create();
+    if (!layoutSrb->create())
+    {
+        qDebug() << Q_FUNC_INFO << "Failed to create colormap layout SRB";
+        delete layoutSrb;
+        return false;
+    }
 
     mPipeline = mRhi->newGraphicsPipeline();
     mPipeline->setShaderStages({
@@ -162,7 +173,13 @@ bool QCPColormapRhiLayer::ensureTexture(QRhiBuffer* compositeUbo)
                 1, QRhiShaderResourceBinding::VertexStage,
                 compositeUbo)
         });
-        mSrb->create();
+        if (!mSrb->create())
+        {
+            qDebug() << Q_FUNC_INFO << "Failed to create colormap SRB";
+            delete mSrb;
+            mSrb = nullptr;
+            return false;
+        }
     }
     return true;
 }
@@ -200,7 +217,13 @@ void QCPColormapRhiLayer::updateQuadGeometry(QRhiResourceUpdateBatch* updates,
         mVertexBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
                                          QRhiBuffer::VertexBuffer,
                                          sizeof(verts));
-        mVertexBuffer->create();
+        if (!mVertexBuffer->create())
+        {
+            qDebug() << Q_FUNC_INFO << "Failed to create colormap vertex buffer";
+            delete mVertexBuffer;
+            mVertexBuffer = nullptr;
+            return;
+        }
     }
 
     updates->updateDynamicBuffer(mVertexBuffer, 0, sizeof(verts), verts);

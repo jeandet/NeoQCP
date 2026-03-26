@@ -1,4 +1,5 @@
 #include "plottable-graph2.h"
+#include "plottable-draw-utils.h"
 #include "plottable-l1-cache.h"
 #include "plottable-linestyle.h"
 #include "Profiling.hpp"
@@ -7,9 +8,7 @@
 #include "../axis/axis.h"
 #include "../core.h"
 #include "../layoutelements/layoutelement-axisrect.h"
-#include "../painting/line-extruder.h"
 #include "../painting/painter.h"
-#include "../painting/plottable-rhi-layer.h"
 #include "../painting/viewport-offset.h"
 #include "../vector2d.h"
 
@@ -420,57 +419,10 @@ void QCPGraph2::draw(QCPPainter* painter)
     // Draw lines
     if (mLineStyle != lsNone && mPen.style() != Qt::NoPen && mPen.color().alpha() != 0)
     {
-        // Helper: try GPU path for a polyline, fall back to QPainter.
-        // Disabled for export: pmVectorized (SVG/PDF) and pmNoCaching (raster
-        // export via toPixmap/saveRastered) don't composite plottable RHI layers.
         auto drawPoly = [&](const QVector<QPointF>& pts) {
-            if (auto* rhi = mParentPlot ? mParentPlot->rhi() : nullptr;
-                rhi && !painter->modes().testFlag(QCPPainter::pmVectorized)
-                    && !painter->modes().testFlag(QCPPainter::pmNoCaching)
-                    && mPen.style() == Qt::SolidLine)
-            {
-                if (auto* prl = mParentPlot->plottableRhiLayer(mLayer))
-                {
-                    // Pre-translate cached points instead of setting layer-wide offset,
-                    // so other plottables on the same layer are unaffected.
-                    QVector<QPointF> translated;
-                    const QVector<QPointF>& src = (!gpuOffset.isNull()) ?
-                        [&]() -> const QVector<QPointF>& {
-                            translated.resize(pts.size());
-                            for (int i = 0; i < pts.size(); ++i)
-                                translated[i] = pts[i] + gpuOffset;
-                            return translated;
-                        }() : pts;
-
-                    const QColor penColor = mPen.color();
-                    const double dpr = mParentPlot->bufferDevicePixelRatio();
-                    const float penWidth = (mPen.isCosmetic() || qFuzzyIsNull(mPen.widthF()))
-                        ? static_cast<float>(1.0 / dpr)
-                        : qMax(1.0f, static_cast<float>(mPen.widthF()));
-                    auto strokeVerts = QCPLineExtruder::extrudePolyline(src, penWidth, penColor);
-                    if (!strokeVerts.isEmpty())
-                    {
-                        const QSize outputSize = mParentPlot->rhiOutputSize();
-                        prl->addPlottable({}, strokeVerts, clipRect(), dpr,
-                                           outputSize.height(), rhi->isYUpInNDC());
-                        return;
-                    }
-                }
-            }
-            // Software fallback
             applyDefaultAntialiasingHint(painter);
-            painter->setPen(mPen);
-            painter->setBrush(Qt::NoBrush);
-            if (!gpuOffset.isNull())
-            {
-                painter->translate(gpuOffset);
-                painter->drawPolyline(pts.constData(), pts.size());
-                painter->translate(-gpuOffset);
-            }
-            else
-            {
-                painter->drawPolyline(pts.constData(), pts.size());
-            }
+            qcp::drawPolylineWithGpuFallback(painter, mParentPlot, mLayer, pts,
+                                              mPen, gpuOffset, clipRect());
         };
 
         switch (mLineStyle)

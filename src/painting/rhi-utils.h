@@ -1,8 +1,16 @@
 #pragma once
 
+#include <QColor>
+#include <array>
 #include <rhi/qrhi.h>
 
 namespace qcp::rhi {
+
+inline std::array<float, 4> premultipliedColor(const QColor& c)
+{
+    float a = float(c.alphaF());
+    return {float(c.redF()) * a, float(c.greenF()) * a, float(c.blueF()) * a, a};
+}
 
 inline QRhiTexture::Format preferredTextureFormat(QRhi* rhi)
 {

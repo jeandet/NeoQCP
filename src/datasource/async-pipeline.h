@@ -65,6 +65,8 @@ protected:
     uint64_t mRunningGeneration = 0;
     bool mJobRunning = false;
 
+    void emitBusyIfNeeded(QMutexLocker<QMutex>& lock);
+
     ViewportParams mLastViewport;
     bool mWasBusy = false;
 

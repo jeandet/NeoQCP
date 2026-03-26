@@ -437,18 +437,14 @@ void QCPLayoutElement::setSizeConstraintRect(SizeConstraintRect constraintRect)
 */
 void QCPLayoutElement::setMarginGroup(QCP::MarginSides sides, QCPMarginGroup* group)
 {
-    QVector<QCP::MarginSide> sideVector;
-    if (sides.testFlag(QCP::msLeft))
-        sideVector.append(QCP::msLeft);
-    if (sides.testFlag(QCP::msRight))
-        sideVector.append(QCP::msRight);
-    if (sides.testFlag(QCP::msTop))
-        sideVector.append(QCP::msTop);
-    if (sides.testFlag(QCP::msBottom))
-        sideVector.append(QCP::msBottom);
+    static constexpr QCP::MarginSide kAllSides[] = {
+        QCP::msLeft, QCP::msRight, QCP::msTop, QCP::msBottom
+    };
 
-    for (QCP::MarginSide side : sideVector)
+    for (auto side : kAllSides)
     {
+        if (!sides.testFlag(side))
+            continue;
         if (marginGroup(side) != group)
         {
             QCPMarginGroup* oldGroup = marginGroup(side);
@@ -490,9 +486,10 @@ void QCPLayoutElement::update(UpdatePhase phase)
             // set the margins of this layout element according to automatic margin calculation,
             // either directly or via a margin group:
             QMargins newMargins = mMargins;
-            const QList<QCP::MarginSide> allMarginSides = QList<QCP::MarginSide>()
-                << QCP::msLeft << QCP::msRight << QCP::msTop << QCP::msBottom;
-            for (QCP::MarginSide side : allMarginSides)
+            static constexpr QCP::MarginSide allMarginSides[] = {
+                QCP::msLeft, QCP::msRight, QCP::msTop, QCP::msBottom
+            };
+            for (auto side : allMarginSides)
             {
                 if (mAutoMargins.testFlag(
                         side)) // this side's margin shall be calculated automatically

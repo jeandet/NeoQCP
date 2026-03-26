@@ -24,6 +24,7 @@
 ****************************************************************************/
 
 #include "axistickerfixed.h"
+#include "axisticker-utils.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// QCPAxisTickerFixed
@@ -103,9 +104,7 @@ double QCPAxisTickerFixed::getTickStep(const QCPRange& range)
         }
         case ssMultiples:
         {
-            double exactStep = range.size()
-                / double(mTickCount + 1e-10); // mTickCount ticks on average, the small addition is
-                                              // to prevent jitter on exact integers
+            double exactStep = range.size() / double(mTickCount + qcp::kTickCountEpsilon);
             if (exactStep < mTickStep)
                 return mTickStep;
             else
@@ -113,9 +112,7 @@ double QCPAxisTickerFixed::getTickStep(const QCPRange& range)
         }
         case ssPowers:
         {
-            double exactStep = range.size()
-                / double(mTickCount + 1e-10); // mTickCount ticks on average, the small addition is
-                                              // to prevent jitter on exact integers
+            double exactStep = range.size() / double(mTickCount + qcp::kTickCountEpsilon);
             return qPow(mTickStep, int(qLn(exactStep) / qLn(mTickStep) + 0.5));
         }
     }

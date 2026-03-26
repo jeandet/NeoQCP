@@ -35,6 +35,16 @@ bool QCPAsyncPipelineBase::isBusy() const
     return mGeneration.load() > mDisplayedGeneration;
 }
 
+void QCPAsyncPipelineBase::emitBusyIfNeeded(QMutexLocker<QMutex>& lock)
+{
+    const bool shouldEmitBusy = !mWasBusy;
+    if (shouldEmitBusy)
+        mWasBusy = true;
+    lock.unlock();
+    if (shouldEmitBusy)
+        Q_EMIT busyChanged(true);
+}
+
 void QCPAsyncPipelineBase::onDataChanged()
 {
     PROFILE_HERE_N("Pipeline::onDataChanged");
@@ -44,7 +54,6 @@ void QCPAsyncPipelineBase::onDataChanged()
 
     if (mJobRunning)
     {
-        // Data change supersedes any pending viewport change
         mPending = makeJob(mLastViewport, std::any{}, gen);
         mPendingViewport = false;
         mPendingPriority = QCPPipelineScheduler::Heavy;
@@ -55,22 +64,12 @@ void QCPAsyncPipelineBase::onDataChanged()
         if (!job) return;
         mJobRunning = true;
         mRunningGeneration = gen;
-        const bool shouldEmitBusy = !mWasBusy;
-        if (shouldEmitBusy)
-            mWasBusy = true;
-        lock.unlock();
+        emitBusyIfNeeded(lock);
         mScheduler->submit(QCPPipelineScheduler::Heavy, std::move(job));
-        if (shouldEmitBusy)
-            Q_EMIT busyChanged(true);
         return;
     }
 
-    const bool shouldEmitBusy = !mWasBusy;
-    if (shouldEmitBusy)
-        mWasBusy = true;
-    lock.unlock();
-    if (shouldEmitBusy)
-        Q_EMIT busyChanged(true);
+    emitBusyIfNeeded(lock);
 }
 
 void QCPAsyncPipelineBase::onViewportChanged(const ViewportParams& vp)
@@ -89,7 +88,6 @@ void QCPAsyncPipelineBase::onViewportChanged(const ViewportParams& vp)
 
     if (mJobRunning)
     {
-        // Defer job creation — cache will be available when current job finishes
         mPendingViewport = true;
         mPendingPriority = QCPPipelineScheduler::Fast;
     }
@@ -100,22 +98,12 @@ void QCPAsyncPipelineBase::onViewportChanged(const ViewportParams& vp)
         if (!job) return;
         mJobRunning = true;
         mRunningGeneration = gen;
-        const bool shouldEmitBusy = !mWasBusy;
-        if (shouldEmitBusy)
-            mWasBusy = true;
-        lock.unlock();
+        emitBusyIfNeeded(lock);
         mScheduler->submit(QCPPipelineScheduler::Fast, std::move(job));
-        if (shouldEmitBusy)
-            Q_EMIT busyChanged(true);
         return;
     }
 
-    const bool shouldEmitBusy = !mWasBusy;
-    if (shouldEmitBusy)
-        mWasBusy = true;
-    lock.unlock();
-    if (shouldEmitBusy)
-        Q_EMIT busyChanged(true);
+    emitBusyIfNeeded(lock);
 }
 
 void QCPAsyncPipelineBase::deliverResult(uint64_t generation, std::any cache, std::any result)
