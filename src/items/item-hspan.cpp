@@ -41,8 +41,12 @@ void QCPItemHSpan::setRange(const QCPRange& range)
     lowerEdge->setCoords(0, range.lower);
     upperEdge->setCoords(1, range.upper);
     emit rangeChanged(range);
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
+    if (mParentPlot)
+    {
+        if (mParentPlot->spanRhiLayer())
+            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        mParentPlot->replot(QCustomPlot::rpQueuedReplot);
+    }
 }
 
 double QCPItemHSpan::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
@@ -174,9 +178,12 @@ void QCPItemHSpan::mouseMoveEvent(QMouseEvent* event, const QPointF& startPos)
             break;
     }
     emit rangeChanged(range());
-    if (mParentPlot && mParentPlot->spanRhiLayer())
-        mParentPlot->spanRhiLayer()->markGeometryDirty();
-    mParentPlot->replot(QCustomPlot::rpQueuedReplot);
+    if (mParentPlot)
+    {
+        if (mParentPlot->spanRhiLayer())
+            mParentPlot->spanRhiLayer()->markGeometryDirty();
+        mParentPlot->replot(QCustomPlot::rpQueuedReplot);
+    }
 }
 
 void QCPItemHSpan::mouseReleaseEvent(QMouseEvent* event, const QPointF& startPos)

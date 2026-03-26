@@ -150,6 +150,12 @@ void QCPWaterfallGraph::updateAdapter() const
     mAdapter->setGain(mGain);
 }
 
+void QCPWaterfallGraph::dataChanged()
+{
+    invalidateNormalization();
+    QCPMultiGraph::dataChanged();
+}
+
 void QCPWaterfallGraph::draw(QCPPainter* painter)
 {
     updateAdapter();

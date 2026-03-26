@@ -539,11 +539,12 @@ QCPTheme* QCustomPlot::theme() const
 
 void QCustomPlot::setTheme(QCPTheme* theme)
 {
-    if (mTheme == theme)
+    QCPTheme* resolved = theme ? theme : mOwnedTheme;
+    if (mTheme == resolved)
         return;
     if (mTheme)
         disconnect(mTheme, &QCPTheme::changed, this, nullptr);
-    mTheme = theme ? theme : mOwnedTheme;
+    mTheme = resolved;
     connect(mTheme, &QCPTheme::changed, this, [this]() {
         if (!mThemeDirty) {
             mThemeDirty = true;

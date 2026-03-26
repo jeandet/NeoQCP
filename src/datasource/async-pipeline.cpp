@@ -132,15 +132,16 @@ void QCPAsyncPipelineBase::deliverResult(uint64_t generation, std::any cache, st
             job = makeJob(mLastViewport, std::move(jobCache), mRunningGeneration);
         }
 
-        lock.unlock();
-        if (job)
-        {
-            mScheduler->submit(priority, std::move(job));
-        }
-        else
+        if (!job)
         {
             mJobRunning = false;
             mPendingViewport = false;
+            lock.unlock();
+        }
+        else
+        {
+            lock.unlock();
+            mScheduler->submit(priority, std::move(job));
         }
     }
     else
