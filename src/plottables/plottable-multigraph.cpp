@@ -615,8 +615,11 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         const QVector<QPointF>& dataLines = linesTarget[c];
         if (dataLines.isEmpty()) continue;
 
+        // Only compute step-transform when the extrusion cache needs rebuilding —
+        // on cache-hit pan frames, drawPolylineCached ignores pts entirely.
         QVector<QPointF> styledLines;
-        if (mLineStyle != lsNone && mLineStyle != lsLine) {
+        const bool needStyledLines = needFreshLines || mExtrusionCaches[c].isEmpty();
+        if (needStyledLines && mLineStyle != lsNone && mLineStyle != lsLine) {
             switch (mLineStyle) {
                 case lsStepLeft:   styledLines = qcp::toStepLeftLines(dataLines, keyIsVertical); break;
                 case lsStepRight:  styledLines = qcp::toStepRightLines(dataLines, keyIsVertical); break;

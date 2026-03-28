@@ -108,8 +108,14 @@ void QCPGraph2::dataChanged()
     else
         mPreview.reset();
 
-    if (mNeedsResampling && !wasResampling && mDataSource)
-        ensureL1Transform(mPipeline, mDataSource->size());
+    // Update the L1 transform when crossing the resampling threshold in either direction
+    if (mNeedsResampling != wasResampling)
+    {
+        if (mDataSource)
+            ensureL1Transform(mPipeline, mDataSource->size());
+        else if (mPipeline.hasTransform())
+            mPipeline.clearTransform();
+    }
 
     if (mPipeline.hasTransform())
     {
@@ -463,6 +469,9 @@ void QCPGraph2::draw(QCPPainter* painter)
             }
         };
 
+        // Only compute step-transform when the extrusion cache needs rebuilding —
+        // on cache-hit pan frames, drawPolylineCached ignores pts entirely.
+        const bool needStyledLines = needFreshLines || mExtrusionCache.isEmpty();
         switch (mLineStyle)
         {
             case lsNone:
@@ -471,13 +480,13 @@ void QCPGraph2::draw(QCPPainter* painter)
                 drawPoly(lines);
                 break;
             case lsStepLeft:
-                drawPoly(qcp::toStepLeftLines(lines, keyIsVertical));
+                drawPoly(needStyledLines ? qcp::toStepLeftLines(lines, keyIsVertical) : lines);
                 break;
             case lsStepRight:
-                drawPoly(qcp::toStepRightLines(lines, keyIsVertical));
+                drawPoly(needStyledLines ? qcp::toStepRightLines(lines, keyIsVertical) : lines);
                 break;
             case lsStepCenter:
-                drawPoly(qcp::toStepCenterLines(lines, keyIsVertical));
+                drawPoly(needStyledLines ? qcp::toStepCenterLines(lines, keyIsVertical) : lines);
                 break;
             case lsImpulse:
             {

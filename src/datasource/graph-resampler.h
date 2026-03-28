@@ -127,6 +127,11 @@ inline BinResult binMinMax(
 // Parallel Level 1 binning: splits source into N chunks with bin-aligned
 // boundaries so each thread writes to disjoint output bins (zero synchronization).
 // Falls back to single-threaded binMinMax when threadCount <= 1.
+// Cap inner parallelism — these functions already run inside the pipeline
+// scheduler's thread pool, so spawning hardware_concurrency/2 threads here
+// would produce O(pool_size × inner_threads) total OS threads.
+constexpr int kMaxInnerThreads = 4;
+
 inline BinResult binMinMaxParallel(
     const QCPAbstractDataSource& src,
     int begin, int end,
@@ -134,7 +139,8 @@ inline BinResult binMinMaxParallel(
     int numBins)
 {
     PROFILE_HERE_N("binMinMaxParallel");
-    int threadCount = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2);
+    int threadCount = std::min(kMaxInnerThreads,
+        std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2));
     if (threadCount <= 1 || (end - begin) < 1'000'000)
         return binMinMax(src, begin, end, keyRange, numBins);
 
@@ -274,7 +280,8 @@ inline MultiColumnBinResult binMinMaxMultiParallel(
     int numBins)
 {
     PROFILE_HERE_N("binMinMaxMultiParallel");
-    int threadCount = std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2);
+    int threadCount = std::min(kMaxInnerThreads,
+        std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2));
     if (threadCount <= 1 || (end - begin) < 1'000'000)
         return binMinMaxMulti(src, begin, end, keyRange, numBins);
 
