@@ -96,32 +96,28 @@ void extrudeSegment(QVector<float>& out, const QVector<QPointF>& points,
     int count = end - start;
     if (count < 2) return;
 
-    QVector<QPointF> normals(count - 1);
-    for (int i = 0; i < count - 1; ++i)
-    {
-        QPointF dir = normalized(points[start + i + 1] - points[start + i]);
-        normals[i] = perp(dir);
-    }
-
-    QVector<QPointF> left(count), right(count);
-
-    left[0] = points[start] + normals[0] * halfWidth;
-    right[0] = points[start] - normals[0] * halfWidth;
+    // Sliding window: only previous and current normal/left/right needed.
+    QPointF prevNormal = perp(normalized(points[start + 1] - points[start]));
+    QPointF prevLeft = points[start] + prevNormal * halfWidth;
+    QPointF prevRight = points[start] - prevNormal * halfWidth;
 
     for (int i = 1; i < count - 1; ++i)
     {
-        QPointF mo = miterOffset(normals[i - 1], normals[i], halfWidth);
+        QPointF curNormal = perp(normalized(points[start + i + 1] - points[start + i]));
+        QPointF mo = miterOffset(prevNormal, curNormal, halfWidth);
+
+        QPointF curLeft, curRight;
         if (mo.isNull())
         {
             QPointF p = points[start + i];
-            QPointF leftPrev = p + normals[i - 1] * halfWidth;
-            QPointF rightPrev = p - normals[i - 1] * halfWidth;
-            QPointF leftNext = p + normals[i] * halfWidth;
-            QPointF rightNext = p - normals[i] * halfWidth;
+            QPointF leftPrev = p + prevNormal * halfWidth;
+            QPointF rightPrev = p - prevNormal * halfWidth;
+            QPointF leftNext = p + curNormal * halfWidth;
+            QPointF rightNext = p - curNormal * halfWidth;
 
-            pushQuad(out, left[i - 1], leftPrev, rightPrev, right[i - 1], rgba);
+            pushQuad(out, prevLeft, leftPrev, rightPrev, prevRight, rgba);
 
-            double cross = normals[i - 1].x() * normals[i].y() - normals[i - 1].y() * normals[i].x();
+            double cross = prevNormal.x() * curNormal.y() - prevNormal.y() * curNormal.x();
             if (cross > 0)
             {
                 pushVertex(out, rightPrev.x(), rightPrev.y(), rgba);
@@ -135,29 +131,24 @@ void extrudeSegment(QVector<float>& out, const QVector<QPointF>& points,
                 pushVertex(out, p.x(), p.y(), rgba);
             }
 
-            left[i] = leftNext;
-            right[i] = rightNext;
-            continue;
+            curLeft = leftNext;
+            curRight = rightNext;
+        }
+        else
+        {
+            curLeft = points[start + i] + mo;
+            curRight = points[start + i] - mo;
+            pushQuad(out, prevLeft, curLeft, curRight, prevRight, rgba);
         }
 
-        left[i] = points[start + i] + mo;
-        right[i] = points[start + i] - mo;
-
-        pushQuad(out, left[i - 1], left[i], right[i], right[i - 1], rgba);
+        prevLeft = curLeft;
+        prevRight = curRight;
+        prevNormal = curNormal;
     }
 
-    left[count - 1] = points[start + count - 1] + normals[count - 2] * halfWidth;
-    right[count - 1] = points[start + count - 1] - normals[count - 2] * halfWidth;
-
-    // Emit the final segment's quad
-    if (count == 2)
-    {
-        pushQuad(out, left[0], left[1], right[1], right[0], rgba);
-    }
-    else
-    {
-        pushQuad(out, left[count - 2], left[count - 1], right[count - 1], right[count - 2], rgba);
-    }
+    QPointF lastLeft = points[start + count - 1] + prevNormal * halfWidth;
+    QPointF lastRight = points[start + count - 1] - prevNormal * halfWidth;
+    pushQuad(out, prevLeft, lastLeft, lastRight, prevRight, rgba);
 }
 
 } // anonymous namespace
