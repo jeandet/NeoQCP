@@ -352,8 +352,10 @@ inline MultiColumnBinResult binMinMaxMultiParallel(
 }
 
 constexpr int kLevel1TargetBins = 100'000;
-constexpr int kResampleThreshold = 10'000'000;
+constexpr int kResampleThreshold = 100'000;
 constexpr int kLevel2PixelMultiplier = 4;
+constexpr int kPreviewBins = 5'000;
+constexpr int kPreviewThreshold = 1'000;
 
 // L1 build only — heavy, meant for async pipeline.
 // Returns the L1 cache via the std::any, result is nullptr (L2 is done synchronously).
@@ -474,6 +476,40 @@ inline std::shared_ptr<QCPAbstractDataSource> hierarchicalResample(
     auto* c = std::any_cast<GraphResamplerCache>(&cache);
     if (!c) return nullptr;
     return resampleL2(*c, vp);
+}
+
+inline std::shared_ptr<QCPAbstractDataSource> buildPreview(
+    const QCPAbstractDataSource& src)
+{
+    PROFILE_HERE_N("buildPreview");
+    const int srcSize = src.size();
+    if (srcSize < kPreviewThreshold)
+        return nullptr;
+
+    bool foundRange = false;
+    QCPRange fullKeyRange = src.keyRange(foundRange);
+    if (!foundRange || fullKeyRange.size() <= 0)
+        return nullptr;
+
+    int numBins = std::min(kPreviewBins, srcSize / 2);
+    auto bins = binMinMax(src, 0, srcSize, fullKeyRange, numBins);
+
+    std::vector<double> outKeys, outVals;
+    outKeys.reserve(bins.keys.size());
+    outVals.reserve(bins.values.size());
+    for (size_t i = 0; i < bins.keys.size(); ++i)
+    {
+        if (!std::isnan(bins.values[i]))
+        {
+            outKeys.push_back(bins.keys[i]);
+            outVals.push_back(bins.values[i]);
+        }
+    }
+    if (outKeys.empty()) return nullptr;
+
+    return std::make_shared<QCPSoADataSource<
+        std::vector<double>, std::vector<double>>>(
+        std::move(outKeys), std::move(outVals));
 }
 
 } // namespace qcp::algo

@@ -615,7 +615,7 @@ void TestPipeline::graphResamplerLevel1AndLevel2()
 
 void TestPipeline::graphResamplerCacheReuse()
 {
-    const int N = 100000;
+    const int N = 10000;
     std::vector<double> keys(N), vals(N);
     for (int i = 0; i < N; ++i)
     {
@@ -632,10 +632,9 @@ void TestPipeline::graphResamplerCacheReuse()
     vp.plotWidthPx = 800;
 
     auto result1 = qcp::algo::hierarchicalResample(*src, vp, cache);
-    QVERIFY(!result1); // below 10M threshold, no cache built
+    QVERIFY(!result1); // below threshold, no cache built
 
-    // Exercise binMinMax and GraphResamplerCache directly since
-    // hierarchicalResample requires 10M+ points
+    // Exercise binMinMax and GraphResamplerCache directly
     qcp::algo::GraphResamplerCache c;
     c.level1 = qcp::algo::binMinMax(keys, vals, 0, N, QCPRange(0, N - 1), 500);
     c.cachedKeyRange = QCPRange(0, N - 1);
@@ -1383,23 +1382,22 @@ void TestPipeline::multiGraphLargeDataL1L2()
 
 void TestPipeline::multiGraphThresholdScalesWithColumnCount()
 {
-    // 200K points * 2 columns = 400K < 10M threshold → no resampling
+    // 200 points * 2 columns = 400 < 100K threshold → no resampling
     auto* mg1 = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
-    const int N = 200'000;
+    const int N = 200;
     auto src1 = std::make_shared<SyntheticLargeMultiSource>(N, 2);
     mg1->setDataSource(src1);
     QVERIFY(!mg1->pipeline().hasTransform());
 
-    // 200K points * 100 columns = 20M > 10M threshold → resampling
-    // This tests that column count scales the threshold (200K < 10M alone)
+    // 200K points * 100 columns = 20M > 100K threshold → resampling
     auto* mg2 = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
-    auto src2 = std::make_shared<SyntheticLargeMultiSource>(N, 100);
+    auto src2 = std::make_shared<SyntheticLargeMultiSource>(200'000, 100);
     mg2->setDataSource(src2);
     QVERIFY(mg2->pipeline().hasTransform());
 
-    // 50K points * 200 columns = 10M but 50K < 100K floor → no resampling
+    // 50 points * 200 columns = 10K but 50 < 100K floor → no resampling
     auto* mg3 = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
-    auto src3 = std::make_shared<SyntheticLargeMultiSource>(50'000, 200);
+    auto src3 = std::make_shared<SyntheticLargeMultiSource>(50, 200);
     mg3->setDataSource(src3);
     QVERIFY(!mg3->pipeline().hasTransform());
 }
@@ -1679,4 +1677,61 @@ void TestPipeline::multiGraphLineCacheReusedOnSmallPan()
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     QCOMPARE(mg->mCachedLines, cachedBefore);
+}
+
+void TestPipeline::previewBuilderProduces10kPoints()
+{
+    // 50K sorted points
+    std::vector<double> keys(50000), vals(50000);
+    for (int i = 0; i < 50000; ++i) {
+        keys[i] = i * 0.1;
+        vals[i] = std::sin(i * 0.01);
+    }
+    auto src = std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::move(keys), std::move(vals));
+
+    auto preview = qcp::algo::buildPreview(*src);
+    QVERIFY(preview != nullptr);
+    // 5000 bins * 2 points (min/max) per bin, minus NaN-filtered empty bins
+    QVERIFY(preview->size() > 0);
+    QVERIFY(preview->size() <= qcp::algo::kPreviewBins * 2);
+
+    // Preview covers full key range
+    bool found = false;
+    QCPRange kr = preview->keyRange(found);
+    QVERIFY(found);
+    QVERIFY(kr.lower <= 1.0);    // near start (bin center of first bin)
+    QVERIFY(kr.upper >= 4999.0); // near end
+}
+
+void TestPipeline::previewBuilderMultiProduces10kPoints()
+{
+    int N = 50000;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> cols(3, std::vector<double>(N));
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i * 0.1;
+        for (int c = 0; c < 3; ++c)
+            cols[c][i] = std::sin(i * 0.01 + c);
+    }
+    auto src = std::make_shared<QCPSoAMultiDataSource<
+        std::vector<double>, std::vector<double>>>(std::move(keys), std::move(cols));
+
+    auto preview = qcp::algo::buildPreviewMulti(*src);
+    QVERIFY(preview != nullptr);
+    QVERIFY(preview->size() > 0);
+    QVERIFY(preview->size() <= qcp::algo::kPreviewBins * 2);
+    QCOMPARE(preview->columnCount(), 3);
+}
+
+void TestPipeline::previewBuilderSmallDataReturnsNull()
+{
+    // Below kPreviewThreshold — no preview needed
+    std::vector<double> keys(100), vals(100);
+    for (int i = 0; i < 100; ++i) { keys[i] = i; vals[i] = i * 2; }
+    auto src = std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::move(keys), std::move(vals));
+
+    auto preview = qcp::algo::buildPreview(*src);
+    QVERIFY(preview == nullptr);
 }

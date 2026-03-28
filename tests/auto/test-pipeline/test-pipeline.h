@@ -112,6 +112,11 @@ private slots:
     void graph2LineCacheInvalidatedOnDataChange();
     void multiGraphLineCacheReusedOnSmallPan();
 
+    // Preview buffer
+    void previewBuilderProduces10kPoints();
+    void previewBuilderMultiProduces10kPoints();
+    void previewBuilderSmallDataReturnsNull();
+
     // GPU translation fast path
     void graph2TranslationOffsetWhenBusy();
     void graph2TranslationResetsOnFreshData();
