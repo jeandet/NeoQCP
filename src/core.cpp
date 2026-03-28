@@ -2133,7 +2133,7 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
     for (auto& layer : mLayers)
     {
         if (QSharedPointer<QCPAbstractPaintBuffer> pb = layer->mPaintBuffer.toStrongRef();
-            pb && pb->contentDirty())
+            pb && pb->contentDirty() && !layer->canSkipRepaintForTranslation())
         {
             layer->drawToPaintBuffer();
         }

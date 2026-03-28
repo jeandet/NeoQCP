@@ -25,6 +25,7 @@ private slots:
     void skipRepaint_disabledWithItems();
     void skipRepaint_disabledWithLegacyGraph();
     void skipRepaint_disabledOnInvalidation();
+    void skipRepaint_bufferNotReuploadedOnPan();
 
 private:
     QCustomPlot* mPlot;

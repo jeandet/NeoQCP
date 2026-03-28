@@ -299,3 +299,36 @@ void TestPaintBuffer::skipRepaint_disabledOnInvalidation()
     QCPLayer* mainLayer = mPlot->layer("main");
     QVERIFY(!mainLayer->canSkipRepaintForTranslation());
 }
+
+void TestPaintBuffer::skipRepaint_bufferNotReuploadedOnPan()
+{
+    auto* graph2 = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    std::vector<double> keys = {1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector<double> vals = {1.0, 4.0, 2.0, 5.0, 3.0};
+    graph2->setData(std::move(keys), std::move(vals));
+    mPlot->xAxis->setRange(0, 6);
+    mPlot->yAxis->setRange(0, 6);
+
+    // Full replot to establish baseline
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QCPLayer* mainLayer = mPlot->layer("main");
+    auto mainBuf = mainLayer->mPaintBuffer.toStrongRef();
+    QVERIFY(mainBuf);
+    QVERIFY(!mainBuf->contentDirty());
+
+    // Simulate pan
+    mPlot->xAxis->setRange(0.5, 6.5);
+    mPlot->axisRect()->markAffectedLayersDirty();
+    QVERIFY(mainBuf->contentDirty());
+
+    // Replot — skip should kick in
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    // contentDirty should be cleared
+    QVERIFY(!mainBuf->contentDirty());
+
+    // The skip worked: stallPixelOffset still returns non-null
+    // because draw() was NOT called (mRenderedRange not updated)
+    QVERIFY(!mainLayer->pixelOffset().isNull());
+}
