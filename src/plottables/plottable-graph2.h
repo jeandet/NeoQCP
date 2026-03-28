@@ -120,6 +120,7 @@ private:
     // Two-phase resampling: L1 built async, L2 computed lazily at draw time
     std::shared_ptr<qcp::algo::GraphResamplerCache> mL1Cache;
     std::shared_ptr<QCPAbstractDataSource> mL2Result;
+    std::shared_ptr<QCPAbstractDataSource> mPreview;
     bool mNeedsResampling = false;
     bool mL2Dirty = false;
 

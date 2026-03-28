@@ -1735,3 +1735,55 @@ void TestPipeline::previewBuilderSmallDataReturnsNull()
     auto preview = qcp::algo::buildPreview(*src);
     QVERIFY(preview == nullptr);
 }
+
+void TestPipeline::graph2PreviewUsedDuringPan()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    int N = 200'000;
+    std::vector<double> keys(N), vals(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; vals[i] = std::sin(i * 0.001); }
+    graph->setData(std::move(keys), std::move(vals));
+
+    QTRY_VERIFY_WITH_TIMEOUT(!graph->pipeline().isBusy(), 5000);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+
+    mPlot->xAxis->setRange(50000, 150000);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+
+    QVERIFY(graph->hasRenderedRange());
+}
+
+void TestPipeline::graph2PreviewReplacedByL2()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    int N = 200'000;
+    std::vector<double> keys(N), vals(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; vals[i] = std::sin(i * 0.001); }
+    graph->setData(std::move(keys), std::move(vals));
+
+    QTRY_VERIFY_WITH_TIMEOUT(!graph->pipeline().isBusy(), 5000);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+
+    QVERIFY(graph->hasRenderedRange());
+}
+
+void TestPipeline::graph2PreviewBuiltOnSetData()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+
+    std::vector<double> keys1(500), vals1(500);
+    for (int i = 0; i < 500; ++i) { keys1[i] = i; vals1[i] = i; }
+    graph->setData(std::move(keys1), std::move(vals1));
+
+    int N = 200'000;
+    std::vector<double> keys2(N), vals2(N);
+    for (int i = 0; i < N; ++i) { keys2[i] = i; vals2[i] = i; }
+    graph->setData(std::move(keys2), std::move(vals2));
+
+    mPlot->xAxis->setRange(0, N);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+}

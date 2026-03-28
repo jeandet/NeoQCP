@@ -116,6 +116,9 @@ private slots:
     void previewBuilderProduces10kPoints();
     void previewBuilderMultiProduces10kPoints();
     void previewBuilderSmallDataReturnsNull();
+    void graph2PreviewUsedDuringPan();
+    void graph2PreviewReplacedByL2();
+    void graph2PreviewBuiltOnSetData();
 
     // GPU translation fast path
     void graph2TranslationOffsetWhenBusy();

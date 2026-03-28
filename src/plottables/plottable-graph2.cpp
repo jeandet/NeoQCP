@@ -73,12 +73,16 @@ void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
     mDataSource = std::move(source);
     mL1Cache.reset();
     mL2Result.reset();
+    mPreview.reset();
     mLineCacheDirty = true;
     mCachedLines.clear();
     mL2Dirty = false;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
     if (mDataSource)
+    {
+        mPreview = qcp::algo::buildPreview(*mDataSource);
         ensureL1Transform(mPipeline, mDataSource->size());
+    }
     mPipeline.setSource(mDataSource);
 }
 
@@ -86,6 +90,11 @@ void QCPGraph2::dataChanged()
 {
     mLineCacheDirty = true;
     mCachedLines.clear();
+
+    if (mDataSource)
+        mPreview = qcp::algo::buildPreview(*mDataSource);
+    else
+        mPreview.reset();
 
     bool wasResampling = mNeedsResampling;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
@@ -330,22 +339,19 @@ void QCPGraph2::draw(QCPPainter* painter)
         mL2Dirty = false;
     }
 
-    // When the async pipeline is active but hasn't delivered results yet,
-    // skip drawing raw data.  Drawing 100K+ points through QPainter is
-    // extremely slow on macOS (Core Graphics), causing multi-second stalls.
-    // The pipeline will trigger a replot when L1 is ready.
-    // Exception: log-scale axes never produce L2 results (rebuildL2 resets
-    // mL2Result), so we must not skip or the graph stays permanently blank.
-    // Exception: export mode (pmNoCaching) must always draw.
-    if (mNeedsResampling && !mL2Result
-        && !painter->modes().testFlag(QCPPainter::pmNoCaching)
-        && mKeyAxis->scaleType() != QCPAxis::stLogarithmic)
-        return;
+    // Data source priority: L2 (viewport-optimized) > preview (full-range low-res) > raw
+    const QCPAbstractDataSource* ds = nullptr;
+    if (mL2Result)
+        ds = mL2Result.get();
+    else if (mPreview && mNeedsResampling
+             && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        ds = mPreview.get();
+    else if (!mNeedsResampling || painter->modes().testFlag(QCPPainter::pmNoCaching)
+             || mKeyAxis->scaleType() == QCPAxis::stLogarithmic)
+        ds = mDataSource.get();
+    else
+        return; // Pipeline active, no preview, no L2 — wait for L1
 
-    // Use L2 resampled data if available, otherwise fall back to raw data.
-    // Raw data is used for small datasets (below threshold), log-scale keys,
-    // or while L1 is still building asynchronously.
-    const QCPAbstractDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
     if (!ds || ds->empty())
         return;
 
