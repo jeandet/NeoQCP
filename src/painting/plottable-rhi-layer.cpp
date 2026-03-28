@@ -148,18 +148,14 @@ void QCPPlottableRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
     if (mUniformBuffer)
     {
         struct {
-            float width, height, yFlip, dpr, translateX, translateY;
-            float _pad0, _pad1; // std140 rounds to 16-byte multiple
+            float width, height, yFlip, dpr;
         } params = {
             float(outputSize.width()),
             float(outputSize.height()),
             isYUpInNDC ? -1.0f : 1.0f,
             dpr,
-            float(mPixelOffset.x()),
-            float(mPixelOffset.y()),
-            0.0f, 0.0f
         };
-        static_assert(sizeof(params) == 32);
+        static_assert(sizeof(params) == 16);
         updates->updateDynamicBuffer(mUniformBuffer, 0, sizeof(params), &params);
     }
 
