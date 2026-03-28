@@ -173,6 +173,7 @@ protected:
     // non-property methods:
     void drawBackground(QCPPainter* painter);
     void updateAxesOffset(QCPAxis::AxisType type);
+    void markAffectedLayersDirty();
 
 private:
     Q_DISABLE_COPY(QCPAxisRect)

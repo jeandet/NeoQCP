@@ -1310,6 +1310,7 @@ void QCPAxisRect::mouseMoveEvent(QMouseEvent* event, [[maybe_unused]] const QPoi
         {
             if (mParentPlot->noAntialiasingOnDrag())
                 mParentPlot->setNotAntialiasedElements(QCP::aeAll);
+            markAffectedLayersDirty();
             mParentPlot->replot(QCustomPlot::rpQueuedReplot);
         }
     }
@@ -1384,7 +1385,36 @@ void QCPAxisRect::wheelEvent(QWheelEvent* event)
                         axis->scaleRange(factor, axis->pixelToCoord(pos.y()));
                 }
             }
+            markAffectedLayersDirty();
             mParentPlot->replot(QCustomPlot::rpQueuedReplot);
         }
+    }
+}
+
+void QCPAxisRect::markAffectedLayersDirty()
+{
+    // Collect unique layers from axes, grids, and plottables in this rect.
+    // Typically <=4 unique layers, so linear scan is fine.
+    QVarLengthArray<QCPLayer*, 8> seen;
+    auto markOnce = [&](QCPLayer* l) {
+        if (l && !seen.contains(l))
+        {
+            seen.append(l);
+            l->markDirty();
+        }
+    };
+
+    for (const auto& axisList : mAxes)
+    {
+        for (QCPAxis* ax : axisList)
+        {
+            markOnce(ax->layer());
+            markOnce(ax->grid()->layer());
+        }
+    }
+    for (QCPAbstractPlottable* p : mParentPlot->mPlottables)
+    {
+        if (p->keyAxis()->axisRect() == this || p->valueAxis()->axisRect() == this)
+            markOnce(p->layer());
     }
 }
