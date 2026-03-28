@@ -96,25 +96,31 @@ void drawPolylineCached(QCPPainter* painter,
             if (cache.isEmpty())
                 return;
 
-            // Translate cached vertices by gpuOffset
-            const QVector<float>* src = &cache.vertices;
-            QVector<float> translated;
-            if (!gpuOffset.isNull())
+            // Translate in-place, upload, then undo — avoids deep-copying the vertex buffer
+            const float dx = static_cast<float>(gpuOffset.x());
+            const float dy = static_cast<float>(gpuOffset.y());
+            const bool needTranslate = !gpuOffset.isNull();
+            if (needTranslate)
             {
-                translated = cache.vertices;
-                const float dx = static_cast<float>(gpuOffset.x());
-                const float dy = static_cast<float>(gpuOffset.y());
-                for (int i = 0; i < translated.size(); i += 6)
+                for (int i = 0; i < cache.vertices.size(); i += 6)
                 {
-                    translated[i + 0] += dx;
-                    translated[i + 1] += dy;
+                    cache.vertices[i + 0] += dx;
+                    cache.vertices[i + 1] += dy;
                 }
-                src = &translated;
             }
 
             const QSize outputSize = parentPlot->rhiOutputSize();
-            prl->addPlottable({}, *src, clipRect, dpr,
+            prl->addPlottable({}, cache.vertices, clipRect, dpr,
                                outputSize.height(), rhi->isYUpInNDC());
+
+            if (needTranslate)
+            {
+                for (int i = 0; i < cache.vertices.size(); i += 6)
+                {
+                    cache.vertices[i + 0] -= dx;
+                    cache.vertices[i + 1] -= dy;
+                }
+            }
             return;
         }
     }

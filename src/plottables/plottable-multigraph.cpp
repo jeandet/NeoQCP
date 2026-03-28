@@ -171,7 +171,7 @@ void QCPMultiGraph::onViewportChanged()
         if (mHasRenderedRange && mKeyAxis)
         {
             double ratio = mKeyAxis->range().size() / mRenderedRange.key.size();
-            if (qAbs(ratio - 1.0) < 0.01)
+            if (qAbs(ratio - 1.0) < 1e-4)
                 mViewportDebounce.start();
         }
     }
@@ -599,10 +599,12 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             mHasRenderedRange = true;
             mLineCacheDirty = false;
             mCachedPlotSize = currentPlotSize;
-            mExtrusionCaches.clear(); // Invalidate extruded verts
+            for (auto& ec : mExtrusionCaches) ec.clear();
             gpuOffset = {};
         }
     }
+
+    mExtrusionCaches.resize(mComponents.size());
 
     for (int c = 0; c < mComponents.size(); ++c) {
         const auto& comp = mComponents[c];
@@ -613,7 +615,6 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         const QVector<QPointF>& dataLines = linesTarget[c];
         if (dataLines.isEmpty()) continue;
 
-        // Apply line style transform if needed; for lsLine just reference cached data
         QVector<QPointF> styledLines;
         if (mLineStyle != lsNone && mLineStyle != lsLine) {
             switch (mLineStyle) {
@@ -626,7 +627,6 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         }
         const QVector<QPointF>& lines = styledLines.isEmpty() ? dataLines : styledLines;
 
-        // Draw lines
         if (mLineStyle != lsNone) {
             const QPen& activePen = comp.selection.isEmpty() ? comp.pen : comp.selectedPen;
             if (mLineStyle == lsImpulse) {
@@ -638,7 +638,6 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             } else {
                 applyDefaultAntialiasingHint(painter);
                 if (!isExportMode) {
-                    mExtrusionCaches.resize(mComponents.size());
                     qcp::drawPolylineCached(painter, mParentPlot, mLayer, lines,
                                              activePen, gpuOffset, clipRect(),
                                              needFreshLines, mExtrusionCaches[c]);

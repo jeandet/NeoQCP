@@ -1643,6 +1643,31 @@ void TestPipeline::graph2LineCacheRebuiltOnZoom()
     QVERIFY(graph->mCachedLines != cachedBefore);
 }
 
+void TestPipeline::graph2LineCacheRebuiltOnSmallZoom()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    const int N = 10000;
+    std::vector<double> keys(N), values(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; values[i] = std::sin(i * 0.01); }
+    graph->setDataSource(std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::vector<double>(keys), std::vector<double>(values)));
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto cachedBefore = graph->mCachedLines;
+    QVERIFY(!cachedBefore.isEmpty());
+
+    // Zoom by 0.5% — simulates Wayland smooth scrolling fine zoom step.
+    // Must still trigger cache rebuild (translation-only offset is wrong for zoom).
+    double half = N * 0.5;
+    double shrink = N * 0.0025; // 0.5% of range on each side
+    mPlot->xAxis->setRange(half - (N / 2.0 - shrink), half + (N / 2.0 - shrink));
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    QVERIFY(graph->mCachedLines != cachedBefore);
+}
+
 void TestPipeline::graph2LineCacheInvalidatedOnDataChange()
 {
     auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);

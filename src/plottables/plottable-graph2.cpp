@@ -429,7 +429,6 @@ void QCPGraph2::draw(QCPPainter* painter)
             lines = ds->getLines(cacheBegin, cacheEnd, mKeyAxis.data(), mValueAxis.data());
         }
 
-        // Cache for reuse (but not during export)
         if (!isExportMode)
         {
             mCachedLines = lines;
@@ -437,14 +436,13 @@ void QCPGraph2::draw(QCPPainter* painter)
             mHasRenderedRange = true;
             mLineCacheDirty = false;
             mCachedPlotSize = currentPlotSize;
-            mExtrusionCache.clear(); // Invalidate extruded verts
+            mExtrusionCache.clear();
             gpuOffset = {};
         }
     }
     else
     {
         lines = mCachedLines;
-        // gpuOffset already computed above
     }
 
     if (lines.isEmpty())
@@ -538,7 +536,7 @@ void QCPGraph2::onViewportChanged()
         if (mHasRenderedRange && mKeyAxis)
         {
             double ratio = mKeyAxis->range().size() / mRenderedRange.key.size();
-            if (qAbs(ratio - 1.0) < 0.01)
+            if (qAbs(ratio - 1.0) < 1e-4)
                 mViewportDebounce.start();
         }
     }

@@ -47,7 +47,7 @@ inline LineCacheResult evaluateLineCache(
     {
         double keyRatio = keyAxis->range().size() / renderedKeyRange.size();
         double valRatio = valueAxis->range().size() / renderedValueRange.size();
-        if (qAbs(keyRatio - 1.0) > 0.01 || qAbs(valRatio - 1.0) > 0.01)
+        if (qAbs(keyRatio - 1.0) > 1e-4 || qAbs(valRatio - 1.0) > 1e-4)
             needFresh = true;
     }
 

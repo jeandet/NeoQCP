@@ -110,6 +110,7 @@ private slots:
     void graph2LineCacheRebuiltOnLargePan();
     void graph2LineCacheSurvives75PercentPan();
     void graph2LineCacheRebuiltOnZoom();
+    void graph2LineCacheRebuiltOnSmallZoom();
     void graph2LineCacheInvalidatedOnDataChange();
     void multiGraphLineCacheReusedOnSmallPan();
 
