@@ -126,48 +126,35 @@ int QCPAxisTickerLog::getSubTickCount([[maybe_unused]] double tickStep)
 */
 QVector<double> QCPAxisTickerLog::createTickVector(double tickStep, const QCPRange& range)
 {
-    QVector<double> result;
-    if (range.lower > 0 && range.upper > 0) // positive range
-    {
-        const double baseTickCount = qLn(range.upper / range.lower) * mLogBaseLnInv;
-        if (baseTickCount < 1.6) // if too few log ticks would be visible in axis range, fall back
-                                 // to regular tick vector generation
-            return QCPAxisTicker::createTickVector(tickStep, range);
-        const double exactPowerStep = baseTickCount / double(mTickCount + qcp::kTickCountEpsilon);
-        const double newLogBase = qPow(mLogBase, qMax(int(cleanMantissa(exactPowerStep)), 1));
-        double currentTick = qPow(newLogBase, qFloor(qLn(range.lower) / qLn(newLogBase)));
-        result.append(currentTick);
-        while (currentTick < range.upper
-               && currentTick
-                   > 0) // currentMag might be zero for ranges ~1e-300, just cancel in that case
-        {
-            currentTick *= newLogBase;
-            result.append(currentTick);
-        }
-    }
-    else if (range.lower < 0 && range.upper < 0) // negative range
-    {
-        const double baseTickCount = qLn(range.lower / range.upper) * mLogBaseLnInv;
-        if (baseTickCount < 1.6) // if too few log ticks would be visible in axis range, fall back
-                                 // to regular tick vector generation
-            return QCPAxisTicker::createTickVector(tickStep, range);
-        const double exactPowerStep = baseTickCount / double(mTickCount + qcp::kTickCountEpsilon);
-        const double newLogBase = qPow(mLogBase, qMax(int(cleanMantissa(exactPowerStep)), 1));
-        double currentTick = -qPow(newLogBase, qCeil(qLn(-range.lower) / qLn(newLogBase)));
-        result.append(currentTick);
-        while (currentTick < range.upper
-               && currentTick
-                   < 0) // currentMag might be zero for ranges ~1e-300, just cancel in that case
-        {
-            currentTick /= newLogBase;
-            result.append(currentTick);
-        }
-    }
-    else // invalid range for logarithmic scale, because lower and upper have different sign
+    const bool positive = range.lower > 0 && range.upper > 0;
+    const bool negative = range.lower < 0 && range.upper < 0;
+    if (!positive && !negative)
     {
         qDebug() << Q_FUNC_INFO << "Invalid range for logarithmic plot: " << range.lower << ".."
                  << range.upper;
+        return {};
     }
 
+    const double ratio = positive ? range.upper / range.lower : range.lower / range.upper;
+    const double baseTickCount = qLn(ratio) * mLogBaseLnInv;
+    if (baseTickCount < 1.6)
+        return QCPAxisTicker::createTickVector(tickStep, range);
+
+    const double exactPowerStep = baseTickCount / double(mTickCount + qcp::kTickCountEpsilon);
+    const double newLogBase = qPow(mLogBase, qMax(int(cleanMantissa(exactPowerStep)), 1));
+    const double lnNewLogBase = qLn(newLogBase);
+
+    double currentTick = positive
+        ? qPow(newLogBase, qFloor(qLn(range.lower) / lnNewLogBase))
+        : -qPow(newLogBase, qCeil(qLn(-range.lower) / lnNewLogBase));
+
+    QVector<double> result;
+    result.append(currentTick);
+    // currentTick might reach zero for ranges ~1e-300, guard against infinite loop
+    while (currentTick < range.upper && (positive ? currentTick > 0 : currentTick < 0))
+    {
+        currentTick = positive ? currentTick * newLogBase : currentTick / newLogBase;
+        result.append(currentTick);
+    }
     return result;
 }

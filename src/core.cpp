@@ -1983,26 +1983,12 @@ QCPLayoutElement* QCustomPlot::layoutElementAt(const QPointF& pos) const
 */
 QCPAxisRect* QCustomPlot::axisRectAt(const QPointF& pos) const
 {
-    QCPAxisRect* result = nullptr;
-    QCPLayoutElement* currentElement = mPlotLayout;
-    bool searchSubElements = true;
-    while (searchSubElements && currentElement)
+    for (QCPLayoutElement* el = layoutElementAt(pos); el; el = el->layout())
     {
-        searchSubElements = false;
-        for (QCPLayoutElement* subElement : currentElement->elements(false))
-        {
-            if (subElement && subElement->realVisibility()
-                && subElement->selectTest(pos, false) >= 0)
-            {
-                currentElement = subElement;
-                searchSubElements = true;
-                if (QCPAxisRect* ar = qobject_cast<QCPAxisRect*>(currentElement))
-                    result = ar;
-                break;
-            }
-        }
+        if (auto* ar = qobject_cast<QCPAxisRect*>(el))
+            return ar;
     }
-    return result;
+    return nullptr;
 }
 
 /*!
