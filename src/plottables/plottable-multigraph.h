@@ -139,6 +139,7 @@ protected:
     QCPMultiGraphPipeline mPipeline;
     std::shared_ptr<qcp::algo::MultiGraphResamplerCache> mL1Cache;
     std::shared_ptr<QCPAbstractMultiDataSource> mL2Result;
+    std::shared_ptr<QCPAbstractMultiDataSource> mPreview;
     bool mL2Dirty = false;
     bool mNeedsResampling = false;
     struct { QCPRange key, value; } mRenderedRange {};

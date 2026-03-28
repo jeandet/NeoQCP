@@ -119,6 +119,8 @@ private slots:
     void graph2PreviewUsedDuringPan();
     void graph2PreviewReplacedByL2();
     void graph2PreviewBuiltOnSetData();
+    void multiGraphPreviewUsedDuringPan();
+    void multiGraphPreviewBuiltOnSetData();
 
     // GPU translation fast path
     void graph2TranslationOffsetWhenBusy();

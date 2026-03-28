@@ -95,6 +95,7 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
     mL1Cache.reset();
     mL2Result.reset();
     mL2Dirty = false;
+    mPreview.reset();
     mLineCacheDirty = true;
     mCachedLines.clear();
 
@@ -104,6 +105,7 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
+        mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
     }
     else
     {
@@ -122,7 +124,10 @@ void QCPMultiGraph::dataChanged()
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
+        mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
     }
+    else
+        mPreview.reset();
 
     mL1Cache.reset();
     mL2Result.reset();
@@ -503,18 +508,20 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             rebuildL2(vp);
     }
 
-    // When the async pipeline is active but hasn't delivered results yet,
-    // skip drawing raw data.  Drawing 100K+ points through QPainter is
-    // extremely slow on macOS (Core Graphics), causing multi-second stalls.
-    // The pipeline will trigger a replot when L1 is ready.
-    // Exception: log-scale axes never produce L2 results, so we must not skip.
-    // Exception: export mode (pmNoCaching) must always draw.
-    if (mNeedsResampling && !mL2Result
-        && !painter->modes().testFlag(QCPPainter::pmNoCaching)
-        && mKeyAxis->scaleType() != QCPAxis::stLogarithmic)
+    const QCPAbstractMultiDataSource* ds = nullptr;
+    if (mL2Result)
+        ds = mL2Result.get();
+    else if (mPreview && mNeedsResampling
+             && !painter->modes().testFlag(QCPPainter::pmNoCaching))
+        ds = mPreview.get();
+    else if (!mNeedsResampling || painter->modes().testFlag(QCPPainter::pmNoCaching)
+             || mKeyAxis->scaleType() == QCPAxis::stLogarithmic)
+        ds = mDataSource.get();
+    else
         return;
 
-    const QCPAbstractMultiDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
+    if (!ds || ds->empty())
+        return;
 
     const QCPRange keyRange = mKeyAxis->range();
     int begin = ds->findBegin(keyRange.lower);

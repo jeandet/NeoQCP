@@ -1787,3 +1787,43 @@ void TestPipeline::graph2PreviewBuiltOnSetData()
     mPlot->replot();
     QCoreApplication::processEvents();
 }
+
+void TestPipeline::multiGraphPreviewUsedDuringPan()
+{
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    int N = 200'000;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> cols(3, std::vector<double>(N));
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i;
+        for (int c = 0; c < 3; ++c) cols[c][i] = std::sin(i * 0.001 + c);
+    }
+    mg->setData(std::move(keys), std::move(cols));
+
+    QTRY_VERIFY_WITH_TIMEOUT(!mg->pipeline().isBusy(), 5000);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+
+    mPlot->xAxis->setRange(50000, 150000);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+
+    QVERIFY(mg->hasRenderedRange());
+}
+
+void TestPipeline::multiGraphPreviewBuiltOnSetData()
+{
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    int N = 200'000;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> cols(2, std::vector<double>(N));
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i;
+        cols[0][i] = i; cols[1][i] = -i;
+    }
+    mg->setData(std::move(keys), std::move(cols));
+
+    mPlot->xAxis->setRange(0, N);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+}
