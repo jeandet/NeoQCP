@@ -6,8 +6,10 @@
 #include "datasource/row-major-multi-datasource.h"
 #include "datasource/async-pipeline.h"
 #include "datasource/graph-resampler.h"
+#include "plottable-draw-utils.h"
 #include <memory>
 #include <span>
+#include <QTimer>
 
 struct QCP_LIB_DECL QCPGraphComponent {
     QString name;
@@ -148,6 +150,10 @@ protected:
     QVector<QVector<QPointF>> mCachedLines;
     bool mLineCacheDirty = true;
     QSize mCachedPlotSize;
+    // Per-component cached extruded GPU vertices — avoids re-extrusion on pan
+    QVector<qcp::ExtrusionCache> mExtrusionCaches;
+    // Debounce timer: defers expensive L2 rebuild until panning stops
+    QTimer mViewportDebounce;
 
     void onL1Ready();
     void rebuildL2(const ViewportParams& vp);

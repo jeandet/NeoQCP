@@ -492,7 +492,7 @@ inline std::shared_ptr<QCPAbstractDataSource> buildPreview(
         return nullptr;
 
     int numBins = std::min(kPreviewBins, srcSize / 2);
-    auto bins = binMinMax(src, 0, srcSize, fullKeyRange, numBins);
+    auto bins = binMinMaxParallel(src, 0, srcSize, fullKeyRange, numBins);
 
     std::vector<double> outKeys, outVals;
     outKeys.reserve(bins.keys.size());

@@ -38,6 +38,14 @@ QCPGraph2::QCPGraph2(QCPAxis* keyAxis, QCPAxis* valueAxis)
             this, [this](uint64_t) { onL1Ready(); });
     connect(&mPipeline, &QCPGraphPipeline::busyChanged,
             this, [this](bool) { updateEffectiveBusy(); });
+
+    mViewportDebounce.setSingleShot(true);
+    mViewportDebounce.setInterval(150);
+    connect(&mViewportDebounce, &QTimer::timeout, this, [this] {
+        mLineCacheDirty = true;
+        if (mParentPlot)
+            mParentPlot->replot(QCustomPlot::rpQueuedReplot);
+    });
 }
 
 QCPGraph2::~QCPGraph2() = default;
@@ -80,7 +88,8 @@ void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
     if (mDataSource)
     {
-        mPreview = qcp::algo::buildPreview(*mDataSource);
+        if (mNeedsResampling)
+            mPreview = qcp::algo::buildPreview(*mDataSource);
         ensureL1Transform(mPipeline, mDataSource->size());
     }
     mPipeline.setSource(mDataSource);
@@ -91,13 +100,13 @@ void QCPGraph2::dataChanged()
     mLineCacheDirty = true;
     mCachedLines.clear();
 
-    if (mDataSource)
+    bool wasResampling = mNeedsResampling;
+    mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
+
+    if (mDataSource && mNeedsResampling)
         mPreview = qcp::algo::buildPreview(*mDataSource);
     else
         mPreview.reset();
-
-    bool wasResampling = mNeedsResampling;
-    mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
 
     if (mNeedsResampling && !wasResampling && mDataSource)
         ensureL1Transform(mPipeline, mDataSource->size());
@@ -117,6 +126,7 @@ void QCPGraph2::onL1Ready()
 {
     PROFILE_HERE_N("QCPGraph2::onL1Ready");
     qcp::extractL1Cache<qcp::algo::GraphResamplerCache>(mPipeline.cache(), mL1Cache, mL2Dirty);
+    mLineCacheDirty = true; // Force line rebuild so L2 data is used
     if (parentPlot())
         parentPlot()->replot(QCustomPlot::rpQueuedReplot);
 }
@@ -327,16 +337,19 @@ void QCPGraph2::draw(QCPPainter* painter)
     if (!mKeyAxis || !mValueAxis || !mDataSource)
         return;
 
-    // Lazy L2 rebuild: coalesces all viewport changes since last draw into one rebuild
-    if (mL2Dirty && mL1Cache)
+    // L2 rebuild is deferred until the line cache actually needs refreshing.
+    // During smooth panning, cached pixel-space lines are reused with a GPU offset,
+    // so rebuilding L2 on every viewport change would defeat that optimization.
+
+    // Export path: synchronous fallback when no L2 result yet
+    if (!mL2Result && mNeedsResampling
+        && painter->modes().testFlag(QCPPainter::pmNoCaching))
     {
-        auto* axisRect = mKeyAxis->axisRect();
-        if (axisRect)
-        {
-            rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
-            mLineCacheDirty = true; // L2 data changed → cached pixel-space lines are stale
-        }
-        mL2Dirty = false;
+        auto vp = ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data());
+        mPipeline.runSynchronously(vp);
+        onL1Ready();
+        if (mL1Cache)
+            rebuildL2(vp);
     }
 
     // Data source priority: L2 (viewport-optimized) > preview (full-range low-res) > raw
@@ -383,6 +396,20 @@ void QCPGraph2::draw(QCPPainter* painter)
     QVector<QPointF> lines;
     if (needFreshLines)
     {
+        // During active panning, use preview for fast line rebuild
+        const bool panning = mViewportDebounce.isActive();
+        if (panning && mPreview && mNeedsResampling && !isExportMode)
+        {
+            ds = mPreview.get();
+        }
+        else if (mL2Dirty && mL1Cache && mKeyAxis->axisRect())
+        {
+            rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
+            mL2Dirty = false;
+            if (mL2Result)
+                ds = mL2Result.get();
+        }
+
         // Expand data range by 100% on each side so GPU-translated pans
         // don't expose uncovered edges before the rebuild threshold triggers.
         const double margin = keyRange.size() * 1.0;
@@ -410,6 +437,7 @@ void QCPGraph2::draw(QCPPainter* painter)
             mHasRenderedRange = true;
             mLineCacheDirty = false;
             mCachedPlotSize = currentPlotSize;
+            mExtrusionCache.clear(); // Invalidate extruded verts
             gpuOffset = {};
         }
     }
@@ -427,8 +455,14 @@ void QCPGraph2::draw(QCPPainter* painter)
     {
         auto drawPoly = [&](const QVector<QPointF>& pts) {
             applyDefaultAntialiasingHint(painter);
-            qcp::drawPolylineWithGpuFallback(painter, mParentPlot, mLayer, pts,
-                                              mPen, gpuOffset, clipRect());
+            if (!isExportMode) {
+                qcp::drawPolylineCached(painter, mParentPlot, mLayer, pts,
+                                         mPen, gpuOffset, clipRect(),
+                                         needFreshLines, mExtrusionCache);
+            } else {
+                qcp::drawPolylineWithGpuFallback(painter, mParentPlot, mLayer, pts,
+                                                  mPen, gpuOffset, clipRect());
+            }
         };
 
         switch (mLineStyle)
@@ -496,8 +530,16 @@ void QCPGraph2::drawLegendIcon(QCPPainter* painter, const QRectF& rect) const
 
 void QCPGraph2::onViewportChanged()
 {
-    // Just mark L2 as needing rebuild — actual rebuild happens lazily in draw()
-    // to coalesce multiple rangeChanged signals per frame (pan fires many mouse moves)
     if (mL1Cache)
+    {
         mL2Dirty = true;
+        // Only debounce pure translations (panning). Zoom changes need
+        // immediate L2 rebuild because the cached lines are at wrong scale.
+        if (mHasRenderedRange && mKeyAxis)
+        {
+            double ratio = mKeyAxis->range().size() / mRenderedRange.key.size();
+            if (qAbs(ratio - 1.0) < 0.01)
+                mViewportDebounce.start();
+        }
+    }
 }

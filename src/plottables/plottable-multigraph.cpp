@@ -57,6 +57,14 @@ QCPMultiGraph::QCPMultiGraph(QCPAxis* keyAxis, QCPAxis* valueAxis)
             this, [this](uint64_t) { onL1Ready(); });
     connect(&mPipeline, &QCPMultiGraphPipeline::busyChanged,
             this, [this](bool) { updateEffectiveBusy(); });
+
+    mViewportDebounce.setSingleShot(true);
+    mViewportDebounce.setInterval(150);
+    connect(&mViewportDebounce, &QTimer::timeout, this, [this] {
+        mLineCacheDirty = true;
+        if (mParentPlot)
+            mParentPlot->replot(QCustomPlot::rpQueuedReplot);
+    });
 }
 
 QCPMultiGraph::~QCPMultiGraph() = default;
@@ -105,7 +113,8 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
-        mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
+        if (mNeedsResampling)
+            mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
     }
     else
     {
@@ -124,7 +133,8 @@ void QCPMultiGraph::dataChanged()
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
-        mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
+        if (mNeedsResampling)
+            mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
     }
     else
         mPreview.reset();
@@ -142,6 +152,7 @@ void QCPMultiGraph::dataChanged()
 void QCPMultiGraph::onL1Ready()
 {
     qcp::extractL1Cache<qcp::algo::MultiGraphResamplerCache>(mPipeline.cache(), mL1Cache, mL2Dirty);
+    mLineCacheDirty = true; // Force line rebuild so L2 data is used
     if (parentPlot())
         parentPlot()->replot(QCustomPlot::rpQueuedReplot);
 }
@@ -155,7 +166,15 @@ void QCPMultiGraph::rebuildL2(const ViewportParams& vp)
 void QCPMultiGraph::onViewportChanged()
 {
     if (mL1Cache)
+    {
         mL2Dirty = true;
+        if (mHasRenderedRange && mKeyAxis)
+        {
+            double ratio = mKeyAxis->range().size() / mRenderedRange.key.size();
+            if (qAbs(ratio - 1.0) < 0.01)
+                mViewportDebounce.start();
+        }
+    }
 }
 
 void QCPMultiGraph::syncComponentCount()
@@ -486,16 +505,9 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     if (mKeyAxis->range().size() <= 0)
         return;
 
-    // Lazy L2 rebuild from L1 cache
-    if (mL2Dirty && mL1Cache)
-    {
-        if (mKeyAxis->axisRect())
-        {
-            rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
-            mLineCacheDirty = true; // L2 data changed → cached pixel-space lines are stale
-        }
-        mL2Dirty = false;
-    }
+    // Lazy L2 rebuild — deferred until the line cache actually needs refreshing.
+    // During smooth panning, cached pixel-space lines are reused with a GPU offset,
+    // so rebuilding L2 on every viewport change would defeat that optimization.
 
     // Export path: synchronous fallback when no L2 result yet
     if (!mL2Result && mNeedsResampling
@@ -549,6 +561,22 @@ void QCPMultiGraph::draw(QCPPainter* painter)
 
     if (needFreshLines)
     {
+        // During active panning (debounce timer running), use preview for fast
+        // line rebuild instead of the expensive L2 rebuild path.  The debounce
+        // timer will trigger a proper L2 rebuild once panning stops.
+        const bool panning = mViewportDebounce.isActive();
+        if (panning && mPreview && mNeedsResampling && !isExportMode)
+        {
+            ds = mPreview.get();
+        }
+        else if (mL2Dirty && mL1Cache && mKeyAxis->axisRect())
+        {
+            rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
+            mL2Dirty = false;
+            if (mL2Result)
+                ds = mL2Result.get();
+        }
+
         // Expand data range by 100% on each side so GPU-translated pans
         // don't expose uncovered edges before the rebuild threshold triggers.
         const double margin = keyRange.size() * 1.0;
@@ -571,6 +599,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
             mHasRenderedRange = true;
             mLineCacheDirty = false;
             mCachedPlotSize = currentPlotSize;
+            mExtrusionCaches.clear(); // Invalidate extruded verts
             gpuOffset = {};
         }
     }
@@ -584,19 +613,18 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         const QVector<QPointF>& dataLines = linesTarget[c];
         if (dataLines.isEmpty()) continue;
 
-        // Apply line style transform (creates new vector; dataLines stays original)
-        QVector<QPointF> lines;
+        // Apply line style transform if needed; for lsLine just reference cached data
+        QVector<QPointF> styledLines;
         if (mLineStyle != lsNone && mLineStyle != lsLine) {
             switch (mLineStyle) {
-                case lsStepLeft:   lines = qcp::toStepLeftLines(dataLines, keyIsVertical); break;
-                case lsStepRight:  lines = qcp::toStepRightLines(dataLines, keyIsVertical); break;
-                case lsStepCenter: lines = qcp::toStepCenterLines(dataLines, keyIsVertical); break;
-                case lsImpulse:    lines = qcp::toImpulseLines(dataLines, keyIsVertical, mValueAxis->coordToPixel(0)); break;
-                default: lines = dataLines; break;
+                case lsStepLeft:   styledLines = qcp::toStepLeftLines(dataLines, keyIsVertical); break;
+                case lsStepRight:  styledLines = qcp::toStepRightLines(dataLines, keyIsVertical); break;
+                case lsStepCenter: styledLines = qcp::toStepCenterLines(dataLines, keyIsVertical); break;
+                case lsImpulse:    styledLines = qcp::toImpulseLines(dataLines, keyIsVertical, mValueAxis->coordToPixel(0)); break;
+                default: break;
             }
-        } else {
-            lines = dataLines;
         }
+        const QVector<QPointF>& lines = styledLines.isEmpty() ? dataLines : styledLines;
 
         // Draw lines
         if (mLineStyle != lsNone) {
@@ -609,8 +637,15 @@ void QCPMultiGraph::draw(QCPPainter* painter)
                 painter->drawLines(lines);
             } else {
                 applyDefaultAntialiasingHint(painter);
-                qcp::drawPolylineWithGpuFallback(painter, mParentPlot, mLayer, lines,
-                                                  activePen, gpuOffset, clipRect());
+                if (!isExportMode) {
+                    mExtrusionCaches.resize(mComponents.size());
+                    qcp::drawPolylineCached(painter, mParentPlot, mLayer, lines,
+                                             activePen, gpuOffset, clipRect(),
+                                             needFreshLines, mExtrusionCaches[c]);
+                } else {
+                    qcp::drawPolylineWithGpuFallback(painter, mParentPlot, mLayer, lines,
+                                                      activePen, gpuOffset, clipRect());
+                }
             }
         }
 

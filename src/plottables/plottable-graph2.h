@@ -5,8 +5,10 @@
 #include "datasource/soa-datasource.h"
 #include "datasource/async-pipeline.h"
 #include "datasource/graph-resampler.h"
+#include "plottable-draw-utils.h"
 #include <memory>
 #include <span>
+#include <QTimer>
 
 class QCP_LIB_DECL QCPGraph2 : public QCPAbstractPlottable, public QCPPlottableInterface1D {
     Q_OBJECT
@@ -132,6 +134,10 @@ private:
     QVector<QPointF> mCachedLines;
     bool mLineCacheDirty = true;
     QSize mCachedPlotSize;
+    // Cached extruded GPU vertices — avoids re-extrusion on pan
+    qcp::ExtrusionCache mExtrusionCache;
+    // Debounce timer: defers expensive L2 rebuild until panning stops
+    QTimer mViewportDebounce;
 
     void onL1Ready();
     void rebuildL2(const ViewportParams& vp);

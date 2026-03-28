@@ -197,7 +197,7 @@ inline std::shared_ptr<QCPResampledMultiDataSource> buildPreviewMulti(
         return nullptr;
 
     int numBins = std::min(kPreviewBins, srcSize / 2);
-    auto bins = binMinMaxMulti(src, 0, srcSize, fullKeyRange, numBins);
+    auto bins = binMinMaxMultiParallel(src, 0, srcSize, fullKeyRange, numBins);
 
     int stride = static_cast<int>(bins.keys.size());
     std::vector<bool> keep(stride, false);
