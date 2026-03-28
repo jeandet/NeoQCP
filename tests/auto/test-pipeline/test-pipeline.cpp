@@ -19,6 +19,23 @@
 #include <cmath>
 #include <limits>
 
+namespace {
+// Combined L1+L2 helper — used only by tests below.
+std::shared_ptr<QCPAbstractDataSource> hierarchicalResample(
+    const QCPAbstractDataSource& src,
+    const ViewportParams& vp,
+    std::any& cache)
+{
+    const int srcSize = src.size();
+    if (srcSize == 0 || srcSize < qcp::algo::kResampleThreshold || vp.keyLogScale)
+        return nullptr;
+    qcp::algo::buildL1Cache(src, vp, cache);
+    auto* c = std::any_cast<qcp::algo::GraphResamplerCache>(&cache);
+    if (!c) return nullptr;
+    return qcp::algo::resampleL2(*c, vp);
+}
+} // namespace
+
 void TestPipeline::init()
 {
     mPlot = new QCustomPlot();
@@ -632,7 +649,7 @@ void TestPipeline::graphResamplerCacheReuse()
     vp.keyRange = QCPRange(0, N - 1);
     vp.plotWidthPx = 800;
 
-    auto result1 = qcp::algo::hierarchicalResample(*src, vp, cache);
+    auto result1 = hierarchicalResample(*src, vp, cache);
     QVERIFY(!result1); // below threshold, no cache built
 
     // Exercise binMinMax and GraphResamplerCache directly
@@ -791,7 +808,7 @@ void TestPipeline::graph2LargeToSmallDataFallback()
         [](const QCPAbstractDataSource& src,
            const ViewportParams& vp,
            std::any& cache) -> std::shared_ptr<QCPAbstractDataSource> {
-            return qcp::algo::hierarchicalResample(src, vp, cache);
+            return hierarchicalResample(src, vp, cache);
         });
     QVERIFY(g->pipeline().hasTransform());
 

@@ -485,23 +485,6 @@ inline std::shared_ptr<QCPAbstractMultiDataSource> buildL1CacheMulti(
     return nullptr;
 }
 
-// Legacy combined function (kept for tests) — delegates to the two-phase functions.
-inline std::shared_ptr<QCPAbstractDataSource> hierarchicalResample(
-    const QCPAbstractDataSource& src,
-    const ViewportParams& vp,
-    std::any& cache)
-{
-    PROFILE_HERE_N("hierarchicalResample");
-    const int srcSize = src.size();
-    if (srcSize == 0 || srcSize < kResampleThreshold || vp.keyLogScale)
-        return nullptr;
-
-    buildL1Cache(src, vp, cache);
-    auto* c = std::any_cast<GraphResamplerCache>(&cache);
-    if (!c) return nullptr;
-    return resampleL2(*c, vp);
-}
-
 inline std::shared_ptr<QCPAbstractDataSource> buildPreview(
     const QCPAbstractDataSource& src)
 {
