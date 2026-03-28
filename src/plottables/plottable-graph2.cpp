@@ -28,8 +28,6 @@ QCPGraph2::QCPGraph2(QCPAxis* keyAxis, QCPAxis* valueAxis)
     }
     if (valueAxis)
     {
-        connect(valueAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged),
-                this, &QCPGraph2::onViewportChanged);
         connect(valueAxis, &QCPAxis::scaleTypeChanged,
                 this, [this] { mLineCacheDirty = true; mCachedLines.clear(); });
     }
