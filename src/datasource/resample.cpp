@@ -86,10 +86,8 @@ QCPColorMapData* resample(
 
     auto* data = new QCPColorMapData(nx, ny, {xAxis.front(), xAxis.back()},
                                               {yAxis.front(), yAxis.back()});
-    for (int i = 0; i < nx; ++i)
-        for (int j = 0; j < ny; ++j)
-            data->setCell(i, j, 0.0);
 
+    std::vector<double> accum(nx * ny, 0.0);
     std::vector<uint32_t> counts(nx * ny, 0);
 
     // Extend the source range by 1 on each side as context for gap detection
@@ -209,8 +207,9 @@ QCPColorMapData* resample(
             for (int xb = xBinLo; xb <= xBinHi; ++xb)
                 for (int yb = yLo; yb <= yHi; ++yb)
                 {
-                    data->setCell(xb, yb, data->cell(xb, yb) + zVal);
-                    counts[xb * ny + yb] += 1;
+                    int idx = xb * ny + yb;
+                    accum[idx] += zVal;
+                    counts[idx] += 1;
                 }
         }
     }
@@ -219,11 +218,9 @@ QCPColorMapData* resample(
     {
         for (int j = 0; j < ny; ++j)
         {
-            uint32_t c = counts[i * ny + j];
-            if (c > 0)
-                data->setCell(i, j, data->cell(i, j) / c);
-            else
-                data->setCell(i, j, std::nan(""));
+            int idx = i * ny + j;
+            data->setCell(i, j, counts[idx] > 0 ? accum[idx] / counts[idx]
+                                                 : std::nan(""));
         }
     }
 

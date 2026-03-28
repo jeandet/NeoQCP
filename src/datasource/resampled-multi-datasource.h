@@ -130,56 +130,64 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
         l2.keys[b * 2 + 1] = binCenter + halfWidth;
     }
 
-    for (int i = l1Begin; i < l1End; ++i)
+    // Pre-compute bin indices (keys shared across columns)
+    int l1Count = l1End - l1Begin;
+    std::vector<int> binIdx(l1Count);
+    for (int i = 0; i < l1Count; ++i)
     {
-        double k = l1.keys[i];
-        int bin = static_cast<int>((k - keyLo) / binWidth);
-        bin = std::clamp(bin, 0, l2Bins - 1);
+        double k = l1.keys[l1Begin + i];
+        binIdx[i] = std::clamp(static_cast<int>((k - keyLo) / binWidth), 0, l2Bins - 1);
+    }
 
-        for (int c = 0; c < N; ++c)
+    // Outer loop over columns for cache-friendly output access
+    for (int c = 0; c < N; ++c)
+    {
+        const double* colIn = l1.values.data() + c * l1Stride;
+        double* colOut = l2.values.data() + c * l2Stride;
+        for (int i = 0; i < l1Count; ++i)
         {
-            double v = l1.values[c * l1Stride + i];
+            double v = colIn[l1Begin + i];
             if (std::isnan(v)) continue;
 
-            double& mn = l2.values[c * l2Stride + bin * 2 + 0];
-            double& mx = l2.values[c * l2Stride + bin * 2 + 1];
+            int bin = binIdx[i];
+            double& mn = colOut[bin * 2 + 0];
+            double& mx = colOut[bin * 2 + 1];
             if (std::isnan(mn) || v < mn) mn = v;
             if (std::isnan(mx) || v > mx) mx = v;
         }
     }
 
-    MultiColumnBinResult out;
-    out.numColumns = N;
-    std::vector<bool> keep(l2Stride, false);
+    // Compact in-place: move non-empty entries to the front of l2
+    int outSize = 0;
     for (int i = 0; i < l2Stride; ++i)
     {
+        bool hasData = false;
         for (int c = 0; c < N; ++c)
         {
             if (!std::isnan(l2.values[c * l2Stride + i]))
             {
-                keep[i] = true;
+                hasData = true;
                 break;
             }
         }
-    }
+        if (!hasData) continue;
 
-    int outSize = 0;
-    for (bool k : keep) outSize += k;
+        l2.keys[outSize] = l2.keys[i];
+        for (int c = 0; c < N; ++c)
+            l2.values[c * l2Stride + outSize] = l2.values[c * l2Stride + i];
+        ++outSize;
+    }
     if (outSize == 0) return nullptr;
 
-    out.keys.reserve(outSize);
-    out.values.resize(N * outSize);
-    int idx = 0;
-    for (int i = 0; i < l2Stride; ++i)
-    {
-        if (!keep[i]) continue;
-        out.keys.push_back(l2.keys[i]);
-        for (int c = 0; c < N; ++c)
-            out.values[c * outSize + idx] = l2.values[c * l2Stride + i];
-        ++idx;
-    }
+    l2.keys.resize(outSize);
+    // Compact column data: shift each column's data to final stride.
+    // dest (c*outSize) <= source (c*l2Stride) for all c, so forward copy is safe.
+    for (int c = 1; c < N; ++c)
+        for (int i = 0; i < outSize; ++i)
+            l2.values[c * outSize + i] = l2.values[c * l2Stride + i];
+    l2.values.resize(N * outSize);
 
-    return std::make_shared<QCPResampledMultiDataSource>(std::move(out));
+    return std::make_shared<QCPResampledMultiDataSource>(std::move(l2));
 }
 
 inline std::shared_ptr<QCPResampledMultiDataSource> buildPreviewMulti(

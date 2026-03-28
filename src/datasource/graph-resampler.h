@@ -250,21 +250,31 @@ inline MultiColumnBinResult binMinMaxMulti(
         out.keys[b * 2 + 1] = binCenter + halfWidth;
     }
 
+    // Pre-compute bin indices for all source points (keys are shared across columns)
+    std::vector<int> bins(end - begin);
+    int validCount = 0;
     for (int i = begin; i < end; ++i)
     {
         double k = src.keyAt(i);
-        if (!std::isfinite(k)) continue;
+        if (!std::isfinite(k)) { bins[i - begin] = -1; continue; }
+        bins[i - begin] = std::clamp(static_cast<int>((k - keyLo) / binWidth), 0, numBins - 1);
+        ++validCount;
+    }
+    if (validCount == 0) return out;
 
-        int bin = static_cast<int>((k - keyLo) / binWidth);
-        bin = std::clamp(bin, 0, numBins - 1);
-
-        for (int c = 0; c < N; ++c)
+    // Outer loop over columns: each column's output region is contiguous in memory
+    for (int c = 0; c < N; ++c)
+    {
+        double* colOut = out.values.data() + c * s;
+        for (int i = begin; i < end; ++i)
         {
+            int bin = bins[i - begin];
+            if (bin < 0) continue;
             double v = src.valueAt(c, i);
             if (std::isnan(v)) continue;
 
-            double& mn = out.values[c * s + bin * 2 + 0];
-            double& mx = out.values[c * s + bin * 2 + 1];
+            double& mn = colOut[bin * 2 + 0];
+            double& mx = colOut[bin * 2 + 1];
             if (std::isnan(mn) || v < mn) mn = v;
             if (std::isnan(mx) || v > mx) mx = v;
         }
@@ -309,21 +319,28 @@ inline MultiColumnBinResult binMinMaxMultiParallel(
     threadCount = std::min(threadCount, numBins);
 
     auto worker = [&](int srcBegin, int srcEnd, int binBegin, int binEnd) {
-        for (int i = srcBegin; i < srcEnd; ++i)
+        // Pre-compute bin indices for this chunk
+        int count = srcEnd - srcBegin;
+        std::vector<int> bins(count);
+        for (int i = 0; i < count; ++i)
         {
-            double k = src.keyAt(i);
-            if (!std::isfinite(k)) continue;
+            double k = src.keyAt(srcBegin + i);
+            if (!std::isfinite(k)) { bins[i] = -1; continue; }
+            bins[i] = std::clamp(static_cast<int>((k - keyLo) / binWidth), binBegin, binEnd - 1);
+        }
 
-            int bin = static_cast<int>((k - keyLo) / binWidth);
-            bin = std::clamp(bin, binBegin, binEnd - 1);
-
-            for (int c = 0; c < N; ++c)
+        for (int c = 0; c < N; ++c)
+        {
+            double* colOut = out.values.data() + c * s;
+            for (int i = 0; i < count; ++i)
             {
-                double v = src.valueAt(c, i);
+                int bin = bins[i];
+                if (bin < 0) continue;
+                double v = src.valueAt(c, srcBegin + i);
                 if (std::isnan(v)) continue;
 
-                double& mn = out.values[c * s + bin * 2 + 0];
-                double& mx = out.values[c * s + bin * 2 + 1];
+                double& mn = colOut[bin * 2 + 0];
+                double& mx = colOut[bin * 2 + 1];
                 if (std::isnan(mn) || v < mn) mn = v;
                 if (std::isnan(mx) || v > mx) mx = v;
             }
@@ -384,7 +401,7 @@ inline std::shared_ptr<QCPAbstractDataSource> buildL1Cache(
     QCPRange fullKeyRange = src.keyRange(foundRange);
     if (!foundRange || fullKeyRange.size() <= 0)
         return nullptr;
-    int numBins = std::min(kLevel1TargetBins, srcSize / 2);
+    int numBins = std::min(kLevel1TargetBins, srcSize / 10);
 
     GraphResamplerCache newCache;
     newCache.level1 = binMinMaxParallel(src, 0, srcSize, fullKeyRange, numBins);
@@ -457,7 +474,7 @@ inline std::shared_ptr<QCPAbstractMultiDataSource> buildL1CacheMulti(
     QCPRange fullKeyRange = src.keyRange(foundRange);
     if (!foundRange || fullKeyRange.size() <= 0)
         return nullptr;
-    int numBins = std::min(kLevel1TargetBins, srcSize / 2);
+    int numBins = std::min(kLevel1TargetBins, srcSize / 10);
 
     MultiGraphResamplerCache newCache;
     newCache.level1 = binMinMaxMultiParallel(src, 0, srcSize, fullKeyRange, numBins);
