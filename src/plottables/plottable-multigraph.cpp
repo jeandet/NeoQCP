@@ -549,9 +549,9 @@ void QCPMultiGraph::draw(QCPPainter* painter)
 
     if (needFreshLines)
     {
-        // Expand data range by 50% on each side so GPU-translated pans
+        // Expand data range by 100% on each side so GPU-translated pans
         // don't expose uncovered edges before the rebuild threshold triggers.
-        const double margin = keyRange.size() * 0.5;
+        const double margin = keyRange.size() * 1.0;
         int cacheBegin = ds->findBegin(keyRange.lower - margin);
         int cacheEnd = ds->findEnd(keyRange.upper + margin);
 

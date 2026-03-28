@@ -1594,13 +1594,30 @@ void TestPipeline::graph2LineCacheRebuiltOnLargePan()
     auto cachedBefore = graph->mCachedLines;
     QVERIFY(!cachedBefore.isEmpty());
 
-    // Large pan: shift by 60% — should trigger rebuild
-    double shift = N * 0.6;
+    // Large pan: shift by 110% — should trigger rebuild (threshold is now 100%)
+    double shift = N * 1.1;
     mPlot->xAxis->setRange(shift, N + shift);
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
 
     // Cache should have been rebuilt (different data)
     QVERIFY(graph->mCachedLines != cachedBefore);
+}
+
+void TestPipeline::graph2LineCacheSurvives75PercentPan()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    std::vector<double> keys(500), vals(500);
+    for (int i = 0; i < 500; ++i) { keys[i] = i; vals[i] = i; }
+    graph->setData(std::move(keys), std::move(vals));
+
+    mPlot->xAxis->setRange(0, 100);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+    QVERIFY(graph->hasRenderedRange());
+
+    // Pan 75% of axis range — now survives with 100% threshold
+    mPlot->xAxis->setRange(75, 175);
+    QPointF offset = graph->stallPixelOffset();
+    QVERIFY(!offset.isNull());
 }
 
 void TestPipeline::graph2LineCacheRebuiltOnZoom()

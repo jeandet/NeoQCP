@@ -108,6 +108,7 @@ private slots:
     // Line caching
     void graph2LineCacheReusedOnSmallPan();
     void graph2LineCacheRebuiltOnLargePan();
+    void graph2LineCacheSurvives75PercentPan();
     void graph2LineCacheRebuiltOnZoom();
     void graph2LineCacheInvalidatedOnDataChange();
     void multiGraphLineCacheReusedOnSmallPan();

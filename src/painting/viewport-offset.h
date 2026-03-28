@@ -65,7 +65,7 @@ inline LineCacheResult evaluateLineCache(
             : keyAxis->axisRect()->height();
         const double keyOff = qAbs(keyIsVertical ? gpuOffset.y() : gpuOffset.x());
         const double valOff = qAbs(keyIsVertical ? gpuOffset.x() : gpuOffset.y());
-        if (keyOff > keyDim * 0.5 || valOff > valDim * 0.5)
+        if (keyOff > keyDim * 1.0 || valOff > valDim * 1.0)
             needFresh = true;
     }
 
