@@ -217,3 +217,85 @@ void TestPaintBuffer::replotOnFirstShow_tabWidget()
             colors.insert(img.pixel(x, y));
     QVERIFY2(colors.size() > 1, "toPixmap produced a blank/uniform image");
 }
+
+void TestPaintBuffer::skipRepaint_graph2PanOnly()
+{
+    auto* graph2 = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    std::vector<double> keys = {1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector<double> vals = {1.0, 4.0, 2.0, 5.0, 3.0};
+    graph2->setData(std::move(keys), std::move(vals));
+    mPlot->xAxis->setRange(0, 6);
+    mPlot->yAxis->setRange(0, 6);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    mPlot->xAxis->setRange(0.5, 6.5);
+    auto* axisRect = mPlot->axisRect();
+    axisRect->markAffectedLayersDirty();
+
+    QCPLayer* mainLayer = mPlot->layer("main");
+    QVERIFY(mainLayer);
+
+    auto mainBuf = mainLayer->mPaintBuffer.toStrongRef();
+    QVERIFY(mainBuf);
+    QVERIFY(mainBuf->contentDirty());
+
+    QVERIFY(mainLayer->canSkipRepaintForTranslation());
+}
+
+void TestPaintBuffer::skipRepaint_disabledWithItems()
+{
+    auto* graph2 = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    std::vector<double> keys = {1.0, 2.0, 3.0};
+    std::vector<double> vals = {1.0, 4.0, 2.0};
+    graph2->setData(std::move(keys), std::move(vals));
+
+    auto* line = new QCPItemLine(mPlot);
+    line->start->setCoords(1, 1);
+    line->end->setCoords(3, 3);
+
+    mPlot->xAxis->setRange(0, 6);
+    mPlot->yAxis->setRange(0, 6);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    mPlot->xAxis->setRange(0.5, 6.5);
+    mPlot->axisRect()->markAffectedLayersDirty();
+
+    QCPLayer* mainLayer = mPlot->layer("main");
+    QVERIFY(!mainLayer->canSkipRepaintForTranslation());
+}
+
+void TestPaintBuffer::skipRepaint_disabledWithLegacyGraph()
+{
+    auto* graph = mPlot->addGraph();
+    graph->setData({1.0, 2.0, 3.0}, {1.0, 4.0, 2.0});
+    mPlot->xAxis->setRange(0, 6);
+    mPlot->yAxis->setRange(0, 6);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    mPlot->xAxis->setRange(0.5, 6.5);
+    mPlot->axisRect()->markAffectedLayersDirty();
+
+    QCPLayer* mainLayer = mPlot->layer("main");
+    QVERIFY(!mainLayer->canSkipRepaintForTranslation());
+}
+
+void TestPaintBuffer::skipRepaint_disabledOnInvalidation()
+{
+    auto* graph2 = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+    std::vector<double> keys = {1.0, 2.0, 3.0};
+    std::vector<double> vals = {1.0, 4.0, 2.0};
+    graph2->setData(std::move(keys), std::move(vals));
+    mPlot->xAxis->setRange(0, 6);
+    mPlot->yAxis->setRange(0, 6);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto mainBuf = mPlot->layer("main")->mPaintBuffer.toStrongRef();
+    QVERIFY(mainBuf);
+    mainBuf->setInvalidated(true);
+
+    mPlot->xAxis->setRange(0.5, 6.5);
+    mPlot->axisRect()->markAffectedLayersDirty();
+
+    QCPLayer* mainLayer = mPlot->layer("main");
+    QVERIFY(!mainLayer->canSkipRepaintForTranslation());
+}

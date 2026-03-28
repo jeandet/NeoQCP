@@ -179,6 +179,7 @@ private:
     Q_DISABLE_COPY(QCPAxisRect)
 
     friend class QCustomPlot;
+    friend class TestPaintBuffer;
 };
 
 

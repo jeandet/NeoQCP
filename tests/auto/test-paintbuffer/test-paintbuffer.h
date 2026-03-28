@@ -21,6 +21,11 @@ private slots:
     void replotAndExport_smokeTest();
     void replotOnFirstShow_tabWidget();
 
+    void skipRepaint_graph2PanOnly();
+    void skipRepaint_disabledWithItems();
+    void skipRepaint_disabledWithLegacyGraph();
+    void skipRepaint_disabledOnInvalidation();
+
 private:
     QCustomPlot* mPlot;
 };

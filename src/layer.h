@@ -83,6 +83,7 @@ public:
     [[nodiscard]] LayerMode mode() const { return mMode; }
 
     [[nodiscard]] QPointF pixelOffset() const;
+    [[nodiscard]] bool canSkipRepaintForTranslation() const;
 
     // setters:
     void setVisible(bool visible);

@@ -29,6 +29,7 @@
 
 #include "core.h"
 #include "painting/painter.h"
+#include "items/item.h"
 #include "plottables/plottable.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -362,6 +363,23 @@ QPointF QCPLayer::pixelOffset() const
         }
     }
     return result;
+}
+
+bool QCPLayer::canSkipRepaintForTranslation() const
+{
+    auto pb = mPaintBuffer.toStrongRef();
+    if (!pb || pb->invalidated())
+        return false;
+
+    if (pixelOffset().isNull())
+        return false;
+
+    for (auto* child : mChildren)
+    {
+        if (qobject_cast<QCPAbstractItem*>(child))
+            return false;
+    }
+    return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
