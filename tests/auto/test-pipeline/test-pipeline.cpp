@@ -13,6 +13,7 @@
 #include <datasource/histogram-binner.h>
 #include <plottables/plottable-histogram2d.h>
 #include <plottables/plottable-multigraph.h>
+#include <plottables/plottable-waterfall.h>
 #include <QSignalSpy>
 #include <QThread>
 #include <cmath>
@@ -1843,4 +1844,70 @@ void TestPipeline::multiGraphPreviewBuiltOnSetData()
     mPlot->xAxis->setRange(0, N);
     mPlot->replot();
     QCoreApplication::processEvents();
+}
+
+void TestPipeline::waterfallPreviewInherited()
+{
+    auto* wf = new QCPWaterfallGraph(mPlot->xAxis, mPlot->yAxis);
+    int N = 200'000;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> cols(3, std::vector<double>(N));
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i;
+        for (int c = 0; c < 3; ++c) cols[c][i] = std::sin(i * 0.001 + c);
+    }
+    wf->setData(std::move(keys), std::move(cols));
+
+    mPlot->xAxis->setRange(0, N);
+    mPlot->replot();
+    QCoreApplication::processEvents();
+    // No crash = pass — preview inherited from QCPMultiGraph
+}
+
+void TestPipeline::graph2FastPanNeverBlank()
+{
+    auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
+
+    int N = 500'000;
+    std::vector<double> keys(N), vals(N);
+    for (int i = 0; i < N; ++i) { keys[i] = i; vals[i] = std::sin(i * 0.0001); }
+    graph->setData(std::move(keys), std::move(vals));
+
+    mPlot->xAxis->setRange(0, 100000);
+    mPlot->yAxis->setRange(-1.5, 1.5);
+
+    for (int p = 0; p < 20; ++p)
+    {
+        double lo = mPlot->xAxis->range().lower + 30000;
+        mPlot->xAxis->setRange(lo, lo + 100000);
+        mPlot->replot();
+        QCoreApplication::processEvents();
+        QVERIFY(graph->hasRenderedRange());
+    }
+}
+
+void TestPipeline::multiGraphFastPanNeverBlank()
+{
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+
+    int N = 500'000;
+    std::vector<double> keys(N);
+    std::vector<std::vector<double>> cols(2, std::vector<double>(N));
+    for (int i = 0; i < N; ++i) {
+        keys[i] = i;
+        cols[0][i] = std::sin(i * 0.0001);
+        cols[1][i] = std::cos(i * 0.0001);
+    }
+    mg->setData(std::move(keys), std::move(cols));
+
+    mPlot->xAxis->setRange(0, 100000);
+
+    for (int p = 0; p < 20; ++p)
+    {
+        double lo = mPlot->xAxis->range().lower + 30000;
+        mPlot->xAxis->setRange(lo, lo + 100000);
+        mPlot->replot();
+        QCoreApplication::processEvents();
+        QVERIFY(mg->hasRenderedRange());
+    }
 }

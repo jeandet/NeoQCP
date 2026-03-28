@@ -113,6 +113,13 @@ private slots:
     void graph2LineCacheInvalidatedOnDataChange();
     void multiGraphLineCacheReusedOnSmallPan();
 
+    // Waterfall preview inheritance
+    void waterfallPreviewInherited();
+
+    // End-to-end fast pan
+    void graph2FastPanNeverBlank();
+    void multiGraphFastPanNeverBlank();
+
     // Preview buffer
     void previewBuilderProduces10kPoints();
     void previewBuilderMultiProduces10kPoints();
