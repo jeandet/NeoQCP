@@ -79,17 +79,12 @@ void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
     mDataSource = std::move(source);
     mL1Cache.reset();
     mL2Result.reset();
-    mPreview.reset();
     mLineCacheDirty = true;
     mCachedLines.clear();
     mL2Dirty = false;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
     if (mDataSource)
-    {
-        if (mNeedsResampling)
-            mPreview = qcp::algo::buildPreview(*mDataSource);
         ensureL1Transform(mPipeline, mDataSource->size());
-    }
     mPipeline.setSource(mDataSource);
 }
 
@@ -100,11 +95,6 @@ void QCPGraph2::dataChanged()
 
     bool wasResampling = mNeedsResampling;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
-
-    if (mDataSource && mNeedsResampling)
-        mPreview = qcp::algo::buildPreview(*mDataSource);
-    else
-        mPreview.reset();
 
     // Update the L1 transform when crossing the resampling threshold in either direction
     if (mNeedsResampling != wasResampling)
@@ -369,18 +359,15 @@ void QCPGraph2::draw(QCPPainter* painter)
             rebuildL2(vp);
     }
 
-    // Data source priority: L2 (viewport-optimized) > preview (full-range low-res) > raw
+    // Data source priority: L2 (viewport-optimized) > raw
     const QCPAbstractDataSource* ds = nullptr;
     if (mL2Result)
         ds = mL2Result.get();
-    else if (mPreview && mNeedsResampling
-             && !painter->modes().testFlag(QCPPainter::pmNoCaching))
-        ds = mPreview.get();
     else if (!mNeedsResampling || painter->modes().testFlag(QCPPainter::pmNoCaching)
              || mKeyAxis->scaleType() == QCPAxis::stLogarithmic)
         ds = mDataSource.get();
     else
-        return; // Pipeline active, no preview, no L2 — wait for L1
+        return; // Pipeline active, no L2 — wait for L1
 
     if (!ds || ds->empty())
         return;
@@ -413,13 +400,7 @@ void QCPGraph2::draw(QCPPainter* painter)
     QVector<QPointF> lines;
     if (needFreshLines)
     {
-        // During active panning, use preview for fast line rebuild
-        const bool panning = mViewportDebounce.isActive();
-        if (panning && mPreview && mNeedsResampling && !isExportMode)
-        {
-            ds = mPreview.get();
-        }
-        else if (mL2Dirty && mL1Cache && mKeyAxis->axisRect())
+        if (mL2Dirty && mL1Cache && mKeyAxis->axisRect())
         {
             rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
             mL2Dirty = false;

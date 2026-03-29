@@ -103,7 +103,6 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
     mL1Cache.reset();
     mL2Result.reset();
     mL2Dirty = false;
-    mPreview.reset();
     mLineCacheDirty = true;
     mCachedLines.clear();
 
@@ -113,8 +112,6 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
-        if (mNeedsResampling)
-            mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
     }
     else
     {
@@ -133,11 +130,7 @@ void QCPMultiGraph::dataChanged()
             && static_cast<int64_t>(mDataSource->size()) * mDataSource->columnCount()
                >= qcp::algo::kResampleThreshold;
         ensureL1TransformMulti(mPipeline, mDataSource->size(), mDataSource->columnCount());
-        if (mNeedsResampling)
-            mPreview = qcp::algo::buildPreviewMulti(*mDataSource);
     }
-    else
-        mPreview.reset();
 
     mL1Cache.reset();
     mL2Result.reset();
@@ -536,14 +529,11 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     const QCPAbstractMultiDataSource* ds = nullptr;
     if (mL2Result)
         ds = mL2Result.get();
-    else if (mPreview && mNeedsResampling
-             && !painter->modes().testFlag(QCPPainter::pmNoCaching))
-        ds = mPreview.get();
     else if (!mNeedsResampling || painter->modes().testFlag(QCPPainter::pmNoCaching)
              || mKeyAxis->scaleType() == QCPAxis::stLogarithmic)
         ds = mDataSource.get();
     else
-        return;
+        return; // Pipeline active, no L2 — wait for L1
 
     if (!ds || ds->empty())
         return;
@@ -574,15 +564,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
 
     if (needFreshLines)
     {
-        // During active panning (debounce timer running), use preview for fast
-        // line rebuild instead of the expensive L2 rebuild path.  The debounce
-        // timer will trigger a proper L2 rebuild once panning stops.
-        const bool panning = mViewportDebounce.isActive();
-        if (panning && mPreview && mNeedsResampling && !isExportMode)
-        {
-            ds = mPreview.get();
-        }
-        else if (mL2Dirty && mL1Cache && mKeyAxis->axisRect())
+        if (mL2Dirty && mL1Cache && mKeyAxis->axisRect())
         {
             rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
             mL2Dirty = false;

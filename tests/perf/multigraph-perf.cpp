@@ -245,9 +245,7 @@ static void scenarioDataSetup(int iters)
         auto src = std::make_shared<QCPSoAMultiDataSource<
             std::span<const double>, std::span<const double>>>(
             std::span<const double>(data.keys), std::move(spans));
-
-        auto preview = qcp::algo::buildPreviewMulti(*src);
-        if (!preview) abort();
+        if (!src) abort();
     }
     double ms = timer.nsecsElapsed() / 1e6;
     fprintf(stderr, "  total: %.1f ms, per-iter: %.1f ms\n", ms, ms / iters);
