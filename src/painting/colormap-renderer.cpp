@@ -80,19 +80,31 @@ void QCPColormapRenderer::updateMapImage(const QCPColorMapData* data, NormalizeF
         return;
 
     QImage argbImage(keySize, valueSize, QImage::Format_ARGB32_Premultiplied);
+    const bool isLog = (mDataScaleType == QCPAxis::stLogarithmic);
 
-    std::vector<double> rowData(keySize);
-    for (int y = 0; y < valueSize; ++y)
+    if (normalize)
     {
-        for (int x = 0; x < keySize; ++x)
+        // Slow path: per-cell custom normalization
+        std::vector<double> rowData(keySize);
+        for (int y = 0; y < valueSize; ++y)
         {
-            double v = data->cell(x, y);
-            rowData[x] = normalize ? normalize(v, x, y) : v;
-        }
+            for (int x = 0; x < keySize; ++x)
+                rowData[x] = normalize(data->cell(x, y), x, y);
 
-        QRgb* pixels = reinterpret_cast<QRgb*>(argbImage.scanLine(valueSize - 1 - y));
-        mGradient.colorize(rowData.data(), mDataRange, pixels, keySize,
-                           1, mDataScaleType == QCPAxis::stLogarithmic);
+            QRgb* pixels = reinterpret_cast<QRgb*>(argbImage.scanLine(valueSize - 1 - y));
+            mGradient.colorize(rowData.data(), mDataRange, pixels, keySize, 1, isLog);
+        }
+    }
+    else
+    {
+        // Fast path: colorize directly from the raw data array (stride-1 rows),
+        // avoiding per-cell virtual calls and temporary copies.
+        const double* rawData = data->rawData();
+        for (int y = 0; y < valueSize; ++y)
+        {
+            QRgb* pixels = reinterpret_cast<QRgb*>(argbImage.scanLine(valueSize - 1 - y));
+            mGradient.colorize(rawData + y * keySize, mDataRange, pixels, keySize, 1, isLog);
+        }
     }
 
     // Keep native ARGB32 — matches BGRA8 texture format with no per-upload channel swizzle.

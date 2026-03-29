@@ -254,6 +254,8 @@ void QCPColorScale::setDataRange(const QCPRange& dataRange)
         mDataRange = dataRange;
         if (mColorAxis)
             mColorAxis.data()->setRange(mDataRange);
+        if (mLayer)
+            mLayer->markDirty();
         emit dataRangeChanged(mDataRange);
     }
 }

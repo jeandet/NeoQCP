@@ -90,6 +90,8 @@ void QCPHistogram2D::setGradient(const QCPColorGradient& gradient)
     {
         mRenderer.setGradient(gradient);
         Q_EMIT gradientChanged(mRenderer.gradient());
+        if (mLayer)
+            mLayer->markDirty();
         if (mParentPlot)
             mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
@@ -129,6 +131,8 @@ void QCPHistogram2D::setDataRange(const QCPRange& range)
     if (prev.lower != cur.lower || prev.upper != cur.upper)
     {
         Q_EMIT dataRangeChanged(cur);
+        if (mLayer)
+            mLayer->markDirty();
         if (mParentPlot)
             mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
@@ -144,6 +148,8 @@ void QCPHistogram2D::setDataScaleType(QCPAxis::ScaleType type)
         if (prevRange.lower != curRange.lower || prevRange.upper != curRange.upper)
             Q_EMIT dataRangeChanged(curRange);
         Q_EMIT dataScaleTypeChanged(type);
+        if (mLayer)
+            mLayer->markDirty();
         if (mParentPlot)
             mParentPlot->replot(QCustomPlot::rpQueuedReplot);
     }
