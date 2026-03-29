@@ -1821,8 +1821,7 @@ void QCPAxis::deselectEvent(bool* selectionStateChanged)
 void QCPAxis::mousePressEvent(QMouseEvent* event, [[maybe_unused]] const QVariant& details)
 {
     if (!mParentPlot->interactions().testFlag(QCP::iRangeDrag)
-        || !mAxisRect->rangeDrag().testFlag(orientation())
-        || !mAxisRect->rangeDragAxes(orientation()).contains(this))
+        || !mAxisRect->rangeDrag().testFlag(orientation()))
     {
         event->ignore();
         return;
@@ -1921,8 +1920,7 @@ void QCPAxis::wheelEvent(QWheelEvent* event)
 {
     // Mouse range zooming interaction:
     if (!mParentPlot->interactions().testFlag(QCP::iRangeZoom)
-        || !mAxisRect->rangeZoom().testFlag(orientation())
-        || !mAxisRect->rangeZoomAxes(orientation()).contains(this))
+        || !mAxisRect->rangeZoom().testFlag(orientation()))
     {
         event->ignore();
         return;

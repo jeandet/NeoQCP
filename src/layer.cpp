@@ -381,7 +381,8 @@ bool QCPLayer::canTranslateInsteadOfRepaint() const
 
     for (auto* child : mChildren)
     {
-        if (qobject_cast<QCPAbstractItem*>(child))
+        if (qobject_cast<QCPAbstractItem*>(child)
+            || qobject_cast<QCPLayoutElement*>(child))
             return false;
     }
     return true;

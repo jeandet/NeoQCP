@@ -2726,7 +2726,8 @@ void QCustomPlot::executeRenderPass(QRhiCommandBuffer* cb, QRhiResourceUpdateBat
                         srb->create();
                         rhiBuffer->setSrb(srb, rhiBuffer->texture());
                     }
-                    QPointF layerOffset = layer->pixelOffset();
+                    QPointF layerOffset = layer->canTranslateInsteadOfRepaint()
+                        ? layer->pixelOffset() : QPointF();
                     struct {
                         float translateX, translateY, viewportW, viewportH, yFlip;
                     } compositeParams = {

@@ -265,20 +265,21 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
                 float halfW = (penW == 0.0 || pen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
                 if (pen.style() == Qt::NoPen || halfW <= 0.0f || color[3] <= 0.0f)
                     return;
-                float tv = float(tickValue);
+                // Convert tick position to pixel space so each axis uses its own transform
+                float tv = float(axis->coordToPixel(tickValue));
                 float pxStart = baseline - lengthOut * tickDir;
                 float pxEnd   = baseline + lengthIn  * tickDir;
                 if (isHorizontal)
                 {
                     appendBorder(mStagingVertices,
                                  tv, pxStart, tv, pxEnd,
-                                 color, 1, 0, halfW, 0, 1);
+                                 color, 1, 0, halfW, 1, 1);
                 }
                 else
                 {
                     appendBorder(mStagingVertices,
                                  pxStart, tv, pxEnd, tv,
-                                 color, 0, 1, halfW, 1, 0);
+                                 color, 0, 1, halfW, 1, 1);
                 }
             };
 

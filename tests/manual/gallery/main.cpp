@@ -1189,6 +1189,71 @@ static QWidget* createOverlayTab()
     return splitter;
 }
 
+// ── Tab: Dual Y-Axis (Graph + ColorMap) ─────────────────────────────────────
+
+static QWidget* createDualYAxisTab()
+{
+    auto* plot = makePlot();
+
+    // --- Graph2 on left Y axis (linear) ---
+    auto* g = new QCPGraph2(plot->xAxis, plot->yAxis);
+    const int nPts = 2000;
+    std::vector<double> gx(nPts), gy(nPts);
+    for (int i = 0; i < nPts; ++i) {
+        gx[i] = i * 0.05;
+        gy[i] = 5.0 * std::sin(gx[i] * 0.8) + 2.0 * std::cos(gx[i] * 2.3);
+    }
+    g->setData(std::move(gx), std::move(gy));
+    g->setPen(QPen(Qt::white, 1.5));
+    g->setName("Time Series");
+    plot->yAxis->setLabel("Amplitude");
+
+    // --- ColorMap2 on right Y axis (log scale) ---
+    plot->yAxis2->setVisible(true);
+    plot->yAxis2->setScaleType(QCPAxis::stLogarithmic);
+    plot->yAxis2->setTicker(QSharedPointer<QCPAxisTickerLog>::create());
+    plot->yAxis2->setLabel("Energy (eV)");
+
+    const int nChannels = 32;
+    std::vector<double> y(nChannels);
+    for (int j = 0; j < nChannels; ++j)
+        y[j] = std::pow(10.0, 0.5 + j * 3.5 / (nChannels - 1));
+
+    std::vector<double> x, z;
+    for (double t = 0.0; t <= 100.0; t += 0.5) {
+        x.push_back(t);
+        for (int j = 0; j < nChannels; ++j) {
+            double logFreq = std::log10(y[j]);
+            double peak = 2.0 + 0.5 * std::sin(t * 0.3);
+            double v = std::exp(-(logFreq - peak) * (logFreq - peak) / 0.15)
+                     + 0.02 * std::sin(logFreq * t);
+            z.push_back(v);
+        }
+    }
+
+    auto* cm = new QCPColorMap2(plot->xAxis, plot->yAxis2);
+    cm->setData(std::move(x), std::move(y), std::move(z));
+    cm->setName("Spectrogram");
+
+    auto* scale = new QCPColorScale(plot);
+    plot->plotLayout()->addElement(0, 1, scale);
+    scale->setDataScaleType(QCPAxis::stLogarithmic);
+    scale->axis()->setTicker(QSharedPointer<QCPAxisTickerLog>::create());
+    cm->setColorScale(scale);
+
+    QCPColorGradient gradient(QCPColorGradient::gpJet);
+    gradient.setNanHandling(QCPColorGradient::nhTransparent);
+    cm->setGradient(gradient);
+    cm->rescaleDataRange(true);
+
+    plot->legend->setVisible(true);
+    plot->xAxis->setLabel("Time (s)");
+    plot->setTheme(QCPTheme::dark(plot));
+    plot->rescaleAxes();
+    plot->replot();
+    return wrapPlot(plot);
+}
+
 // ── Tab: Busy Indicator ──────────────────────────────────────────────────────
 
 static QWidget* createBusyIndicatorTab()
@@ -1347,6 +1412,7 @@ int main(int argc, char* argv[])
     tabs->addTab(createHistogram2DTab(),    "Histogram2D");
     tabs->addTab(createHistogram2DLogTab(), "Histogram2D (log)");
     tabs->addTab(createOverlayTab(),       "Overlay");
+    tabs->addTab(createDualYAxisTab(),      "Dual Y-Axis");
     tabs->addTab(createBusyIndicatorTab(), "Busy Indicator");
 
     window.setCentralWidget(tabs);
