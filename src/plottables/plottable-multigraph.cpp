@@ -525,10 +525,13 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         mL2Dirty = false;
     }
 
+    // Data source priority: L2 (viewport-optimized) > raw
+    // When L1 exists but L2 is null (sparse enough to draw directly), use raw source.
     const QCPAbstractMultiDataSource* ds = nullptr;
     if (mL2Result)
         ds = mL2Result.get();
-    else if (!mNeedsResampling || painter->modes().testFlag(QCPPainter::pmNoCaching)
+    else if (!mNeedsResampling || mL1Cache
+             || painter->modes().testFlag(QCPPainter::pmNoCaching)
              || mKeyAxis->scaleType() == QCPAxis::stLogarithmic)
         ds = mDataSource.get();
     else

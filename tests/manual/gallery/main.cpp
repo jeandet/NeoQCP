@@ -422,12 +422,12 @@ static QWidget* createColorMapVariableYTab()
 static QWidget* createMultiGraphTab()
 {
     auto* plot = makePlot();
-    const int nComp = 6, nPts = 50000;
+    const int nComp = 6, nPts = 250000;
 
     std::vector<double> keys(nPts);
     std::vector<std::vector<double>> vals(nComp, std::vector<double>(nPts));
     for (int i = 0; i < nPts; ++i) {
-        keys[i] = i * 0.002;
+        keys[i] = i * 0.0004;
         for (int c = 0; c < nComp; ++c)
             vals[c][i] = (1.0 + c * 0.3) * std::sin(keys[i] * (1.0 + c * 0.2) + c * 0.7);
     }

@@ -109,6 +109,10 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
     if (l1End <= l1Begin)
         return nullptr;
 
+    // Skip L2 binning when visible points are sparse enough to draw directly
+    if (l1End - l1Begin <= l2Bins)
+        return nullptr;
+
     int N = l1.numColumns;
     int l1Stride = l1.stride();
 

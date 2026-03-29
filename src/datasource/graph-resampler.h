@@ -430,6 +430,10 @@ inline std::shared_ptr<QCPAbstractDataSource> resampleL2(
     if (l1End <= l1Begin)
         return nullptr;
 
+    // Skip L2 binning when visible points are sparse enough to draw directly
+    if (l1End - l1Begin <= l2Bins)
+        return nullptr;
+
     auto l2 = binMinMax(l1.keys, l1.values, l1Begin, l1End, vp.keyRange, l2Bins);
 
     std::vector<double> outKeys, outVals;

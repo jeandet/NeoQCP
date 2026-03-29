@@ -359,10 +359,12 @@ void QCPGraph2::draw(QCPPainter* painter)
     }
 
     // Data source priority: L2 (viewport-optimized) > raw
+    // When L1 exists but L2 is null (sparse enough to draw directly), use raw source.
     const QCPAbstractDataSource* ds = nullptr;
     if (mL2Result)
         ds = mL2Result.get();
-    else if (!mNeedsResampling || painter->modes().testFlag(QCPPainter::pmNoCaching)
+    else if (!mNeedsResampling || mL1Cache
+             || painter->modes().testFlag(QCPPainter::pmNoCaching)
              || mKeyAxis->scaleType() == QCPAxis::stLogarithmic)
         ds = mDataSource.get();
     else
