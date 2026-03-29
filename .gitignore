@@ -68,3 +68,4 @@ meson.build.user
 /qcustomplot.h
 /qcustomplot.cpp
 
+tests/perf/results/
