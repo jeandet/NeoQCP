@@ -79,8 +79,8 @@ void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
     mDataSource = std::move(source);
     mL1Cache.reset();
     mL2Result.reset();
-    mLineCacheDirty = true;
     mCachedLines.clear();
+    mLineCacheDirty = true;
     mL2Dirty = false;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
     if (mDataSource)
@@ -91,7 +91,6 @@ void QCPGraph2::setDataSource(std::shared_ptr<QCPAbstractDataSource> source)
 void QCPGraph2::dataChanged()
 {
     mLineCacheDirty = true;
-    mCachedLines.clear();
 
     bool wasResampling = mNeedsResampling;
     mNeedsResampling = mDataSource && mDataSource->size() >= qcp::algo::kResampleThreshold;
@@ -108,7 +107,6 @@ void QCPGraph2::dataChanged()
     if (mPipeline.hasTransform())
     {
         mL1Cache.reset();
-        mL2Result.reset();
         mL2Dirty = false;
         mPipeline.onDataChanged();
     }

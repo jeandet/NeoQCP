@@ -102,9 +102,9 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
     syncComponentCount();
     mL1Cache.reset();
     mL2Result.reset();
+    mCachedLines.clear();
     mL2Dirty = false;
     mLineCacheDirty = true;
-    mCachedLines.clear();
 
     if (mDataSource)
     {
@@ -123,7 +123,6 @@ void QCPMultiGraph::setDataSource(std::shared_ptr<QCPAbstractMultiDataSource> so
 void QCPMultiGraph::dataChanged()
 {
     mLineCacheDirty = true;
-    mCachedLines.clear();
     if (mDataSource)
     {
         mNeedsResampling = mDataSource->columnCount() > 0
@@ -133,7 +132,6 @@ void QCPMultiGraph::dataChanged()
     }
 
     mL1Cache.reset();
-    mL2Result.reset();
     mL2Dirty = false;
 
     if (mPipeline.hasTransform())
