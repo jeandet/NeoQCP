@@ -2,6 +2,7 @@
 #include "rhi-utils.h"
 #include "Profiling.hpp"
 #include "embedded_shaders.h"
+#include <cstring>
 
 QCPPlottableRhiLayer::QCPPlottableRhiLayer(QRhi* rhi)
     : mRhi(rhi)
@@ -14,6 +15,7 @@ QCPPlottableRhiLayer::~QCPPlottableRhiLayer()
     delete mSrb;
     delete mUniformBuffer;
     delete mVertexBuffer;
+    std::free(mStagingData);
 }
 
 void QCPPlottableRhiLayer::invalidatePipeline()
@@ -24,37 +26,68 @@ void QCPPlottableRhiLayer::invalidatePipeline()
     mSrb = nullptr;
     delete mUniformBuffer;
     mUniformBuffer = nullptr;
+    mUniformBufferSize = 0;
 }
 
 void QCPPlottableRhiLayer::clear()
 {
-    mStagingVertices.clear();
-    mDrawEntries.clear();
+    mStagingSize = 0;          // preserve allocation
+    mDrawEntries.resize(0);    // preserve capacity
     mDirty = true;
 }
 
+void QCPPlottableRhiLayer::setAllOffsets(float offsetX, float offsetY)
+{
+    for (auto& entry : mDrawEntries)
+    {
+        entry.offsetX = offsetX;
+        entry.offsetY = offsetY;
+    }
+    // UBO needs re-upload but vertex data is unchanged
+}
+
+int QCPPlottableRhiLayer::ubufStride() const
+{
+    return mRhi->ubufAligned(sizeof(PerDrawUniforms));
+}
+
+void QCPPlottableRhiLayer::stagingAppend(const float* src, int count)
+{
+    if (mStagingSize + count > mStagingCapacity)
+    {
+        mStagingCapacity = std::max(mStagingCapacity * 2, mStagingSize + count);
+        mStagingData = static_cast<float*>(
+            std::realloc(mStagingData, mStagingCapacity * sizeof(float)));
+    }
+    std::memcpy(mStagingData + mStagingSize, src, count * sizeof(float));
+    mStagingSize += count;
+}
+
 void
-QCPPlottableRhiLayer::addPlottable(const QVector<float>& fillVerts,
-                                    const QVector<float>& strokeVerts,
+QCPPlottableRhiLayer::addPlottable(std::span<const float> fillVerts,
+                                    std::span<const float> strokeVerts,
                                     const QRect& clipRect, double dpr,
-                                    int outputHeight, bool isYUpInNDC)
+                                    int outputHeight, bool isYUpInNDC,
+                                    float offsetX, float offsetY)
 {
     PROFILE_HERE_N("QCPPlottableRhiLayer::addPlottable");
     DrawEntry entry;
     entry.scissorRect = qcp::rhi::computeScissor(clipRect, dpr, outputHeight, isYUpInNDC);
+    entry.offsetX = offsetX;
+    entry.offsetY = offsetY;
 
-    if (!fillVerts.isEmpty())
+    if (!fillVerts.empty())
     {
-        entry.fillOffset = mStagingVertices.size() / 6; // vertex index
-        entry.fillVertexCount = fillVerts.size() / 6;
-        mStagingVertices.append(fillVerts);
+        entry.fillOffset = mStagingSize / 6;
+        entry.fillVertexCount = static_cast<int>(fillVerts.size()) / 6;
+        stagingAppend(fillVerts.data(), static_cast<int>(fillVerts.size()));
     }
 
-    if (!strokeVerts.isEmpty())
+    if (!strokeVerts.empty())
     {
-        entry.strokeOffset = mStagingVertices.size() / 6;
-        entry.strokeVertexCount = strokeVerts.size() / 6;
-        mStagingVertices.append(strokeVerts);
+        entry.strokeOffset = mStagingSize / 6;
+        entry.strokeVertexCount = static_cast<int>(strokeVerts.size()) / 6;
+        stagingAppend(strokeVerts.data(), static_cast<int>(strokeVerts.size()));
     }
 
     mDrawEntries.append(entry);
@@ -81,22 +114,25 @@ bool QCPPlottableRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc,
         return false;
     }
 
-    // Create uniform buffer for viewport params (6 floats, padded to 32 bytes for std140)
+    // Create a small initial UBO — will be grown in uploadResources as needed.
+    // Uses dynamic offsets: one PerDrawUniforms slot per draw entry.
+    const int stride = ubufStride();
+    mUniformBufferSize = stride; // start with 1 slot
     delete mUniformBuffer;
     mUniformBuffer = mRhi->newBuffer(QRhiBuffer::Dynamic,
-                                      QRhiBuffer::UniformBuffer, 32);
+                                      QRhiBuffer::UniformBuffer, mUniformBufferSize);
     if (!mUniformBuffer->create())
     {
         qDebug() << "Failed to create plottable uniform buffer";
         return false;
     }
 
-    // Create SRB binding the uniform buffer at binding 0
+    // SRB with dynamic offset: bind the full buffer, one slot at a time
     delete mSrb;
     mSrb = mRhi->newShaderResourceBindings();
     mSrb->setBindings({
-        QRhiShaderResourceBinding::uniformBuffer(
-            0, QRhiShaderResourceBinding::VertexStage, mUniformBuffer)
+        QRhiShaderResourceBinding::uniformBufferWithDynamicOffset(
+            0, QRhiShaderResourceBinding::VertexStage, mUniformBuffer, sizeof(PerDrawUniforms))
     });
     if (!mSrb->create())
     {
@@ -144,25 +180,49 @@ void QCPPlottableRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
                                             bool isYUpInNDC)
 {
     PROFILE_HERE_N("QCPPlottableRhiLayer::uploadResources");
-    // Upload uniform buffer (viewport params) — always, since output size may change
-    if (mUniformBuffer)
-    {
-        struct {
-            float width, height, yFlip, dpr;
-        } params = {
-            float(outputSize.width()),
-            float(outputSize.height()),
-            isYUpInNDC ? -1.0f : 1.0f,
-            dpr,
-        };
-        static_assert(sizeof(params) == 16);
-        updates->updateDynamicBuffer(mUniformBuffer, 0, sizeof(params), &params);
-    }
 
-    if (!mDirty || mStagingVertices.isEmpty())
+    if (mDrawEntries.isEmpty() || !mUniformBuffer)
         return;
 
-    int requiredSize = mStagingVertices.size() * sizeof(float);
+    // Grow UBO if needed (one aligned slot per draw entry)
+    const int stride = ubufStride();
+    const int requiredUboSize = stride * mDrawEntries.size();
+    if (requiredUboSize > mUniformBufferSize)
+    {
+        mUniformBufferSize = requiredUboSize;
+        mUniformBuffer->setSize(mUniformBufferSize);
+        if (!mUniformBuffer->create())
+        {
+            qDebug() << "Failed to resize plottable uniform buffer";
+            return;
+        }
+        // SRB must be rebuilt after UBO resize
+        if (mSrb)
+            mSrb->create();
+    }
+
+    // Upload per-draw uniforms (always — offsets change on pan frames)
+    const float yFlip = isYUpInNDC ? -1.0f : 1.0f;
+    for (int i = 0; i < mDrawEntries.size(); ++i)
+    {
+        const auto& entry = mDrawEntries[i];
+        PerDrawUniforms params = {
+            float(outputSize.width()),
+            float(outputSize.height()),
+            yFlip,
+            dpr,
+            entry.offsetX,
+            entry.offsetY,
+            {0, 0}
+        };
+        updates->updateDynamicBuffer(mUniformBuffer, i * stride, sizeof(params), &params);
+    }
+
+    // Upload vertex data only when geometry changed
+    if (!mDirty || mStagingSize == 0)
+        return;
+
+    const int requiredSize = mStagingSize * static_cast<int>(sizeof(float));
 
     if (!mVertexBuffer || mVertexBufferSize < requiredSize)
     {
@@ -181,8 +241,7 @@ void QCPPlottableRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
         mVertexBufferSize = requiredSize;
     }
 
-    updates->updateDynamicBuffer(mVertexBuffer, 0, requiredSize,
-                                  mStagingVertices.constData());
+    updates->updateDynamicBuffer(mVertexBuffer, 0, requiredSize, mStagingData);
     mDirty = false;
 }
 
@@ -196,13 +255,19 @@ void QCPPlottableRhiLayer::render(QRhiCommandBuffer* cb,
 
     cb->setGraphicsPipeline(mPipeline);
     cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
-    cb->setShaderResources(mSrb);
 
     const QRhiCommandBuffer::VertexInput vbufBinding(mVertexBuffer, 0);
     cb->setVertexInput(0, 1, &vbufBinding);
 
-    for (const auto& entry : mDrawEntries)
+    const int stride = ubufStride();
+    for (int i = 0; i < mDrawEntries.size(); ++i)
     {
+        const auto& entry = mDrawEntries[i];
+
+        // Bind per-draw uniform slot via dynamic offset
+        const QPair<int, quint32> dynamicOffset(0, quint32(i * stride));
+        cb->setShaderResources(mSrb, 1, &dynamicOffset);
+
         cb->setScissor({entry.scissorRect.x(), entry.scissorRect.y(),
                         entry.scissorRect.width(), entry.scissorRect.height()});
 

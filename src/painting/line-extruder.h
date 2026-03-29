@@ -4,6 +4,7 @@
 #include <QPointF>
 #include <QPolygonF>
 #include <QVector>
+#include <vector>
 
 namespace QCPLineExtruder
 {
@@ -14,6 +15,10 @@ namespace QCPLineExtruder
 // Miter joins with bevel fallback at sharp angles.
 QVector<float> extrudePolyline(const QVector<QPointF>& points, float penWidth,
                                 const QColor& color);
+
+// Same, but writes into caller-owned buffer (retains capacity across frames → zero alloc on reuse).
+void extrudePolyline(const QVector<QPointF>& points, float penWidth,
+                     const QColor& color, std::vector<float>& out);
 
 // Tessellate a baseline fill polygon into a triangle-list vertex buffer.
 // The polygon structure is: basePoint0, curvePoint0..N, basePoint1.

@@ -371,6 +371,11 @@ bool QCPLayer::canSkipRepaintForTranslation() const
     if (!pb || pb->invalidated())
         return false;
 
+    return canTranslateInsteadOfRepaint();
+}
+
+bool QCPLayer::canTranslateInsteadOfRepaint() const
+{
     if (pixelOffset().isNull())
         return false;
 

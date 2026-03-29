@@ -3,6 +3,7 @@
 #include "Profiling.hpp"
 #include <QtMath>
 #include <array>
+#include <cstring>
 
 namespace QCPLineExtruder
 {
@@ -12,33 +13,32 @@ namespace
 
 constexpr float MITER_LIMIT = 4.0f;
 
-struct Vertex
+// Write cursor: tracks position in a pre-allocated float buffer.
+// All vertex writes go through this — no per-float append() calls.
+struct WriteCursor
 {
-    float x, y, r, g, b, a;
-};
+    float* data;
+    int pos = 0;
 
+    void vertex(float x, float y, const std::array<float, 4>& rgba)
+    {
+        float* p = data + pos;
+        p[0] = x;  p[1] = y;
+        p[2] = rgba[0];  p[3] = rgba[1];  p[4] = rgba[2];  p[5] = rgba[3];
+        pos += 6;
+    }
 
-void pushVertex(QVector<float>& out, float x, float y, const std::array<float, 4>& rgba)
-{
-    out.append(x);
-    out.append(y);
-    out.append(rgba[0]);
-    out.append(rgba[1]);
-    out.append(rgba[2]);
-    out.append(rgba[3]);
-}
-
-void pushQuad(QVector<float>& out,
-              QPointF tl, QPointF tr, QPointF br, QPointF bl,
+    void quad(QPointF tl, QPointF tr, QPointF br, QPointF bl,
               const std::array<float, 4>& rgba)
-{
-    pushVertex(out, tl.x(), tl.y(), rgba);
-    pushVertex(out, tr.x(), tr.y(), rgba);
-    pushVertex(out, br.x(), br.y(), rgba);
-    pushVertex(out, tl.x(), tl.y(), rgba);
-    pushVertex(out, br.x(), br.y(), rgba);
-    pushVertex(out, bl.x(), bl.y(), rgba);
-}
+    {
+        vertex(tl.x(), tl.y(), rgba);
+        vertex(tr.x(), tr.y(), rgba);
+        vertex(br.x(), br.y(), rgba);
+        vertex(tl.x(), tl.y(), rgba);
+        vertex(br.x(), br.y(), rgba);
+        vertex(bl.x(), bl.y(), rgba);
+    }
+};
 
 bool isNan(const QPointF& p) { return qIsNaN(p.x()) || qIsNaN(p.y()); }
 
@@ -90,7 +90,7 @@ QVector<SegmentData> splitByNaN(const QVector<QPointF>& points)
     return segments;
 }
 
-void extrudeSegment(QVector<float>& out, const QVector<QPointF>& points,
+void extrudeSegment(WriteCursor& cur, const QVector<QPointF>& points,
                     int start, int end, float halfWidth, const std::array<float, 4>& rgba)
 {
     int count = end - start;
@@ -115,20 +115,20 @@ void extrudeSegment(QVector<float>& out, const QVector<QPointF>& points,
             QPointF leftNext = p + curNormal * halfWidth;
             QPointF rightNext = p - curNormal * halfWidth;
 
-            pushQuad(out, prevLeft, leftPrev, rightPrev, prevRight, rgba);
+            cur.quad(prevLeft, leftPrev, rightPrev, prevRight, rgba);
 
             double cross = prevNormal.x() * curNormal.y() - prevNormal.y() * curNormal.x();
             if (cross > 0)
             {
-                pushVertex(out, rightPrev.x(), rightPrev.y(), rgba);
-                pushVertex(out, rightNext.x(), rightNext.y(), rgba);
-                pushVertex(out, p.x(), p.y(), rgba);
+                cur.vertex(rightPrev.x(), rightPrev.y(), rgba);
+                cur.vertex(rightNext.x(), rightNext.y(), rgba);
+                cur.vertex(p.x(), p.y(), rgba);
             }
             else
             {
-                pushVertex(out, leftPrev.x(), leftPrev.y(), rgba);
-                pushVertex(out, leftNext.x(), leftNext.y(), rgba);
-                pushVertex(out, p.x(), p.y(), rgba);
+                cur.vertex(leftPrev.x(), leftPrev.y(), rgba);
+                cur.vertex(leftNext.x(), leftNext.y(), rgba);
+                cur.vertex(p.x(), p.y(), rgba);
             }
 
             curLeft = leftNext;
@@ -138,7 +138,7 @@ void extrudeSegment(QVector<float>& out, const QVector<QPointF>& points,
         {
             curLeft = points[start + i] + mo;
             curRight = points[start + i] - mo;
-            pushQuad(out, prevLeft, curLeft, curRight, prevRight, rgba);
+            cur.quad(prevLeft, curLeft, curRight, prevRight, rgba);
         }
 
         prevLeft = curLeft;
@@ -148,10 +148,44 @@ void extrudeSegment(QVector<float>& out, const QVector<QPointF>& points,
 
     QPointF lastLeft = points[start + count - 1] + prevNormal * halfWidth;
     QPointF lastRight = points[start + count - 1] - prevNormal * halfWidth;
-    pushQuad(out, prevLeft, lastLeft, lastRight, prevRight, rgba);
+    cur.quad(prevLeft, lastLeft, lastRight, prevRight, rgba);
+}
+
+// Upper bound on floats written by extrudePolyline for N input points.
+// Each segment of K points produces at most (K-1) quads (6 verts × 6 floats = 36)
+// plus (K-2) bevel triangles (3 verts × 6 floats = 18).
+// Worst case per point: 36 + 18 = 54 floats. We round up to 6*6*2 = 72.
+int maxExtrusionFloats(int pointCount)
+{
+    return pointCount * 72;
 }
 
 } // anonymous namespace
+
+void extrudePolyline(const QVector<QPointF>& points, float penWidth,
+                     const QColor& color, std::vector<float>& out)
+{
+    PROFILE_HERE_N("extrudePolyline");
+    out.clear();
+    if (points.size() < 2 || penWidth <= 0.0f)
+        return;
+    PROFILE_PASS_VALUE(points.size());
+
+    auto rgba = qcp::rhi::premultipliedColor(color);
+    float halfWidth = penWidth / 2.0f;
+
+    auto segments = splitByNaN(points);
+
+    // Pre-allocate worst case — the vector retains capacity across frames
+    int maxFloats = maxExtrusionFloats(points.size());
+    out.resize(maxFloats);
+
+    WriteCursor cur{out.data()};
+    for (const auto& seg : segments)
+        extrudeSegment(cur, points, seg.startIdx, seg.endIdx, halfWidth, rgba);
+
+    out.resize(cur.pos); // trim to actual size (no realloc — smaller than capacity)
+}
 
 QVector<float> extrudePolyline(const QVector<QPointF>& points, float penWidth,
                                 const QColor& color)
@@ -165,12 +199,15 @@ QVector<float> extrudePolyline(const QVector<QPointF>& points, float penWidth,
     float halfWidth = penWidth / 2.0f;
 
     auto segments = splitByNaN(points);
-    QVector<float> out;
-    out.reserve(points.size() * 6 * 6);
 
+    int maxFloats = maxExtrusionFloats(points.size());
+    QVector<float> out(maxFloats);
+
+    WriteCursor cur{out.data()};
     for (const auto& seg : segments)
-        extrudeSegment(out, points, seg.startIdx, seg.endIdx, halfWidth, rgba);
+        extrudeSegment(cur, points, seg.startIdx, seg.endIdx, halfWidth, rgba);
 
+    out.resize(cur.pos);
     return out;
 }
 
@@ -182,21 +219,23 @@ QVector<float> tessellateFillPolygon(const QPolygonF& polygon, const QColor& col
     PROFILE_PASS_VALUE(polygon.size());
 
     auto rgba = qcp::rhi::premultipliedColor(color);
-    QVector<float> out;
+    int curveCount = polygon.size() - 2;
+
+    int maxFloats = (curveCount < 2) ? 18 : ((curveCount - 1) * 36 + 2 * 18);
+    QVector<float> out(maxFloats);
+    WriteCursor cur{out.data()};
 
     const QPointF base0 = polygon.first();
     const QPointF base1 = polygon.last();
-    int curveCount = polygon.size() - 2;
 
     if (curveCount < 2)
     {
-        pushVertex(out, base0.x(), base0.y(), rgba);
-        pushVertex(out, polygon[1].x(), polygon[1].y(), rgba);
-        pushVertex(out, base1.x(), base1.y(), rgba);
+        cur.vertex(base0.x(), base0.y(), rgba);
+        cur.vertex(polygon[1].x(), polygon[1].y(), rgba);
+        cur.vertex(base1.x(), base1.y(), rgba);
+        out.resize(cur.pos);
         return out;
     }
-
-    out.reserve((curveCount - 1) * 36 + 2 * 18);
 
     bool horizontalBaseline = qFuzzyCompare(base0.y(), base1.y());
 
@@ -208,9 +247,9 @@ QVector<float> tessellateFillPolygon(const QPolygonF& polygon, const QColor& col
     };
 
     QPointF proj0 = projectToBaseline(polygon[1]);
-    pushVertex(out, base0.x(), base0.y(), rgba);
-    pushVertex(out, polygon[1].x(), polygon[1].y(), rgba);
-    pushVertex(out, proj0.x(), proj0.y(), rgba);
+    cur.vertex(base0.x(), base0.y(), rgba);
+    cur.vertex(polygon[1].x(), polygon[1].y(), rgba);
+    cur.vertex(proj0.x(), proj0.y(), rgba);
 
     for (int i = 1; i < curveCount; ++i)
     {
@@ -219,14 +258,15 @@ QVector<float> tessellateFillPolygon(const QPolygonF& polygon, const QColor& col
         QPointF p0 = projectToBaseline(c0);
         QPointF p1 = projectToBaseline(c1);
 
-        pushQuad(out, c0, c1, p1, p0, rgba);
+        cur.quad(c0, c1, p1, p0, rgba);
     }
 
     QPointF projLast = projectToBaseline(polygon[polygon.size() - 2]);
-    pushVertex(out, polygon[polygon.size() - 2].x(), polygon[polygon.size() - 2].y(), rgba);
-    pushVertex(out, base1.x(), base1.y(), rgba);
-    pushVertex(out, projLast.x(), projLast.y(), rgba);
+    cur.vertex(polygon[polygon.size() - 2].x(), polygon[polygon.size() - 2].y(), rgba);
+    cur.vertex(base1.x(), base1.y(), rgba);
+    cur.vertex(projLast.x(), projLast.y(), rgba);
 
+    out.resize(cur.pos);
     return out;
 }
 

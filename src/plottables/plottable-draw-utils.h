@@ -4,6 +4,7 @@
 #include <QPen>
 #include <QRect>
 #include <QVector>
+#include <vector>
 
 class QCustomPlot;
 class QCPPainter;
@@ -13,14 +14,15 @@ namespace qcp {
 
 /// Cached extruded vertices for a single polyline.
 /// Stores the untranslated GPU vertices so they can be reused across frames
-/// with only a cheap translation applied.
+/// with only a cheap translation applied. Uses std::vector to retain capacity
+/// across frames (no COW overhead, no detach on non-const data()).
 struct ExtrusionCache {
-    QVector<float> vertices;   // untranslated extruded verts (6 floats per vertex)
+    std::vector<float> vertices;   // untranslated extruded verts (6 floats per vertex)
     float penWidth = 0;
     QRgb penColor = 0;
 
     void clear() { vertices.clear(); }
-    [[nodiscard]] bool isEmpty() const { return vertices.isEmpty(); }
+    [[nodiscard]] bool isEmpty() const { return vertices.empty(); }
 };
 
 /// Draw a polyline using the GPU path if available, otherwise QPainter.

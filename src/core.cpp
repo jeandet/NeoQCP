@@ -2127,8 +2127,23 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
     setupPaintBuffers();
     for (auto it = mPlottableRhiLayers.begin(); it != mPlottableRhiLayers.end(); ++it)
     {
-        if (auto pb = it.key()->mPaintBuffer.toStrongRef(); pb && pb->contentDirty())
+        QCPLayer* layer = it.key();
+        auto pb = layer->mPaintBuffer.toStrongRef();
+        if (!pb || !pb->contentDirty())
+            continue;
+        if (layer->canSkipRepaintForTranslation())
+        {
+            // Paint buffer skipped (compositor shifts old texture).
+            // PRL geometry is unchanged — update per-draw offsets
+            // to match the current pixel offset.
+            QPointF offset = layer->pixelOffset();
+            it.value()->setAllOffsets(static_cast<float>(offset.x()),
+                                      static_cast<float>(offset.y()));
+        }
+        else
+        {
             it.value()->clear();
+        }
     }
     for (auto& layer : mLayers)
     {
@@ -3340,8 +3355,25 @@ void QCustomPlot::setupPaintBuffers()
         buffer->setSize(viewport().size()); // may set contentDirty if size changed
         if (buffer->contentDirty())
         {
-            buffer->clear(Qt::transparent);
-            buffer->setInvalidated();
+            // Check if all layers on this buffer can skip repaint via translation.
+            // If so, the old content is still valid — the compositor shifts it.
+            bool allCanTranslate = true;
+            for (auto* layer : std::as_const(mLayers))
+            {
+                if (layer->mPaintBuffer.toStrongRef() == buffer)
+                {
+                    if (!layer->canTranslateInsteadOfRepaint())
+                    {
+                        allCanTranslate = false;
+                        break;
+                    }
+                }
+            }
+            if (!allCanTranslate)
+            {
+                buffer->clear(Qt::transparent);
+                buffer->setInvalidated();
+            }
         }
     }
 }

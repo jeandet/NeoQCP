@@ -492,10 +492,23 @@ void QCPMultiGraph::deselectEvent(bool* selectionStateChanged)
 
 QPointF QCPMultiGraph::stallPixelOffset() const
 {
-    if (mHasRenderedRange && !mCachedLines.isEmpty())
-        return qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
-                                          mRenderedRange.key, mRenderedRange.value);
-    return {};
+    if (!mHasRenderedRange || mCachedLines.isEmpty() || !mKeyAxis || !mValueAxis)
+        return {};
+    // Only valid for pure translation (pan) — reject if zoom changed
+    double keyRatio = mKeyAxis->range().size() / mRenderedRange.key.size();
+    double valRatio = mValueAxis->range().size() / mRenderedRange.value.size();
+    if (qAbs(keyRatio - 1.0) > 1e-4 || qAbs(valRatio - 1.0) > 1e-4)
+        return {};
+    QPointF offset = qcp::computeViewportOffset(mKeyAxis.data(), mValueAxis.data(),
+                                                mRenderedRange.key, mRenderedRange.value);
+    // Reject if panned too far (cached lines don't cover the viewport)
+    const bool keyVert = mKeyAxis->orientation() == Qt::Vertical;
+    double keyDim = keyVert ? mKeyAxis->axisRect()->height() : mKeyAxis->axisRect()->width();
+    double valDim = keyVert ? mKeyAxis->axisRect()->width() : mKeyAxis->axisRect()->height();
+    if (qAbs(keyVert ? offset.y() : offset.x()) > keyDim
+        || qAbs(keyVert ? offset.x() : offset.y()) > valDim)
+        return {};
+    return offset;
 }
 
 void QCPMultiGraph::draw(QCPPainter* painter)
