@@ -2,66 +2,79 @@
 
 #include <QVector>
 #include <array>
+#include <cstring>
+#include <span>
 
-// Shared vertex helpers for span and grid RHI layers.
 // Vertex layout: 11 floats (x, y, r, g, b, a, extX, extY, extW, isPixelX, isPixelY)
 
 namespace qcp::rhi::span_grid {
 
 constexpr int kFloatsPerVertex = 11;
-// Uniform buffer size: 14 data floats + 2 padding = 16 floats = 64 bytes (std140)
+// 14 data floats + 2 padding = 16 floats = 64 bytes (std140)
 constexpr int kUniformBufferSize = 64;
 
-inline void appendVertex(QVector<float>& buf, float x, float y,
-                          const std::array<float, 4>& rgba,
-                          float extX, float extY, float extW,
-                          float isPixelX, float isPixelY)
+struct Vertex
 {
-    buf.append(x);
-    buf.append(y);
-    buf.append(rgba[0]);
-    buf.append(rgba[1]);
-    buf.append(rgba[2]);
-    buf.append(rgba[3]);
-    buf.append(extX);
-    buf.append(extY);
-    buf.append(extW);
-    buf.append(isPixelX);
-    buf.append(isPixelY);
+    float x, y;
+    float r, g, b, a;
+    float extX, extY, extW;
+    float isPixelX, isPixelY;
+};
+static_assert(sizeof(Vertex) == kFloatsPerVertex * sizeof(float));
+
+inline void append(QVector<float>& buf, std::span<const Vertex> vertices)
+{
+    const auto offset = buf.size();
+    buf.resize(offset + int(vertices.size()) * kFloatsPerVertex);
+    std::memcpy(buf.data() + offset, vertices.data(),
+                vertices.size() * sizeof(Vertex));
 }
 
-// Emit 6 vertices (2 triangles) for a quad:
+inline auto makeVertex(float x, float y,
+                       const std::array<float, 4>& rgba,
+                       float extX, float extY, float extW,
+                       float isPixelX, float isPixelY) -> Vertex
+{
+    return {x, y, rgba[0], rgba[1], rgba[2], rgba[3],
+            extX, extY, extW, isPixelX, isPixelY};
+}
+
 //   TL--TR
 //   |  / |
 //   BL--BR
 inline void appendQuad(QVector<float>& buf,
-                        float tlX, float tlY, float trX, float trY,
-                        float blX, float blY, float brX, float brY,
-                        const std::array<float, 4>& rgba,
-                        float extX, float extY, float extW,
-                        float isPixelX, float isPixelY)
+                       float tlX, float tlY, float trX, float trY,
+                       float blX, float blY, float brX, float brY,
+                       const std::array<float, 4>& rgba,
+                       float extX, float extY, float extW,
+                       float isPixelX, float isPixelY)
 {
-    appendVertex(buf, tlX, tlY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, blX, blY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, trX, trY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, trX, trY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, blX, blY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, brX, brY, rgba, extX, extY, extW, isPixelX, isPixelY);
+    const std::array<Vertex, 6> verts = {{
+        {tlX, tlY, rgba[0], rgba[1], rgba[2], rgba[3], extX, extY, extW, isPixelX, isPixelY},
+        {blX, blY, rgba[0], rgba[1], rgba[2], rgba[3], extX, extY, extW, isPixelX, isPixelY},
+        {trX, trY, rgba[0], rgba[1], rgba[2], rgba[3], extX, extY, extW, isPixelX, isPixelY},
+        {trX, trY, rgba[0], rgba[1], rgba[2], rgba[3], extX, extY, extW, isPixelX, isPixelY},
+        {blX, blY, rgba[0], rgba[1], rgba[2], rgba[3], extX, extY, extW, isPixelX, isPixelY},
+        {brX, brY, rgba[0], rgba[1], rgba[2], rgba[3], extX, extY, extW, isPixelX, isPixelY},
+    }};
+    append(buf, verts);
 }
 
-// Emit a border line as a quad with extrude direction.
 inline void appendBorder(QVector<float>& buf,
-                          float x0, float y0, float x1, float y1,
-                          const std::array<float, 4>& rgba,
-                          float extDirX, float extDirY, float halfWidth,
-                          float isPixelX, float isPixelY)
+                         float x0, float y0, float x1, float y1,
+                         const std::array<float, 4>& rgba,
+                         float extDirX, float extDirY, float halfWidth,
+                         float isPixelX, float isPixelY)
 {
-    appendVertex(buf, x0, y0, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x1, y1, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
+    const std::array<Vertex, 6> verts = {{
+        {x0, y0, rgba[0], rgba[1], rgba[2], rgba[3],  extDirX,  extDirY, halfWidth, isPixelX, isPixelY},
+        {x0, y0, rgba[0], rgba[1], rgba[2], rgba[3], -extDirX, -extDirY, halfWidth, isPixelX, isPixelY},
+        {x1, y1, rgba[0], rgba[1], rgba[2], rgba[3],  extDirX,  extDirY, halfWidth, isPixelX, isPixelY},
+        {x1, y1, rgba[0], rgba[1], rgba[2], rgba[3],  extDirX,  extDirY, halfWidth, isPixelX, isPixelY},
+        {x0, y0, rgba[0], rgba[1], rgba[2], rgba[3], -extDirX, -extDirY, halfWidth, isPixelX, isPixelY},
+        {x1, y1, rgba[0], rgba[1], rgba[2], rgba[3], -extDirX, -extDirY, halfWidth, isPixelX, isPixelY},
+    }};
+    append(buf, verts);
 }
 
 } // namespace qcp::rhi::span_grid
