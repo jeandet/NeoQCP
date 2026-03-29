@@ -9,72 +9,12 @@
 #include "../layoutelements/layoutelement-axisrect.h"
 #include "../axis/axis.h"
 
+#include "span-grid-vertex.h"
+
 #include <array>
 #include <cmath>
 
-static constexpr int kFloatsPerVertex = 11;
-// Uniform buffer size: 14 data floats + 2 padding = 16 floats = 64 bytes (std140)
-static constexpr int kUniformBufferSize = 64;
-
-
-static void appendVertex(QVector<float>& buf, float x, float y,
-                          const std::array<float, 4>& rgba,
-                          float extX, float extY, float extW,
-                          float isPixelX, float isPixelY)
-{
-    buf.append(x);
-    buf.append(y);
-    buf.append(rgba[0]);
-    buf.append(rgba[1]);
-    buf.append(rgba[2]);
-    buf.append(rgba[3]);
-    buf.append(extX);
-    buf.append(extY);
-    buf.append(extW);
-    buf.append(isPixelX);
-    buf.append(isPixelY);
-}
-
-// Emit 6 vertices (2 triangles) for a quad defined by 4 corners:
-//   TL--TR
-//   |  / |
-//   BL--BR
-static void appendQuad(QVector<float>& buf,
-                        float tlX, float tlY, float trX, float trY,
-                        float blX, float blY, float brX, float brY,
-                        const std::array<float, 4>& rgba,
-                        float extX, float extY, float extW,
-                        float isPixelX, float isPixelY)
-{
-    // Triangle 1: TL, BL, TR
-    appendVertex(buf, tlX, tlY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, blX, blY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, trX, trY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    // Triangle 2: TR, BL, BR
-    appendVertex(buf, trX, trY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, blX, blY, rgba, extX, extY, extW, isPixelX, isPixelY);
-    appendVertex(buf, brX, brY, rgba, extX, extY, extW, isPixelX, isPixelY);
-}
-
-// Emit a border line as a quad with extrude direction.
-// The border runs between (x0,y0) and (x1,y1). extrudeDir is perpendicular.
-// We emit 6 vertices: 3 with +extrudeWidth, 3 with -extrudeWidth.
-static void appendBorder(QVector<float>& buf,
-                          float x0, float y0, float x1, float y1,
-                          const std::array<float, 4>& rgba,
-                          float extDirX, float extDirY, float halfWidth,
-                          float isPixelX, float isPixelY)
-{
-    // TL = (x0,y0) +extrude, TR = (x1,y1) +extrude
-    // BL = (x0,y0) -extrude, BR = (x1,y1) -extrude
-    appendVertex(buf, x0, y0, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-
-    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x1, y1, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-}
+using namespace qcp::rhi::span_grid;
 
 QCPSpanRhiLayer::QCPSpanRhiLayer(QRhi* rhi)
     : mRhi(rhi)

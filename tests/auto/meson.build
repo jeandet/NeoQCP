@@ -66,5 +66,5 @@ test_headers = [
 ]
 test_moc_files = qtmod.compile_moc(headers : test_headers)
 
-auto_tests=executable('auto-tests',test_srcs, test_moc_files, dependencies:[NeoQCP_dep, qtdeps, qttest])
+auto_tests=executable('auto-tests',test_srcs, test_moc_files, dependencies:[NeoQCP_dep, qtdeps, qttest], override_options: ['unity=off'])
 test('test-auto-tests', auto_tests)

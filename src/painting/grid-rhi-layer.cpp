@@ -1,4 +1,6 @@
 #include "grid-rhi-layer.h"
+#include "rhi-utils.h"
+#include "span-grid-vertex.h"
 #include "Profiling.hpp"
 #include "embedded_shaders.h"
 #include "../axis/axis.h"
@@ -7,48 +9,7 @@
 #include <array>
 #include <cmath>
 
-static constexpr int kFloatsPerVertex = 11;
-// Uniform buffer size: 14 data floats + 2 padding = 16 floats = 64 bytes (std140)
-static constexpr int kUniformBufferSize = 64;
-
-static auto premultiply(const QColor& c) -> std::array<float, 4>
-{
-    float a = c.alphaF();
-    return {float(c.redF() * a), float(c.greenF() * a), float(c.blueF() * a), a};
-}
-
-static void appendVertex(QVector<float>& buf, float x, float y,
-                          const std::array<float, 4>& rgba,
-                          float extX, float extY, float extW,
-                          float isPixelX, float isPixelY)
-{
-    buf.append(x);
-    buf.append(y);
-    buf.append(rgba[0]);
-    buf.append(rgba[1]);
-    buf.append(rgba[2]);
-    buf.append(rgba[3]);
-    buf.append(extX);
-    buf.append(extY);
-    buf.append(extW);
-    buf.append(isPixelX);
-    buf.append(isPixelY);
-}
-
-static void appendBorder(QVector<float>& buf,
-                          float x0, float y0, float x1, float y1,
-                          const std::array<float, 4>& rgba,
-                          float extDirX, float extDirY, float halfWidth,
-                          float isPixelX, float isPixelY)
-{
-    appendVertex(buf, x0, y0, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-
-    appendVertex(buf, x1, y1, rgba, extDirX, extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x0, y0, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-    appendVertex(buf, x1, y1, rgba, -extDirX, -extDirY, halfWidth, isPixelX, isPixelY);
-}
+using namespace qcp::rhi::span_grid;
 
 QCPGridRhiLayer::QCPGridRhiLayer(QRhi* rhi)
     : mRhi(rhi)
@@ -208,7 +169,7 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
             const float pixBot = float(ar->top() + ar->height());
 
             auto emitGridLine = [&](double tickValue, const QPen& pen) {
-                auto color = premultiply(pen.color());
+                auto color = qcp::rhi::premultipliedColor(pen.color());
                 float penW = pen.widthF();
                 float halfW = (penW == 0.0 || pen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
                 if (pen.style() == Qt::NoPen || halfW <= 0.0f || color[3] <= 0.0f)
@@ -299,7 +260,7 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
             }
 
             auto emitTickLine = [&](double tickValue, float lengthOut, float lengthIn, const QPen& pen) {
-                auto color = premultiply(pen.color());
+                auto color = qcp::rhi::premultipliedColor(pen.color());
                 float penW = pen.widthF();
                 float halfW = (penW == 0.0 || pen.isCosmetic()) ? 0.5f : float(penW) / 2.0f;
                 if (pen.style() == Qt::NoPen || halfW <= 0.0f || color[3] <= 0.0f)
