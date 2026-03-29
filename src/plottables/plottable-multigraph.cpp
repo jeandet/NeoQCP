@@ -145,7 +145,7 @@ void QCPMultiGraph::dataChanged()
 void QCPMultiGraph::onL1Ready()
 {
     qcp::extractL1Cache<qcp::algo::MultiGraphResamplerCache>(mPipeline.cache(), mL1Cache, mL2Dirty);
-    mLineCacheDirty = true; // Force line rebuild so L2 data is used
+    mLineCacheDirty = true;
     if (parentPlot())
         parentPlot()->replot(QCustomPlot::rpQueuedReplot);
 }
@@ -511,19 +511,20 @@ void QCPMultiGraph::draw(QCPPainter* painter)
     if (mKeyAxis->range().size() <= 0)
         return;
 
-    // Lazy L2 rebuild — deferred until the line cache actually needs refreshing.
-    // During smooth panning, cached pixel-space lines are reused with a GPU offset,
-    // so rebuilding L2 on every viewport change would defeat that optimization.
-
-    // Export path: synchronous fallback when no L2 result yet
-    if (!mL2Result && mNeedsResampling
+    // Export path: synchronous fallback when no L1 cache yet
+    if (!mL1Cache && mNeedsResampling
         && painter->modes().testFlag(QCPPainter::pmNoCaching))
     {
         auto vp = ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data());
         mPipeline.runSynchronously(vp);
         onL1Ready();
-        if (mL1Cache)
-            rebuildL2(vp);
+    }
+
+    // Rebuild L2 from L1 cache when dirty (viewport changed since last build)
+    if (mL2Dirty && mL1Cache)
+    {
+        rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
+        mL2Dirty = false;
     }
 
     const QCPAbstractMultiDataSource* ds = nullptr;
@@ -533,7 +534,7 @@ void QCPMultiGraph::draw(QCPPainter* painter)
              || mKeyAxis->scaleType() == QCPAxis::stLogarithmic)
         ds = mDataSource.get();
     else
-        return; // Pipeline active, no L2 — wait for L1
+        return; // Pipeline active, no L1 yet — wait
 
     if (!ds || ds->empty())
         return;
@@ -564,14 +565,6 @@ void QCPMultiGraph::draw(QCPPainter* painter)
 
     if (needFreshLines)
     {
-        if (mL2Dirty && mL1Cache && mKeyAxis->axisRect())
-        {
-            rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
-            mL2Dirty = false;
-            if (mL2Result)
-                ds = mL2Result.get();
-        }
-
         // Expand data range by 100% on each side so GPU-translated pans
         // don't expose uncovered edges before the rebuild threshold triggers.
         const double margin = keyRange.size() * 1.0;
