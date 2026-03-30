@@ -3,6 +3,7 @@
 #include "algorithms.h"
 #include <QtGlobal>
 #include <cstddef>
+#include <memory>
 #include <span>
 
 namespace qcp::detail {
@@ -65,12 +66,18 @@ private:
 template <typename K, typename V>
 class QCPRowMajorMultiDataSource final : public QCPAbstractMultiDataSource {
 public:
+    // dataGuard: optional shared_ptr that keeps the backing buffer alive for the
+    // lifetime of this view. Pass the owner of keys/values so that async pipeline
+    // jobs (which hold a shared_ptr to this object) transitively prevent the
+    // underlying memory from being freed.
     QCPRowMajorMultiDataSource(std::span<const K> keys,
                                 const V* values,
                                 int rows,
                                 int columns,
-                                int stride)
-        : mKeys(keys), mValues(values), mRows(rows), mColumns(columns), mStride(stride)
+                                int stride,
+                                std::shared_ptr<const void> dataGuard = {})
+        : mKeys(keys), mValues(values), mRows(rows), mColumns(columns), mStride(stride),
+          mDataGuard(std::move(dataGuard))
     {
         Q_ASSERT(rows >= 0 && columns >= 0 && stride > 0);
         Q_ASSERT(static_cast<int>(keys.size()) == rows);
@@ -140,4 +147,5 @@ private:
     int mRows;
     int mColumns;
     int mStride;
+    std::shared_ptr<const void> mDataGuard;
 };

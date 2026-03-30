@@ -2,6 +2,7 @@
 #include "abstract-multi-datasource.h"
 #include "algorithms.h"
 #include <QtGlobal>
+#include <memory>
 #include <vector>
 
 template <IndexableNumericRange KeyContainer, IndexableNumericRange ValueContainer>
@@ -10,8 +11,10 @@ public:
     using K = std::ranges::range_value_t<KeyContainer>;
     using V = std::ranges::range_value_t<ValueContainer>;
 
-    QCPSoAMultiDataSource(KeyContainer keys, std::vector<ValueContainer> valueColumns)
-        : mKeys(std::move(keys)), mValues(std::move(valueColumns))
+    QCPSoAMultiDataSource(KeyContainer keys, std::vector<ValueContainer> valueColumns,
+                           std::shared_ptr<const void> dataGuard = {})
+        : mKeys(std::move(keys)), mValues(std::move(valueColumns)),
+          mDataGuard(std::move(dataGuard))
     {
         for (const auto& col : mValues)
             Q_ASSERT(std::ranges::size(col) == std::ranges::size(mKeys));
@@ -73,4 +76,5 @@ public:
 private:
     KeyContainer mKeys;
     std::vector<ValueContainer> mValues;
+    std::shared_ptr<const void> mDataGuard;
 };

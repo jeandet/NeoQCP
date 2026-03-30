@@ -3,6 +3,7 @@
 #include "algorithms.h"
 #include "../Profiling.hpp"
 #include <QtGlobal>
+#include <memory>
 
 template <IndexableNumericRange KeyContainer, IndexableNumericRange ValueContainer>
 class QCPSoADataSource final : public QCPAbstractDataSource {
@@ -10,8 +11,10 @@ public:
     using K = std::ranges::range_value_t<KeyContainer>;
     using V = std::ranges::range_value_t<ValueContainer>;
 
-    QCPSoADataSource(KeyContainer keys, ValueContainer values)
-        : mKeys(std::move(keys)), mValues(std::move(values))
+    QCPSoADataSource(KeyContainer keys, ValueContainer values,
+                      std::shared_ptr<const void> dataGuard = {})
+        : mKeys(std::move(keys)), mValues(std::move(values)),
+          mDataGuard(std::move(dataGuard))
     {
         Q_ASSERT(std::ranges::size(mKeys) == std::ranges::size(mValues));
     }
@@ -75,4 +78,5 @@ public:
 private:
     KeyContainer mKeys;
     ValueContainer mValues;
+    std::shared_ptr<const void> mDataGuard;
 };

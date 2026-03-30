@@ -1,6 +1,7 @@
 #pragma once
 #include "abstract-datasource-2d.h"
 #include "algorithms-2d.h"
+#include <memory>
 #include <ranges>
 #include <span>
 
@@ -12,8 +13,9 @@ public:
     using Y = std::ranges::range_value_t<YC>;
     using Z = std::ranges::range_value_t<ZC>;
 
-    QCPSoADataSource2D(XC x, YC y, ZC z)
-        : mX(std::move(x)), mY(std::move(y)), mZ(std::move(z))
+    QCPSoADataSource2D(XC x, YC y, ZC z, std::shared_ptr<const void> dataGuard = {})
+        : mX(std::move(x)), mY(std::move(y)), mZ(std::move(z)),
+          mDataGuard(std::move(dataGuard))
     {
         auto nx = std::ranges::size(mX);
         auto ny = std::ranges::size(mY);
@@ -76,4 +78,5 @@ private:
     ZC mZ;
     int mYSize;
     bool mYIs2D;
+    std::shared_ptr<const void> mDataGuard;
 };
