@@ -339,45 +339,56 @@ double QCPMultiGraph::selectTest(const QPointF& pos, bool onlySelectable, QVaria
     if (!mKeyAxis || !mValueAxis)
         return -1;
 
-    double posKeyMin, posKeyMax, dummy;
-    pixelsToCoords(
-        pos - QPointF(mParentPlot->selectionTolerance(), mParentPlot->selectionTolerance()),
-        posKeyMin, dummy);
-    pixelsToCoords(
-        pos + QPointF(mParentPlot->selectionTolerance(), mParentPlot->selectionTolerance()),
-        posKeyMax, dummy);
-    if (posKeyMin > posKeyMax) qSwap(posKeyMin, posKeyMax);
+    auto* axisRect = mKeyAxis->axisRect();
+    if (!axisRect || !axisRect->rect().contains(pos.toPoint()))
+        return -1;
 
-    int begin = mDataSource->findBegin(posKeyMin, true);
-    int end = mDataSource->findEnd(posKeyMax, true);
-    if (begin == end) return -1;
+    // Fast path: when details aren't needed (e.g. wheel events), skip per-point work.
+    if (!details)
+        return mParentPlot->selectionTolerance() * 0.99;
+
+    // Keys are sorted — binary search for the nearest key, then check
+    // each component at that index.  O(log N + C) instead of O(C × M).
+    const QCPAbstractMultiDataSource* ds = mDataSource.get();
+    const int n = ds->size();
+
+    double posKey, dummy;
+    pixelsToCoords(pos, posKey, dummy);
+
+    // findEnd gives the first index > posKey; the nearest key is either
+    // that index or the one before it.
+    int idx = ds->findEnd(posKey, /*expandedRange=*/false);
+    int lo = qMax(0, idx - 1);
+    int hi = qMin(idx, n - 1);
 
     double minDistSqr = (std::numeric_limits<double>::max)();
     int minDistIndex = -1;
     int minDistComponent = -1;
-    QCPRange keyRange(mKeyAxis->range());
-    QCPRange valRange(mValueAxis->range());
+    double minKey = 0, minValue = 0;
 
-    for (int c = 0; c < mComponents.size(); ++c) {
-        if (!mComponents[c].visible) continue;
-        for (int i = begin; i < end; ++i) {
-            double k = mDataSource->keyAt(i);
-            double v = mDataSource->valueAt(c, i);
-            if (keyRange.contains(k) && valRange.contains(v)) {
-                double distSqr = QCPVector2D(coordsToPixels(k, v) - pos).lengthSquared();
-                if (distSqr < minDistSqr) {
-                    minDistSqr = distSqr;
-                    minDistIndex = i;
-                    minDistComponent = c;
-                }
+    const int nComponents = qMin(mComponents.size(), ds->columnCount());
+    for (int i = lo; i <= hi; ++i) {
+        double k = ds->keyAt(i);
+        for (int c = 0; c < nComponents; ++c) {
+            if (!mComponents[c].visible) continue;
+            double v = ds->valueAt(c, i);
+            double distSqr = QCPVector2D(coordsToPixels(k, v) - pos).lengthSquared();
+            if (distSqr < minDistSqr) {
+                minDistSqr = distSqr;
+                minDistIndex = i;
+                minDistComponent = c;
+                minKey = k;
+                minValue = v;
             }
         }
     }
 
-    if (details && minDistIndex >= 0) {
+    if (minDistIndex >= 0) {
         QVariantMap map;
         map["componentIndex"] = minDistComponent;
         map["dataIndex"] = minDistIndex;
+        map["key"] = minKey;
+        map["value"] = minValue;
         details->setValue(map);
     }
     return minDistIndex >= 0 ? qSqrt(minDistSqr) : -1;

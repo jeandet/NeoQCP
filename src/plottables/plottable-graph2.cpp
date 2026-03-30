@@ -233,51 +233,38 @@ double QCPGraph2::selectTest(const QPointF& pos, bool onlySelectable, QVariant* 
     if (!mKeyAxis || !mValueAxis)
         return -1;
 
-    // Fast path: when details aren't needed (e.g. wheel events), just check
-    // if the mouse is inside the clip rect rather than doing per-point testing.
+    auto* axisRect = mKeyAxis->axisRect();
+    if (!axisRect || !axisRect->rect().contains(pos.toPoint()))
+        return -1;
+
+    // Fast path: when details aren't needed (e.g. wheel events), skip per-point work.
     if (!details)
-    {
-        auto* axisRect = mKeyAxis->axisRect();
-        if (axisRect && axisRect->rect().contains(pos.toPoint()))
-            return mParentPlot->selectionTolerance() * 0.99;
-        return -1;
-    }
+        return mParentPlot->selectionTolerance() * 0.99;
 
-    // Use resampled data for hit testing when available (O(k) instead of O(n))
-    const QCPAbstractDataSource* ds = mL2Result ? mL2Result.get() : mDataSource.get();
+    // Keys are sorted — binary search for the nearest key, then check
+    // at most 2 neighbors.  O(log N) instead of O(M).
+    const QCPAbstractDataSource* ds = mDataSource.get();
+    const int n = ds->size();
 
-    double posKeyMin, posKeyMax, dummy;
-    pixelsToCoords(
-        pos - QPointF(mParentPlot->selectionTolerance(), mParentPlot->selectionTolerance()),
-        posKeyMin, dummy);
-    pixelsToCoords(
-        pos + QPointF(mParentPlot->selectionTolerance(), mParentPlot->selectionTolerance()),
-        posKeyMax, dummy);
-    if (posKeyMin > posKeyMax)
-        qSwap(posKeyMin, posKeyMax);
+    double posKey, dummy;
+    pixelsToCoords(pos, posKey, dummy);
 
-    int begin = ds->findBegin(posKeyMin, true);
-    int end = ds->findEnd(posKeyMax, true);
-    if (begin == end)
-        return -1;
+    int idx = ds->findEnd(posKey, /*expandedRange=*/false);
+    int lo = qMax(0, idx - 1);
+    int hi = qMin(idx, n - 1);
 
     double minDistSqr = (std::numeric_limits<double>::max)();
     int minDistIndex = -1;
-    QCPRange keyRange(mKeyAxis->range());
-    QCPRange valueRange(mValueAxis->range());
 
-    for (int i = begin; i < end; ++i)
+    for (int i = lo; i <= hi; ++i)
     {
         double k = ds->keyAt(i);
         double v = ds->valueAt(i);
-        if (keyRange.contains(k) && valueRange.contains(v))
+        double distSqr = QCPVector2D(coordsToPixels(k, v) - pos).lengthSquared();
+        if (distSqr < minDistSqr)
         {
-            double distSqr = QCPVector2D(coordsToPixels(k, v) - pos).lengthSquared();
-            if (distSqr < minDistSqr)
-            {
-                minDistSqr = distSqr;
-                minDistIndex = i;
-            }
+            minDistSqr = distSqr;
+            minDistIndex = i;
         }
     }
 
@@ -285,8 +272,7 @@ double QCPGraph2::selectTest(const QPointF& pos, bool onlySelectable, QVariant* 
     if (minDistIndex >= 0)
         selectionResult.addDataRange(QCPDataRange(minDistIndex, minDistIndex + 1), false);
     selectionResult.simplify();
-    if (details)
-        details->setValue(selectionResult);
+    details->setValue(selectionResult);
     return minDistIndex >= 0 ? qSqrt(minDistSqr) : -1;
 }
 

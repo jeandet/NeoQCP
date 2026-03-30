@@ -212,16 +212,11 @@ bool QCPDataLocator::locateMultiGraph(const QPointF& pixelPos)
     if (!map.contains("dataIndex"))
         return false;
 
-    int index = map["dataIndex"].toInt();
-    int component = map.value("componentIndex", 0).toInt();
-    auto* src = mg->dataSource();
-    if (!src || index < 0 || index >= mg->dataCount()
-        || component < 0 || component >= src->columnCount())
-        return false;
-
-    mKey = mg->dataMainKey(index);
-    mValue = src->valueAt(component, index);
-    mDataIndex = index;
+    // selectTest stores pre-computed coordinates, safe even when
+    // the index refers to resampled (L2) data rather than the source.
+    mKey = map["key"].toDouble();
+    mValue = map["value"].toDouble();
+    mDataIndex = map["dataIndex"].toInt();
     mHitPlottable = mPlottable;
     mValid = true;
     return true;
