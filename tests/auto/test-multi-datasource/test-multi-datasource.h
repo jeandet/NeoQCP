@@ -24,6 +24,10 @@ private slots:
     void soaEmpty();
     void soaMixedTypes();
 
+    // NaN gap handling
+    void linesToPixelsNanProducesNanNotZero();
+    void adaptiveSamplingNanDoesNotPoisonMinMax();
+
     // Row-major data source
     void rowMajorValueAt();
     void rowMajorWithPadding();

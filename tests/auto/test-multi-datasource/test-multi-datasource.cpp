@@ -189,6 +189,80 @@ void TestMultiDataSource::soaMixedTypes()
     QCOMPARE(src.valueAt(1, 2), -3.0);
 }
 
+void TestMultiDataSource::linesToPixelsNanProducesNanNotZero()
+{
+    // Reproducer: NaN values in data were mapped to pixel (0,0) instead of NaN,
+    // causing the line extruder to draw diagonal fan lines to the top-left corner.
+    constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+    std::vector<double> keys = {1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector<std::vector<double>> cols = {{10.0, NaN, 30.0, NaN, 50.0}};
+    QCPSoAMultiDataSource src(std::move(keys), std::move(cols));
+
+    mPlot->xAxis->setRange(0, 6);
+    mPlot->yAxis->setRange(0, 60);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto lines = src.getLines(0, 0, 5, mPlot->xAxis, mPlot->yAxis);
+    QCOMPARE(lines.size(), 5);
+
+    // Valid points must not be at (0,0)
+    QVERIFY(lines[0].x() != 0 || lines[0].y() != 0);
+    QVERIFY(lines[2].x() != 0 || lines[2].y() != 0);
+    QVERIFY(lines[4].x() != 0 || lines[4].y() != 0);
+
+    // NaN points must be NaN (so the extruder breaks the polyline), not (0,0)
+    QVERIFY(qIsNaN(lines[1].x()) || qIsNaN(lines[1].y()));
+    QVERIFY(qIsNaN(lines[3].x()) || qIsNaN(lines[3].y()));
+}
+
+void TestMultiDataSource::adaptiveSamplingNanDoesNotPoisonMinMax()
+{
+    // Reproducer: if the first value in a pixel interval was NaN, minValue/maxValue
+    // started as NaN and all subsequent valid values were lost (NaN comparisons
+    // always return false), producing empty or NaN-filled output.
+    constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+
+    // Dense data so adaptive sampling kicks in (needs dataCount >= maxCount).
+    // 10000 points across a 400px widget → ~25 points per pixel → adaptive.
+    const int N = 10000;
+    std::vector<double> keys(N);
+    std::vector<double> vals(N);
+    for (int i = 0; i < N; ++i)
+    {
+        keys[i] = static_cast<double>(i);
+        // Sprinkle NaN at interval boundaries (every 25th point)
+        vals[i] = (i % 25 == 0) ? NaN : static_cast<double>(i * 0.1);
+    }
+    std::vector<std::vector<double>> cols = {std::move(vals)};
+    QCPSoAMultiDataSource src(std::move(keys), std::move(cols));
+
+    mPlot->xAxis->setRange(0, N);
+    mPlot->yAxis->setRange(0, N * 0.1);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto result = src.getOptimizedLineData(0, 0, N, 400, mPlot->xAxis, mPlot->yAxis);
+    QVERIFY(result.size() > 0);
+
+    // Count valid (non-NaN) output points — must be the majority
+    int validCount = 0;
+    for (const auto& pt : result)
+        if (!qIsNaN(pt.x()) && !qIsNaN(pt.y()))
+            ++validCount;
+
+    // Before the fix, NaN-poisoned intervals produced zero valid points.
+    // With the fix, nearly all output points should be valid.
+    QVERIFY2(validCount > result.size() / 2,
+             qPrintable(QString("Only %1/%2 valid points").arg(validCount).arg(result.size())));
+
+    // No point should be at pixel (0,0) — that was the old broken mapping
+    for (const auto& pt : result)
+    {
+        if (qIsNaN(pt.x()) || qIsNaN(pt.y())) continue;
+        QVERIFY2(pt.x() != 0.0 || pt.y() != 0.0,
+                 "NaN data produced pixel (0,0) instead of NaN gap");
+    }
+}
+
 void TestMultiDataSource::rowMajorValueAt()
 {
     // 3 rows, 2 columns, packed (stride == columns)

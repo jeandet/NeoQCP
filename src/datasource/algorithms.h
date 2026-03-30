@@ -153,9 +153,7 @@ QVector<QPointF> linesToPixels(const KC& keys, const VC& values,
             double v = static_cast<double>(values[i]);
             if constexpr (!std::is_integral_v<V>)
             {
-                // NaN values map to (0,0) — matches legacy QCPGraph behavior.
-                // TODO: proper gap handling (break polyline) for NaN values.
-                if (std::isnan(v)) { pt = QPointF(0, 0); continue; }
+                if (std::isnan(v)) { pt = QPointF(qQNaN(), qQNaN()); continue; }
             }
             pt.setX(valueAxis->coordToPixel(v));
             pt.setY(keyAxis->coordToPixel(static_cast<double>(keys[i])));
@@ -169,9 +167,7 @@ QVector<QPointF> linesToPixels(const KC& keys, const VC& values,
             double v = static_cast<double>(values[i]);
             if constexpr (!std::is_integral_v<V>)
             {
-                // NaN values map to (0,0) — matches legacy QCPGraph behavior.
-                // TODO: proper gap handling (break polyline) for NaN values.
-                if (std::isnan(v)) { pt = QPointF(0, 0); continue; }
+                if (std::isnan(v)) { pt = QPointF(qQNaN(), qQNaN()); continue; }
             }
             pt.setX(keyAxis->coordToPixel(static_cast<double>(keys[i])));
             pt.setY(valueAxis->coordToPixel(v));
@@ -214,14 +210,23 @@ QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
                           : QPointF(keyAxis->coordToPixel(k), valueAxis->coordToPixel(v));
     };
 
+    // Skip leading NaN values
     int i = begin;
+    using V = std::ranges::range_value_t<VC>;
+    if constexpr (!std::is_integral_v<V>)
+    {
+        while (i < end && std::isnan(static_cast<double>(values[i])))
+            ++i;
+    }
+    if (i >= end) return {};
+
     double minValue = static_cast<double>(values[i]);
     double maxValue = minValue;
     int currentIntervalFirst = i;
     int reversedFactor = keyAxis->pixelOrientation();
     int reversedRound = reversedFactor == -1 ? 1 : 0;
     double currentIntervalStartKey = keyAxis->pixelToCoord(
-        int(keyAxis->coordToPixel(static_cast<double>(keys[begin])) + reversedRound));
+        int(keyAxis->coordToPixel(static_cast<double>(keys[i])) + reversedRound));
     double lastIntervalEndKey = currentIntervalStartKey;
     double keyEpsilon = qAbs(currentIntervalStartKey
         - keyAxis->pixelToCoord(keyAxis->coordToPixel(currentIntervalStartKey)
@@ -232,8 +237,12 @@ QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
 
     while (i < end)
     {
-        double k = static_cast<double>(keys[i]);
         double v = static_cast<double>(values[i]);
+        if constexpr (!std::is_integral_v<V>)
+        {
+            if (std::isnan(v)) { ++i; continue; }
+        }
+        double k = static_cast<double>(keys[i]);
         if (k < currentIntervalStartKey + keyEpsilon)
         {
             if (v < minValue) minValue = v;
