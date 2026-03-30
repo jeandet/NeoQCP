@@ -2,6 +2,7 @@
 #include "qcustomplot.h"
 #include "datasource/soa-multi-datasource.h"
 #include "datasource/row-major-multi-datasource.h"
+#include "datasource/resampled-multi-datasource.h"
 #include <vector>
 #include <span>
 
@@ -261,6 +262,63 @@ void TestMultiDataSource::adaptiveSamplingNanDoesNotPoisonMinMax()
         QVERIFY2(pt.x() != 0.0 || pt.y() != 0.0,
                  "NaN data produced pixel (0,0) instead of NaN gap");
     }
+}
+
+void TestMultiDataSource::linesToPixelsBreaksAtKeyGaps()
+{
+    // Reproducer: data with a large time gap (e.g. missing measurement period)
+    // drew a straight line across the gap instead of breaking the polyline.
+    // Keys: 1,2,3, [gap], 100,101,102
+    std::vector<double> keys = {1.0, 2.0, 3.0, 100.0, 101.0, 102.0};
+    std::vector<std::vector<double>> cols = {{10.0, 20.0, 30.0, 40.0, 50.0, 60.0}};
+    QCPSoAMultiDataSource src(std::move(keys), std::move(cols));
+
+    mPlot->xAxis->setRange(0, 110);
+    mPlot->yAxis->setRange(0, 70);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto lines = src.getLines(0, 0, 6, mPlot->xAxis, mPlot->yAxis);
+
+    // Must contain at least one NaN gap marker between the two data segments
+    bool foundNanGap = false;
+    for (const auto& pt : lines)
+    {
+        if (qIsNaN(pt.x()) || qIsNaN(pt.y()))
+        {
+            foundNanGap = true;
+            break;
+        }
+    }
+    QVERIFY2(foundNanGap, "No gap break found between key=3 and key=100");
+}
+
+void TestMultiDataSource::resampledGetLinesBreaksAtKeyGaps()
+{
+    // Same gap detection test but through the L2 resampled path.
+    // Build a MultiColumnBinResult with a gap in the keys.
+    qcp::algo::MultiColumnBinResult bins;
+    bins.numColumns = 1;
+    bins.keys = {1.0, 2.0, 3.0, 100.0, 101.0, 102.0};
+    bins.values = {10.0, 20.0, 30.0, 40.0, 50.0, 60.0};
+
+    QCPResampledMultiDataSource src(std::move(bins));
+
+    mPlot->xAxis->setRange(0, 110);
+    mPlot->yAxis->setRange(0, 70);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto lines = src.getLines(0, 0, 6, mPlot->xAxis, mPlot->yAxis);
+
+    bool foundNanGap = false;
+    for (const auto& pt : lines)
+    {
+        if (qIsNaN(pt.x()) || qIsNaN(pt.y()))
+        {
+            foundNanGap = true;
+            break;
+        }
+    }
+    QVERIFY2(foundNanGap, "Resampled path: no gap break between key=3 and key=100");
 }
 
 void TestMultiDataSource::rowMajorValueAt()

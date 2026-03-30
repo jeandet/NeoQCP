@@ -8,6 +8,33 @@
 
 namespace qcp::algo {
 
+constexpr double kDefaultGapThreshold = 1.5;
+
+// Detect gaps between consecutive sorted keys using local neighbor spacing.
+// Returns a bool vector where gapBefore[i] = true means there's a gap between
+// keys[begin+i-1] and keys[begin+i]. Same algorithm as QCPColorMap2 gap detection.
+template <IndexableNumericRange KC>
+std::vector<bool> detectKeyGaps(const KC& keys, int begin, int end,
+                                 double threshold = kDefaultGapThreshold)
+{
+    const int count = end - begin;
+    std::vector<bool> gapBefore(count, false);
+    if (count < 3 || threshold <= 0) return gapBefore;
+
+    for (int i = 0; i < count - 1; ++i)
+    {
+        double dx = static_cast<double>(keys[begin + i + 1]) - static_cast<double>(keys[begin + i]);
+        double refDx = std::numeric_limits<double>::max();
+        if (i > 0)
+            refDx = std::min(refDx, static_cast<double>(keys[begin + i]) - static_cast<double>(keys[begin + i - 1]));
+        if (i + 2 < count)
+            refDx = std::min(refDx, static_cast<double>(keys[begin + i + 2]) - static_cast<double>(keys[begin + i + 1]));
+        if (refDx < std::numeric_limits<double>::max() && dx > threshold * refDx)
+            gapBefore[i + 1] = true; // gap before point i+1
+    }
+    return gapBefore;
+}
+
 template <IndexableNumericRange KC>
 int findBegin(const KC& keys, double sortKey, bool expandedRange = true)
 {
@@ -137,47 +164,47 @@ QCPRange valueRange(const KC& keys, const VC& values, bool& foundRange,
 template <IndexableNumericRange KC, IndexableNumericRange VC>
 QVector<QPointF> linesToPixels(const KC& keys, const VC& values,
                                 int begin, int end,
-                                QCPAxis* keyAxis, QCPAxis* valueAxis)
+                                QCPAxis* keyAxis, QCPAxis* valueAxis,
+                                double gapThreshold = kDefaultGapThreshold)
 {
     using V = std::ranges::range_value_t<VC>;
     Q_ASSERT(begin >= 0 && end <= static_cast<int>(std::ranges::size(keys)));
     Q_ASSERT(begin >= 0 && end <= static_cast<int>(std::ranges::size(values)));
-    QVector<QPointF> result;
-    result.resize(end - begin);
+    const int count = end - begin;
+    if (count <= 0) return {};
 
-    if (keyAxis->orientation() == Qt::Vertical)
+    auto gaps = detectKeyGaps(keys, begin, end, gapThreshold);
+
+    QVector<QPointF> result;
+    result.reserve(count + count / 10); // extra room for gap markers
+
+    const bool isVertical = keyAxis->orientation() == Qt::Vertical;
+    const auto nanPt = QPointF(qQNaN(), qQNaN());
+
+    for (int i = begin; i < end; ++i)
     {
-        for (int i = begin; i < end; ++i)
+        int ri = i - begin;
+        if (gaps[ri])
+            result.append(nanPt);
+
+        double v = static_cast<double>(values[i]);
+        if constexpr (!std::is_integral_v<V>)
         {
-            auto& pt = result[i - begin];
-            double v = static_cast<double>(values[i]);
-            if constexpr (!std::is_integral_v<V>)
-            {
-                if (std::isnan(v)) { pt = QPointF(qQNaN(), qQNaN()); continue; }
-            }
-            pt.setX(valueAxis->coordToPixel(v));
-            pt.setY(keyAxis->coordToPixel(static_cast<double>(keys[i])));
+            if (std::isnan(v)) { result.append(nanPt); continue; }
         }
-    }
-    else
-    {
-        for (int i = begin; i < end; ++i)
-        {
-            auto& pt = result[i - begin];
-            double v = static_cast<double>(values[i]);
-            if constexpr (!std::is_integral_v<V>)
-            {
-                if (std::isnan(v)) { pt = QPointF(qQNaN(), qQNaN()); continue; }
-            }
-            pt.setX(keyAxis->coordToPixel(static_cast<double>(keys[i])));
-            pt.setY(valueAxis->coordToPixel(v));
-        }
+
+        if (isVertical)
+            result.append(QPointF(valueAxis->coordToPixel(v),
+                                  keyAxis->coordToPixel(static_cast<double>(keys[i]))));
+        else
+            result.append(QPointF(keyAxis->coordToPixel(static_cast<double>(keys[i])),
+                                  valueAxis->coordToPixel(v)));
     }
     return result;
 }
 
-// NaN values in the adaptive sampling path silently corrupt min/max clusters
-// (matches legacy QCPGraph behavior). TODO: add NaN filtering in the sampling loop.
+// Gap detection in the adaptive sampling path is implicit: large key gaps produce
+// separate pixel intervals, which the extruder renders as disconnected segments.
 template <IndexableNumericRange KC, IndexableNumericRange VC>
 QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
                                     int begin, int end,

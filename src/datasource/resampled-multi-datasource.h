@@ -71,10 +71,16 @@ public:
         if (column < 0 || column >= mBins.numColumns) return {};
         int s = mBins.stride();
         const bool keyIsVertical = keyAxis->orientation() == Qt::Vertical;
+        const int count = end - begin;
+        auto gaps = qcp::algo::detectKeyGaps(mBins.keys, begin, end);
+        const auto nanPt = QPointF(qQNaN(), qQNaN());
+
         QVector<QPointF> lines;
-        lines.reserve(end - begin);
+        lines.reserve(count + count / 10);
         for (int i = begin; i < end; ++i)
         {
+            if (gaps[i - begin])
+                lines.append(nanPt);
             double v = mBins.values[column * s + i];
             if (std::isnan(v)) continue;
             double keyPx = keyAxis->coordToPixel(mBins.keys[i]);

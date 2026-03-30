@@ -28,6 +28,10 @@ private slots:
     void linesToPixelsNanProducesNanNotZero();
     void adaptiveSamplingNanDoesNotPoisonMinMax();
 
+    // Key-space gap detection
+    void linesToPixelsBreaksAtKeyGaps();
+    void resampledGetLinesBreaksAtKeyGaps();
+
     // Row-major data source
     void rowMajorValueAt();
     void rowMajorWithPadding();
