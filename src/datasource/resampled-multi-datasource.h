@@ -131,7 +131,21 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
     int l2Stride = l2Bins * 2;
 
     l2.keys.resize(l2Stride);
-    l2.values.resize(N * l2Stride, std::numeric_limits<double>::quiet_NaN());
+    l2.values.resize(N * l2Stride);
+
+    // Use +inf/-inf sentinels for min/max instead of NaN — eliminates 2 isnan
+    // calls per iteration in the hot loop below.
+    constexpr double posInf = std::numeric_limits<double>::infinity();
+    constexpr double negInf = -std::numeric_limits<double>::infinity();
+    for (int c = 0; c < N; ++c)
+    {
+        double* col = l2.values.data() + c * l2Stride;
+        for (int b = 0; b < l2Bins; ++b)
+        {
+            col[b * 2 + 0] = posInf;   // min slot
+            col[b * 2 + 1] = negInf;   // max slot
+        }
+    }
 
     for (int b = 0; b < l2Bins; ++b)
     {
@@ -143,6 +157,7 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
     // Pre-compute bin indices (keys shared across columns)
     int l1Count = l1End - l1Begin;
     std::vector<int> binIdx(l1Count);
+    const int* binIdxPtr = binIdx.data();
     for (int i = 0; i < l1Count; ++i)
     {
         double k = l1.keys[l1Begin + i];
@@ -157,13 +172,13 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
         for (int i = 0; i < l1Count; ++i)
         {
             double v = colIn[l1Begin + i];
-            if (std::isnan(v)) continue;
+            if (v != v) continue;  // NaN check (v != v iff NaN)
 
-            int bin = binIdx[i];
+            int bin = binIdxPtr[i];
             double& mn = colOut[bin * 2 + 0];
             double& mx = colOut[bin * 2 + 1];
-            if (std::isnan(mn) || v < mn) mn = v;
-            if (std::isnan(mx) || v > mx) mx = v;
+            if (v < mn) mn = v;
+            if (v > mx) mx = v;
         }
     }
 
@@ -174,7 +189,8 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
         bool hasData = false;
         for (int c = 0; c < N; ++c)
         {
-            if (!std::isnan(l2.values[c * l2Stride + i]))
+            double mn = l2.values[c * l2Stride + i];
+            if (mn != posInf)
             {
                 hasData = true;
                 break;
@@ -184,7 +200,13 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
 
         l2.keys[outSize] = l2.keys[i];
         for (int c = 0; c < N; ++c)
-            l2.values[c * l2Stride + outSize] = l2.values[c * l2Stride + i];
+        {
+            double v = l2.values[c * l2Stride + i];
+            // Convert remaining sentinels back to NaN for columns with no data in this bin
+            if (v == posInf || v == negInf)
+                v = std::numeric_limits<double>::quiet_NaN();
+            l2.values[c * l2Stride + outSize] = v;
+        }
         ++outSize;
     }
     if (outSize == 0) return nullptr;
