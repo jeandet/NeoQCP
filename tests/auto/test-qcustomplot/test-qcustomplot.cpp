@@ -196,6 +196,19 @@ void TestQCustomPlot::calculateMargin_staleTickVectors()
   // If we reach here without crashing, the bounds check works
 }
 
+void TestQCustomPlot::dateTimeTicker_extremeZoomOutNoCrash()
+{
+    // Reproducer: on extreme zoom-out, tickStep exceeds int range and
+    // qRound() (Qt 6.10+) asserts in qCheckedFPConversionToInteger.
+    mPlot->setGeometry(50, 50, 500, 500);
+    auto ticker = QSharedPointer<QCPAxisTickerDateTime>::create();
+    mPlot->xAxis->setTicker(ticker);
+    // Range spanning ~6000 years in seconds — triggers huge tickStep values
+    mPlot->xAxis->setRange(0, 2e11);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+    // If we reach here without asserting, the guard works
+}
+
 
 
 

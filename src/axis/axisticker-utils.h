@@ -13,6 +13,10 @@ inline constexpr double kTickCountEpsilon = 1e-10;
 /// (5 min through 24 h). Returns -1 if tickStep doesn't match any known interval.
 inline int minuteHourSubTickCount(double tickStep)
 {
+    // Guard: tickStep must fit in int for qRound (Qt 6.10+ asserts this).
+    // The largest case is 86400 (24h), so anything beyond that can't match.
+    if (tickStep < 0 || tickStep > 100000)
+        return -1;
     switch (qRound(tickStep))
     {
         case 5 * 60:    return 4;

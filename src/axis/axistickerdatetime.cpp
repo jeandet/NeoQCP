@@ -249,6 +249,10 @@ int QCPAxisTickerDateTime::getSubTickCount(double tickStep)
         return result;
 
     result = QCPAxisTicker::getSubTickCount(tickStep);
+    // Guard: largest case is ~31.6M (1 year); skip qRound for huge values
+    // to avoid Qt 6.10+ assert on out-of-int-range doubles.
+    if (tickStep > 4e7)
+        return result;
     switch (qRound(tickStep))
     {
         case 86400 * 2:
