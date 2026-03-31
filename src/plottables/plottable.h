@@ -164,6 +164,11 @@ public:
 
     virtual QPointF stallPixelOffset() const { return {}; }
 
+    // Returns false when draw() would bail out early (e.g. async pipeline
+    // hasn't delivered data yet).  Used by setupPaintBuffers to preserve
+    // stale buffer content instead of clearing to transparent.
+    virtual bool canProduceContent() const { return true; }
+
     virtual QCPRange getKeyRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth) const
         = 0;
     virtual QCPRange getValueRange(bool& foundRange, QCP::SignDomain inSignDomain = QCP::sdBoth,

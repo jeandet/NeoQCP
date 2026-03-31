@@ -3372,8 +3372,38 @@ void QCustomPlot::setupPaintBuffers()
             }
             if (!allCanTranslate)
             {
-                buffer->clear(Qt::transparent);
-                buffer->setInvalidated();
+                // If the buffer has plottables but none can produce content
+                // right now (async pipeline hasn't delivered data), preserve
+                // the stale buffer instead of clearing to transparent — avoids
+                // a blank-frame blink while the pipeline catches up.
+                // Buffers with no plottables (axes, legend) always clear.
+                bool hasPlottables = false;
+                bool anyCanProduce = false;
+                for (auto* layer : std::as_const(mLayers))
+                {
+                    if (layer->mPaintBuffer.toStrongRef() == buffer)
+                    {
+                        for (auto* child : layer->children())
+                        {
+                            if (auto* p = qobject_cast<QCPAbstractPlottable*>(child))
+                            {
+                                hasPlottables = true;
+                                if (p->canProduceContent())
+                                {
+                                    anyCanProduce = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (anyCanProduce)
+                            break;
+                    }
+                }
+                if (!hasPlottables || anyCanProduce)
+                {
+                    buffer->clear(Qt::transparent);
+                    buffer->setInvalidated();
+                }
             }
         }
     }

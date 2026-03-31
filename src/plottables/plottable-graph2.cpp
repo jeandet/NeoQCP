@@ -301,6 +301,15 @@ QCPRange QCPGraph2::getValueRange(bool& foundRange, QCP::SignDomain inSignDomain
 
 // --- Drawing ---
 
+bool QCPGraph2::canProduceContent() const
+{
+    if (!mKeyAxis || !mValueAxis || !mDataSource || mDataSource->empty())
+        return false;
+    if (mNeedsResampling && !mL1Cache && !mL2Result)
+        return false;
+    return true;
+}
+
 QPointF QCPGraph2::stallPixelOffset() const
 {
     if (!mHasRenderedRange || mCachedLines.isEmpty() || !mKeyAxis || !mValueAxis)

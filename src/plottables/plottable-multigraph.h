@@ -39,6 +39,7 @@ public:
     const QCPMultiGraphPipeline& pipeline() const { return mPipeline; }
     [[nodiscard]] bool hasRenderedRange() const { return mHasRenderedRange; }
     QPointF stallPixelOffset() const override;
+    bool canProduceContent() const override;
 
     // Convenience: owning
     template <IndexableNumericRange KC, IndexableNumericRange VC>

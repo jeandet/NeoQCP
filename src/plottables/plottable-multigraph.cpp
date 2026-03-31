@@ -492,6 +492,16 @@ void QCPMultiGraph::deselectEvent(bool* selectionStateChanged)
 
 // --- Drawing ---
 
+bool QCPMultiGraph::canProduceContent() const
+{
+    if (!mKeyAxis || !mValueAxis || !mDataSource || mDataSource->empty())
+        return false;
+    // Pipeline active but L1 not ready — draw() will bail out
+    if (mNeedsResampling && !mL1Cache && !mL2Result)
+        return false;
+    return true;
+}
+
 QPointF QCPMultiGraph::stallPixelOffset() const
 {
     if (!mHasRenderedRange || mCachedLines.isEmpty() || !mKeyAxis || !mValueAxis)

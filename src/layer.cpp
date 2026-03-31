@@ -28,6 +28,7 @@
 #include "layer.h"
 
 #include "core.h"
+#include "layout.h"
 #include "painting/painter.h"
 #include "items/item.h"
 #include "plottables/plottable.h"
@@ -381,8 +382,16 @@ bool QCPLayer::canTranslateInsteadOfRepaint() const
 
     for (auto* child : mChildren)
     {
-        if (qobject_cast<QCPAbstractItem*>(child)
-            || qobject_cast<QCPLayoutElement*>(child))
+        if (qobject_cast<QCPAbstractItem*>(child))
+            return false;
+        // QCPLayout subclasses (QCPLayoutGrid, QCPLayoutInset) are pure containers
+        // with empty draw() — they produce no visible output and don't block
+        // translation. Non-container layout elements (QCPAxisRect, QCPTextElement,
+        // etc.) do paint and must block translation.
+        // Note: QCPLegend inherits QCPLayoutGrid but overrides draw(). It is always
+        // assigned to the "legend" layer, never sharing a buffer with plottables.
+        if (auto* elem = qobject_cast<QCPLayoutElement*>(child);
+            elem && !qobject_cast<QCPLayout*>(elem))
             return false;
     }
     return true;
