@@ -529,15 +529,9 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         onL1Ready();
     }
 
-    // Rebuild L2 from L1 cache when dirty (viewport changed since last build)
-    if (mL2Dirty && mL1Cache)
-    {
-        rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
-        mL2Dirty = false;
-    }
-
     // Data source priority: L2 (viewport-optimized) > raw
     // When L1 exists but L2 is null (sparse enough to draw directly), use raw source.
+    // Note: L2 rebuild is deferred until we know fresh lines are needed (below).
     const QCPAbstractMultiDataSource* ds = nullptr;
     if (mL2Result)
         ds = mL2Result.get();
@@ -571,6 +565,19 @@ void QCPMultiGraph::draw(QCPPainter* painter)
         currentPlotSize, mCachedPlotSize,
         mHasRenderedRange, mRenderedRange.key, mRenderedRange.value,
         mKeyAxis.data(), mValueAxis.data(), isExportMode);
+
+    // Rebuild L2 only when fresh lines are needed — on cache-hit pan frames
+    // the previous L2 result + GPU offset is sufficient.
+    if (needFreshLines && mL2Dirty && mL1Cache)
+    {
+        rebuildL2(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
+        mL2Dirty = false;
+        // Re-resolve ds in case L2 changed (e.g. became null for sparse data)
+        if (mL2Result)
+            ds = mL2Result.get();
+        else if (mL1Cache)
+            ds = mDataSource.get();
+    }
 
     QVector<QVector<QPointF>> exportLines;
     auto& linesTarget = isExportMode ? exportLines : mCachedLines;

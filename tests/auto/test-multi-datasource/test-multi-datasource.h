@@ -37,6 +37,13 @@ private slots:
     void rowMajorWithPadding();
     void rowMajorGetLines();
 
+    // resampleL2Multi correctness
+    void l2MultiBasicMinMax();
+    void l2MultiNanSkipped();
+    void l2MultiMultiColumnConsistency();
+    void l2MultiSparseReturnNull();
+    void l2MultiEmptyInput();
+
 private:
     QCustomPlot* mPlot = nullptr;
 };

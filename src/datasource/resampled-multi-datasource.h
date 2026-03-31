@@ -128,13 +128,11 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
     const double binWidth = vp.keyRange.size() / l2Bins;
     const double halfWidth = binWidth * 0.5;
     const double keyLo = vp.keyRange.lower;
+    const double invBinWidth = 1.0 / binWidth;
     int l2Stride = l2Bins * 2;
 
-    l2.keys.resize(l2Stride);
     l2.values.resize(N * l2Stride);
 
-    // Use +inf/-inf sentinels for min/max instead of NaN — eliminates 2 isnan
-    // calls per iteration in the hot loop below.
     constexpr double posInf = std::numeric_limits<double>::infinity();
     constexpr double negInf = -std::numeric_limits<double>::infinity();
     for (int c = 0; c < N; ++c)
@@ -147,73 +145,60 @@ inline std::shared_ptr<QCPResampledMultiDataSource> resampleL2Multi(
         }
     }
 
-    for (int b = 0; b < l2Bins; ++b)
-    {
-        double binCenter = keyLo + (b + 0.5) * binWidth;
-        l2.keys[b * 2 + 0] = binCenter;
-        l2.keys[b * 2 + 1] = binCenter + halfWidth;
-    }
+    // Bitset to track which bins received data — avoids scanning all bins during compaction
+    std::vector<bool> binHasData(l2Bins, false);
 
-    // Pre-compute bin indices (keys shared across columns)
+    // Single pass over L1 points: compute bin index once, scatter into all columns
     int l1Count = l1End - l1Begin;
-    std::vector<int> binIdx(l1Count);
-    const int* binIdxPtr = binIdx.data();
     for (int i = 0; i < l1Count; ++i)
     {
         double k = l1.keys[l1Begin + i];
-        binIdx[i] = std::clamp(static_cast<int>((k - keyLo) / binWidth), 0, l2Bins - 1);
-    }
+        int bin = std::clamp(static_cast<int>((k - keyLo) * invBinWidth), 0, l2Bins - 1);
+        int slot = bin * 2;
 
-    // Outer loop over columns for cache-friendly output access
-    for (int c = 0; c < N; ++c)
-    {
-        const double* colIn = l1.values.data() + c * l1Stride;
-        double* colOut = l2.values.data() + c * l2Stride;
-        for (int i = 0; i < l1Count; ++i)
+        bool anyValid = false;
+        for (int c = 0; c < N; ++c)
         {
-            double v = colIn[l1Begin + i];
-            if (v != v) continue;  // NaN check (v != v iff NaN)
+            double v = l1.values[c * l1Stride + l1Begin + i];
+            if (v != v) continue;  // NaN
 
-            int bin = binIdxPtr[i];
-            double& mn = colOut[bin * 2 + 0];
-            double& mx = colOut[bin * 2 + 1];
-            if (v < mn) mn = v;
-            if (v > mx) mx = v;
+            double* colOut = l2.values.data() + c * l2Stride;
+            if (v < colOut[slot]) colOut[slot] = v;
+            if (v > colOut[slot + 1]) colOut[slot + 1] = v;
+            anyValid = true;
         }
+        if (anyValid)
+            binHasData[bin] = true;
     }
 
-    // Compact in-place: move non-empty entries to the front of l2
+    // Compact: emit only populated bins, guided by the bitset
     int outSize = 0;
-    for (int i = 0; i < l2Stride; ++i)
+    constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+    // Allocate keys now — we know at most l2Stride entries
+    l2.keys.resize(l2Stride);
+    for (int b = 0; b < l2Bins; ++b)
     {
-        bool hasData = false;
-        for (int c = 0; c < N; ++c)
-        {
-            double mn = l2.values[c * l2Stride + i];
-            if (mn != posInf)
-            {
-                hasData = true;
-                break;
-            }
-        }
-        if (!hasData) continue;
+        if (!binHasData[b]) continue;
 
-        l2.keys[outSize] = l2.keys[i];
+        double binCenter = keyLo + (b + 0.5) * binWidth;
+        int srcSlot = b * 2;
+        l2.keys[outSize] = binCenter;
+        l2.keys[outSize + 1] = binCenter + halfWidth;
         for (int c = 0; c < N; ++c)
         {
-            double v = l2.values[c * l2Stride + i];
-            // Convert remaining sentinels back to NaN for columns with no data in this bin
-            if (v == posInf || v == negInf)
-                v = std::numeric_limits<double>::quiet_NaN();
-            l2.values[c * l2Stride + outSize] = v;
+            double* colOut = l2.values.data() + c * l2Stride;
+            double mn = colOut[srcSlot];
+            double mx = colOut[srcSlot + 1];
+            // Convert remaining sentinels to NaN for columns with no data in this bin
+            colOut[outSize] = (mn == posInf) ? NaN : mn;
+            colOut[outSize + 1] = (mx == negInf) ? NaN : mx;
         }
-        ++outSize;
+        outSize += 2;
     }
     if (outSize == 0) return nullptr;
 
     l2.keys.resize(outSize);
     // Compact column data: shift each column's data to final stride.
-    // dest (c*outSize) <= source (c*l2Stride) for all c, so forward copy is safe.
     for (int c = 1; c < N; ++c)
         for (int i = 0; i < outSize; ++i)
             l2.values[c * outSize + i] = l2.values[c * l2Stride + i];

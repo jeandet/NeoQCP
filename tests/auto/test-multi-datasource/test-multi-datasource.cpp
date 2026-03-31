@@ -399,3 +399,147 @@ void TestMultiDataSource::rowMajorGetLines()
     QVERIFY(optLines.size() > 0);
     QVERIFY(optLines.size() <= 5);
 }
+
+// Helper: build an L1 cache with uniform keys and per-column values
+static qcp::algo::MultiGraphResamplerCache makeL1Cache(
+    const std::vector<double>& keys,
+    const std::vector<std::vector<double>>& columns)
+{
+    int N = static_cast<int>(columns.size());
+    int sz = static_cast<int>(keys.size());
+    qcp::algo::MultiGraphResamplerCache cache;
+    cache.level1.numColumns = N;
+    cache.level1.keys = keys;
+    // L1 is column-major: each column has `sz` entries (stride = sz)
+    cache.level1.values.resize(N * sz);
+    for (int c = 0; c < N; ++c)
+        for (int i = 0; i < sz; ++i)
+            cache.level1.values[c * sz + i] = columns[c][i];
+    cache.sourceSize = sz;
+    cache.columnCount = N;
+    cache.cachedKeyRange = QCPRange(keys.front(), keys.back());
+    return cache;
+}
+
+void TestMultiDataSource::l2MultiBasicMinMax()
+{
+    // 10000 uniform points in [0, 100), 1 column with values = key * 2.
+    // With plotWidth=10 and kLevel2PixelMultiplier=4, l2Bins=40.
+    // 10000 points >> 40 bins, so L2 kicks in.
+    // Each bin covers 100/40 = 2.5 key-units = 250 L1 points.
+    // For bin 0 (keys [0, 2.5)): min = 0*2 = 0, max = 249*0.01*2 ≈ 4.98
+    const int N = 10000;
+    std::vector<double> keys(N);
+    std::vector<double> vals(N);
+    for (int i = 0; i < N; ++i)
+    {
+        keys[i] = i * 0.01; // 0.00 .. 99.99
+        vals[i] = keys[i] * 2.0;
+    }
+    auto cache = makeL1Cache(keys, {vals});
+
+    ViewportParams vp;
+    vp.keyRange = QCPRange(0, 100);
+    vp.plotWidthPx = 10; // l2Bins = 40
+    auto result = qcp::algo::resampleL2Multi(cache, vp);
+    QVERIFY(result != nullptr);
+    QCOMPARE(result->columnCount(), 1);
+    QVERIFY(result->size() > 0);
+
+    // Every output point should have a valid (non-NaN) value
+    for (int i = 0; i < result->size(); ++i)
+        QVERIFY2(!std::isnan(result->valueAt(0, i)),
+                 qPrintable(QString("NaN at index %1").arg(i)));
+
+    // The overall min/max across the L2 output should match the input range
+    bool found = false;
+    auto vr = result->valueRange(0, found);
+    QVERIFY(found);
+    QVERIFY(vr.lower < 1.0);   // close to 0
+    QVERIFY(vr.upper > 198.0); // close to 200
+}
+
+void TestMultiDataSource::l2MultiNanSkipped()
+{
+    // Verify NaN values in L1 don't poison L2 bins.
+    const int N = 10000;
+    constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
+    std::vector<double> keys(N);
+    std::vector<double> vals(N);
+    for (int i = 0; i < N; ++i)
+    {
+        keys[i] = i * 0.01;
+        vals[i] = (i % 10 == 0) ? NaN : 5.0; // every 10th is NaN, rest = 5
+    }
+    auto cache = makeL1Cache(keys, {vals});
+
+    ViewportParams vp;
+    vp.keyRange = QCPRange(0, 100);
+    vp.plotWidthPx = 10;
+    auto result = qcp::algo::resampleL2Multi(cache, vp);
+    QVERIFY(result != nullptr);
+
+    // All output values should be exactly 5.0 (min and max of non-NaN data)
+    for (int i = 0; i < result->size(); ++i)
+    {
+        double v = result->valueAt(0, i);
+        if (std::isnan(v)) continue; // empty-bin sentinels converted to NaN
+        QCOMPARE(v, 5.0);
+    }
+}
+
+void TestMultiDataSource::l2MultiMultiColumnConsistency()
+{
+    // Two columns with different value ranges — verify they don't cross-contaminate.
+    const int N = 10000;
+    std::vector<double> keys(N);
+    std::vector<double> col0(N), col1(N);
+    for (int i = 0; i < N; ++i)
+    {
+        keys[i] = i * 0.01;
+        col0[i] = 1.0;    // constant 1
+        col1[i] = 1000.0; // constant 1000
+    }
+    auto cache = makeL1Cache(keys, {col0, col1});
+
+    ViewportParams vp;
+    vp.keyRange = QCPRange(0, 100);
+    vp.plotWidthPx = 10;
+    auto result = qcp::algo::resampleL2Multi(cache, vp);
+    QVERIFY(result != nullptr);
+    QCOMPARE(result->columnCount(), 2);
+
+    for (int i = 0; i < result->size(); ++i)
+    {
+        double v0 = result->valueAt(0, i);
+        double v1 = result->valueAt(1, i);
+        if (!std::isnan(v0)) QCOMPARE(v0, 1.0);
+        if (!std::isnan(v1)) QCOMPARE(v1, 1000.0);
+    }
+}
+
+void TestMultiDataSource::l2MultiSparseReturnNull()
+{
+    // When visible points <= l2Bins, resampleL2Multi should return nullptr
+    // (the caller uses raw data instead).
+    std::vector<double> keys = {1.0, 2.0, 3.0};
+    std::vector<double> vals = {10.0, 20.0, 30.0};
+    auto cache = makeL1Cache(keys, {vals});
+
+    ViewportParams vp;
+    vp.keyRange = QCPRange(0, 4);
+    vp.plotWidthPx = 100; // l2Bins = 400 >> 3 points
+    auto result = qcp::algo::resampleL2Multi(cache, vp);
+    QVERIFY(result == nullptr);
+}
+
+void TestMultiDataSource::l2MultiEmptyInput()
+{
+    qcp::algo::MultiGraphResamplerCache cache;
+    cache.level1.numColumns = 0;
+    ViewportParams vp;
+    vp.keyRange = QCPRange(0, 100);
+    vp.plotWidthPx = 100;
+    auto result = qcp::algo::resampleL2Multi(cache, vp);
+    QVERIFY(result == nullptr);
+}
