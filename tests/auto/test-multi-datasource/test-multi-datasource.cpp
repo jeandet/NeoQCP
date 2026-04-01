@@ -321,6 +321,50 @@ void TestMultiDataSource::resampledGetLinesBreaksAtKeyGaps()
     QVERIFY2(foundNanGap, "Resampled path: no gap break between key=3 and key=100");
 }
 
+void TestMultiDataSource::adaptiveSamplingBreaksAtKeyGaps()
+{
+    // Reproducer: QCPGraph2 adaptive sampling path (optimizedLineData) drew
+    // lines across key gaps because it had no gap detection — only the
+    // linesToPixels fallback path detected gaps.
+    // Build data dense enough to trigger adaptive sampling: many points per
+    // pixel, with a large gap in the middle.
+    // Segment 1: keys [0, 500) step 0.1 => 5000 points
+    // Segment 2: keys [10000, 10500) step 0.1 => 5000 points
+    const int segSize = 5000;
+    std::vector<double> keys(segSize * 2);
+    std::vector<double> vals(segSize * 2);
+    for (int i = 0; i < segSize; ++i)
+    {
+        keys[i] = i * 0.1;
+        vals[i] = 1.0;
+        keys[segSize + i] = 10000.0 + i * 0.1;
+        vals[segSize + i] = 2.0;
+    }
+
+    // Set up axes so the pixel span is much smaller than the data count
+    // (forces adaptive sampling path)
+    mPlot->setGeometry(50, 50, 500, 500);
+    mPlot->xAxis->setRange(-100, 11000);
+    mPlot->yAxis->setRange(0, 3);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh);
+
+    auto lines = qcp::algo::optimizedLineData(
+        keys, vals, 0, segSize * 2, 500, mPlot->xAxis, mPlot->yAxis);
+
+    // Must contain at least one NaN gap marker between the two segments
+    bool foundNanGap = false;
+    for (const auto& pt : lines)
+    {
+        if (qIsNaN(pt.x()) || qIsNaN(pt.y()))
+        {
+            foundNanGap = true;
+            break;
+        }
+    }
+    QVERIFY2(foundNanGap,
+             "Adaptive sampling: no gap break found between key=500 and key=10000");
+}
+
 void TestMultiDataSource::rowMajorValueAt()
 {
     // 3 rows, 2 columns, packed (stride == columns)

@@ -203,8 +203,6 @@ QVector<QPointF> linesToPixels(const KC& keys, const VC& values,
     return result;
 }
 
-// Gap detection in the adaptive sampling path is implicit: large key gaps produce
-// separate pixel intervals, which the extruder renders as disconnected segments.
 template <IndexableNumericRange KC, IndexableNumericRange VC>
 QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
                                     int begin, int end,
@@ -228,6 +226,9 @@ QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
         return linesToPixels(keys, values, begin, end, keyAxis, valueAxis);
 
     // Adaptive sampling: consolidate multiple data points per pixel into min/max clusters.
+    auto gaps = detectKeyGaps(keys, begin, end);
+    const auto nanPt = QPointF(qQNaN(), qQNaN());
+
     QVector<QPointF> result;
     result.reserve(maxCount);
 
@@ -235,6 +236,33 @@ QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
     auto toPixel = [&](double k, double v) -> QPointF {
         return isVertical ? QPointF(valueAxis->coordToPixel(v), keyAxis->coordToPixel(k))
                           : QPointF(keyAxis->coordToPixel(k), valueAxis->coordToPixel(v));
+    };
+
+    // Flush the current interval to result
+    auto flushInterval = [&](int intervalFirst, int intervalCount,
+                              double intervalStartKey, double lastEndKey,
+                              double minVal, double maxVal,
+                              double epsilon, double nextKey) {
+        if (intervalCount >= 2)
+        {
+            double firstVal = static_cast<double>(values[intervalFirst]);
+            if (lastEndKey < intervalStartKey - epsilon)
+                result.append(toPixel(intervalStartKey + epsilon * 0.2, firstVal));
+            result.append(toPixel(intervalStartKey + epsilon * 0.25, minVal));
+            result.append(toPixel(intervalStartKey + epsilon * 0.75, maxVal));
+            if (nextKey > intervalStartKey + epsilon * 2)
+            {
+                // Find last valid value before nextKey position
+                int prev = intervalFirst + intervalCount - 1;
+                result.append(toPixel(intervalStartKey + epsilon * 0.8,
+                                       static_cast<double>(values[prev])));
+            }
+        }
+        else
+        {
+            result.append(toPixel(static_cast<double>(keys[intervalFirst]),
+                                   static_cast<double>(values[intervalFirst])));
+        }
     };
 
     // Skip leading NaN values
@@ -269,6 +297,30 @@ QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
         {
             if (std::isnan(v)) { ++i; continue; }
         }
+
+        // Key gap: flush current interval and insert a break
+        if (gaps[i - begin])
+        {
+            double k = static_cast<double>(keys[i]);
+            flushInterval(currentIntervalFirst, intervalDataCount,
+                          currentIntervalStartKey, lastIntervalEndKey,
+                          minValue, maxValue, keyEpsilon, k);
+            result.append(nanPt);
+            lastIntervalEndKey = currentIntervalStartKey;
+            minValue = v;
+            maxValue = v;
+            currentIntervalFirst = i;
+            currentIntervalStartKey = keyAxis->pixelToCoord(
+                int(keyAxis->coordToPixel(k) + reversedRound));
+            if (keyEpsilonVariable)
+                keyEpsilon = qAbs(currentIntervalStartKey
+                    - keyAxis->pixelToCoord(keyAxis->coordToPixel(currentIntervalStartKey)
+                                            + 1.0 * reversedFactor));
+            intervalDataCount = 1;
+            ++i;
+            continue;
+        }
+
         double k = static_cast<double>(keys[i]);
         if (k < currentIntervalStartKey + keyEpsilon)
         {
@@ -278,25 +330,9 @@ QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
         }
         else
         {
-            if (intervalDataCount >= 2)
-            {
-                double firstVal = static_cast<double>(values[currentIntervalFirst]);
-                if (lastIntervalEndKey < currentIntervalStartKey - keyEpsilon)
-                    result.append(toPixel(currentIntervalStartKey + keyEpsilon * 0.2, firstVal));
-                result.append(toPixel(currentIntervalStartKey + keyEpsilon * 0.25, minValue));
-                result.append(toPixel(currentIntervalStartKey + keyEpsilon * 0.75, maxValue));
-                if (k > currentIntervalStartKey + keyEpsilon * 2)
-                {
-                    double prevVal = static_cast<double>(values[i - 1]);
-                    result.append(toPixel(currentIntervalStartKey + keyEpsilon * 0.8, prevVal));
-                }
-            }
-            else
-            {
-                double fk = static_cast<double>(keys[currentIntervalFirst]);
-                double fv = static_cast<double>(values[currentIntervalFirst]);
-                result.append(toPixel(fk, fv));
-            }
+            flushInterval(currentIntervalFirst, intervalDataCount,
+                          currentIntervalStartKey, lastIntervalEndKey,
+                          minValue, maxValue, keyEpsilon, k);
             lastIntervalEndKey = static_cast<double>(keys[i - 1]);
             minValue = v;
             maxValue = v;
@@ -312,20 +348,10 @@ QVector<QPointF> optimizedLineData(const KC& keys, const VC& values,
         ++i;
     }
     // Handle last interval
-    if (intervalDataCount >= 2)
-    {
-        double firstVal = static_cast<double>(values[currentIntervalFirst]);
-        if (lastIntervalEndKey < currentIntervalStartKey - keyEpsilon)
-            result.append(toPixel(currentIntervalStartKey + keyEpsilon * 0.2, firstVal));
-        result.append(toPixel(currentIntervalStartKey + keyEpsilon * 0.25, minValue));
-        result.append(toPixel(currentIntervalStartKey + keyEpsilon * 0.75, maxValue));
-    }
-    else
-    {
-        double fk = static_cast<double>(keys[currentIntervalFirst]);
-        double fv = static_cast<double>(values[currentIntervalFirst]);
-        result.append(toPixel(fk, fv));
-    }
+    flushInterval(currentIntervalFirst, intervalDataCount,
+                  currentIntervalStartKey, lastIntervalEndKey,
+                  minValue, maxValue, keyEpsilon,
+                  currentIntervalStartKey + keyEpsilon * 3);
 
     return result;
 }

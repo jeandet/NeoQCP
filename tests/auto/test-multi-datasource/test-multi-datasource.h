@@ -31,6 +31,7 @@ private slots:
     // Key-space gap detection
     void linesToPixelsBreaksAtKeyGaps();
     void resampledGetLinesBreaksAtKeyGaps();
+    void adaptiveSamplingBreaksAtKeyGaps();
 
     // Row-major data source
     void rowMajorValueAt();
