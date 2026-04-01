@@ -210,6 +210,13 @@ void QCPColorMap2::onViewportChanged()
     mPipeline.onViewportChanged(ViewportParams::fromAxes(mKeyAxis.data(), mValueAxis.data()));
 }
 
+bool QCPColorMap2::canProduceContent() const
+{
+    if (!mKeyAxis || !mValueAxis || !mDataSource)
+        return false;
+    return mPipeline.result() != nullptr;
+}
+
 void QCPColorMap2::draw(QCPPainter* painter)
 {
     PROFILE_HERE_N("QCPColorMap2::draw");

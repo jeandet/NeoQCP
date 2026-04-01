@@ -3404,6 +3404,13 @@ void QCustomPlot::setupPaintBuffers()
                     buffer->clear(Qt::transparent);
                     buffer->setInvalidated();
                 }
+                else
+                {
+                    // Plottables exist but none can produce content (async
+                    // pipeline busy). Skip both clearing and redrawing so
+                    // the stale frame stays on screen instead of blinking.
+                    buffer->setContentDirty(false);
+                }
             }
         }
     }

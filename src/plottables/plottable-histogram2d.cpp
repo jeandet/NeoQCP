@@ -203,6 +203,13 @@ void QCPHistogram2D::rescaleDataRange(bool recalc)
         setDataRange(QCPRange(lo, hi));
 }
 
+bool QCPHistogram2D::canProduceContent() const
+{
+    if (!mKeyAxis || !mValueAxis || !mDataSource)
+        return false;
+    return mPipeline.result() != nullptr;
+}
+
 void QCPHistogram2D::draw(QCPPainter* painter)
 {
     PROFILE_HERE_N("QCPHistogram2D::draw");
