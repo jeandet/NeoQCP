@@ -18,7 +18,7 @@ QCPColorMap2::QCPColorMap2(QCPAxis* keyAxis, QCPAxis* valueAxis)
         [&gapThreshold = mGapThreshold](
             const QCPAbstractDataSource2D& src,
             const ViewportParams& vp,
-            std::any& /*cache*/) -> std::shared_ptr<QCPColorMapData> {
+            std::any& cache) -> std::shared_ptr<QCPColorMapData> {
             if (src.xSize() < 2) return nullptr;
 
             bool found = false;
@@ -63,8 +63,11 @@ QCPColorMap2::QCPColorMap2(QCPAxis* keyAxis, QCPAxis* valueAxis)
             int h = std::clamp(src.ySize(), pixH, pixH * 4);
             if (w <= 0 || h <= 0) return nullptr;
 
+            if (!cache.has_value())
+                cache = qcp::algo2d::ResampleCache{};
+            auto& rc = std::any_cast<qcp::algo2d::ResampleCache&>(cache);
             auto* raw = qcp::algo2d::resample(src, xBegin, xEnd,
-                xOut, yOut, w, h, vp.valueLogScale, gapThreshold.load(std::memory_order_relaxed));
+                xOut, yOut, w, h, vp.valueLogScale, gapThreshold.load(std::memory_order_relaxed), &rc);
             return std::shared_ptr<QCPColorMapData>(raw);
         });
 
