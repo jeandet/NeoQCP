@@ -72,6 +72,30 @@ public:
         return qcp::algo2d::findXEnd(mX, sortKey);
     }
 
+    const double* rawX() const override
+    {
+        if constexpr (std::is_same_v<X, double>)
+            return std::ranges::data(mX);
+        else
+            return nullptr;
+    }
+
+    const double* rawY() const override
+    {
+        if constexpr (std::is_same_v<Y, double>)
+            return std::ranges::data(mY);
+        else
+            return nullptr;
+    }
+
+    const double* rawZ() const override
+    {
+        if constexpr (std::is_same_v<Z, double>)
+            return std::ranges::data(mZ);
+        else
+            return nullptr;
+    }
+
 private:
     XC mX;
     YC mY;

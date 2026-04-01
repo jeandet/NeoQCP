@@ -57,6 +57,7 @@ public:
     QCPRange dataBounds() const { return mDataBounds; }
 
     const double* rawData() const { return mData; }
+    double* rawData() { return mData; }
 
     double data(double key, double value);
     double cell(int keyIndex, int valueIndex) const;

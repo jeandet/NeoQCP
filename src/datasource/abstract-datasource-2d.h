@@ -21,4 +21,10 @@ public:
 
     virtual int findXBegin(double sortKey) const = 0;
     virtual int findXEnd(double sortKey) const = 0;
+
+    // Raw pointer access for hot loops (avoids virtual dispatch per element).
+    // Returns nullptr by default; concrete sources override to expose raw arrays.
+    virtual const double* rawX() const { return nullptr; }
+    virtual const double* rawY() const { return nullptr; }
+    virtual const double* rawZ() const { return nullptr; }
 };

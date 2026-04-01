@@ -37,8 +37,6 @@ std::vector<double> generateRange(double start, double end, int n, bool log)
     return range;
 }
 
-// Generate bin edges (n+1 values) for n bins. Each bin center is xAxis[i],
-// edges are midpoints between consecutive centers.
 std::vector<double> generateBinEdges(const std::vector<double>& centers)
 {
     int n = static_cast<int>(centers.size());
@@ -57,8 +55,21 @@ std::vector<double> generateBinEdges(const std::vector<double>& centers)
     return edges;
 }
 
-// Find the first source index >= value using binary search on sorted source X.
-int lowerBoundSrc(const QCPAbstractDataSource2D& src, int begin, int end, double value)
+int lowerBoundRaw(const double* x, int begin, int end, double value)
+{
+    int lo = begin, hi = end;
+    while (lo < hi)
+    {
+        int mid = lo + (hi - lo) / 2;
+        if (x[mid] < value)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    return lo;
+}
+
+int lowerBoundVirtual(const QCPAbstractDataSource2D& src, int begin, int end, double value)
 {
     int lo = begin, hi = end;
     while (lo < hi)
@@ -94,65 +105,78 @@ int findBinFloor(double value, const std::vector<double>& axis)
     return std::clamp(idx, 0, static_cast<int>(axis.size()) - 1);
 }
 
-} // anonymous namespace
-
-QCPColorMapData* resample(
-    const QCPAbstractDataSource2D& src,
-    int xBegin, int xEnd,
-    const QCPRange& xRange, const QCPRange& yRange,
-    int targetWidth, int targetHeight,
-    bool yLogScale,
-    double gapThreshold)
+// Accessors that use raw pointers when available, virtual calls otherwise.
+struct RawAccessor
 {
-    PROFILE_HERE_N("resample");
-    int srcCount = xEnd - xBegin;
-    if (srcCount < 2 || targetWidth < 1 || targetHeight < 1)
-        return nullptr;
-    if (xRange.lower >= xRange.upper || yRange.lower >= yRange.upper)
-        return nullptr;
+    const double* x;
+    const double* y;
+    const double* z;
+    int ys;
+    bool yIs2D;
 
-    int nx = targetWidth;
-    int ny = targetHeight;
+    double xAt(int i) const { return x[i]; }
+    double yAt(int i, int j) const { return yIs2D ? y[i * ys + j] : y[j]; }
+    double zAt(int i, int j) const { return z[i * ys + j]; }
 
-    auto xAxis = generateRange(xRange.lower, xRange.upper, nx, false);
-    auto yAxis = generateRange(yRange.lower, yRange.upper, ny, yLogScale);
-    int ys = src.ySize();
+    int lowerBound(int begin, int end, double value) const
+    {
+        return lowerBoundRaw(x, begin, end, value);
+    }
+};
 
-    auto* data = new QCPColorMapData(nx, ny, {xAxis.front(), xAxis.back()},
-                                              {yAxis.front(), yAxis.back()});
+struct VirtualAccessor
+{
+    const QCPAbstractDataSource2D& src;
+    int ys;
+    bool yIs2D;
 
-    std::vector<double> accum(nx * ny, 0.0);
-    std::vector<uint32_t> counts(nx * ny, 0);
+    double xAt(int i) const { return src.xAt(i); }
+    double yAt(int i, int j) const { return src.yAt(i, j); }
+    double zAt(int i, int j) const { return src.zAt(i, j); }
 
-    // Extend the source range by 1 on each side as context for gap detection.
-    int ctxBegin = std::max(0, xBegin - 1);
-    int ctxEnd = std::min(src.xSize(), xEnd + 1);
+    int lowerBound(int begin, int end, double value) const
+    {
+        return lowerBoundVirtual(src, begin, end, value);
+    }
+};
+
+struct BinRange { int lo, hi; };
+
+template <typename Accessor>
+void resampleImpl(
+    const Accessor& acc,
+    int xBegin, int xEnd, int ctxBegin, int ctxEnd,
+    const std::vector<double>& xAxis, const std::vector<double>& yAxis,
+    const std::vector<double>& xEdges,
+    int nx, int ny, int ys,
+    bool yLogScale, bool variableY,
+    double gapThreshold,
+    double* outData)
+{
     int ctxCount = ctxEnd - ctxBegin;
-    // Mark gaps between consecutive context columns using local reference dx.
+
+    // Gap detection
     std::vector<bool> gapBetween(ctxCount, false);
     if (gapThreshold > 0 && ctxCount > 2)
     {
         for (int i = 0; i < ctxCount - 1; ++i)
         {
-            double dx = src.xAt(ctxBegin + i + 1) - src.xAt(ctxBegin + i);
+            double dx = acc.xAt(ctxBegin + i + 1) - acc.xAt(ctxBegin + i);
             double refDx = std::numeric_limits<double>::max();
             if (i > 0)
-                refDx = std::min(refDx, src.xAt(ctxBegin + i) - src.xAt(ctxBegin + i - 1));
+                refDx = std::min(refDx, acc.xAt(ctxBegin + i) - acc.xAt(ctxBegin + i - 1));
             if (i + 2 < ctxCount)
-                refDx = std::min(refDx, src.xAt(ctxBegin + i + 2) - src.xAt(ctxBegin + i + 1));
+                refDx = std::min(refDx, acc.xAt(ctxBegin + i + 2) - acc.xAt(ctxBegin + i + 1));
             if (refDx < std::numeric_limits<double>::max() && dx > gapThreshold * refDx)
                 gapBetween[i] = true;
         }
     }
 
-    // Y bin ranges (precomputed once for non-variable Y)
-    struct BinRange { int lo, hi; };
-    bool variableY = src.yIs2D();
-
+    // Y bin ranges
     auto computeYBinRanges = [&](int col, std::vector<BinRange>& ranges) {
         for (int yj = 0; yj < ys; ++yj)
         {
-            double yVal = src.yAt(col, yj);
+            double yVal = acc.yAt(col, yj);
             double yLo, yHi;
             if (ys == 1)
             {
@@ -160,15 +184,15 @@ QCPColorMapData* resample(
             }
             else if (yLogScale && yVal > 0)
             {
-                double prev = (yj > 0) ? src.yAt(col, yj - 1) : 0;
-                double next = (yj < ys - 1) ? src.yAt(col, yj + 1) : 0;
+                double prev = (yj > 0) ? acc.yAt(col, yj - 1) : 0;
+                double next = (yj < ys - 1) ? acc.yAt(col, yj + 1) : 0;
                 yLo = (yj > 0 && prev > 0) ? std::sqrt(prev * yVal) : yVal;
                 yHi = (yj < ys - 1 && next > 0) ? std::sqrt(yVal * next) : yVal;
             }
             else
             {
-                double halfBelow = (yj > 0) ? (yVal - src.yAt(col, yj - 1)) * 0.5 : 0;
-                double halfAbove = (yj < ys - 1) ? (src.yAt(col, yj + 1) - yVal) * 0.5 : 0;
+                double halfBelow = (yj > 0) ? (yVal - acc.yAt(col, yj - 1)) * 0.5 : 0;
+                double halfAbove = (yj < ys - 1) ? (acc.yAt(col, yj + 1) - yVal) * 0.5 : 0;
                 if (yj == 0) halfBelow = halfAbove;
                 if (yj == ys - 1) halfAbove = halfBelow;
                 double halfSpacing = std::min(halfBelow, halfAbove);
@@ -184,15 +208,12 @@ QCPColorMapData* resample(
     if (!variableY)
         computeYBinRanges(xBegin, yBinRanges);
 
-    // --- Bin-driven X iteration ---
-    // Instead of iterating all srcCount source columns (O(srcCount × ys)),
-    // iterate output X bins and find which source columns fall in each bin.
-    // Since source X is sorted, we sweep once through the source range.
-    auto xEdges = generateBinEdges(xAxis);
+    // Accumulation buffers
+    int total = nx * ny;
+    std::vector<double> accum(total, 0.0);
+    std::vector<uint32_t> counts(total, 0);
 
-    // For each output X bin, find the source columns that contribute to it.
-    // A source column contributes to bin b if its fill range overlaps [xEdges[b], xEdges[b+1]).
-    // We use the sweep approach: advance a cursor through sorted source columns.
+    // Bin-driven X iteration
     int srcCursor = xBegin;
 
     for (int xb = 0; xb < nx; ++xb)
@@ -200,36 +221,24 @@ QCPColorMapData* resample(
         double binLo = xEdges[xb];
         double binHi = xEdges[xb + 1];
 
-        // Find source columns whose X value falls near this bin.
-        // We need columns whose fill range overlaps [binLo, binHi).
-        // Conservative approach: find columns with xVal in [binLo - maxSpacing, binHi + maxSpacing].
-        // Simpler: find columns with xVal in the bin range, expanded by one source spacing on each side.
-
-        // Advance cursor to first source column >= binLo (minus one spacing for fill overlap)
-        // Since source is sorted, we can binary search from current cursor position.
-        int colBegin = lowerBoundSrc(src, srcCursor, xEnd, binLo);
-        // Back up one to catch columns whose fill extends into this bin
+        int colBegin = acc.lowerBound(srcCursor, xEnd, binLo);
         if (colBegin > xBegin) --colBegin;
 
-        // Find end: first source column > binHi
-        int colEnd = lowerBoundSrc(src, colBegin, xEnd, binHi);
-        // Include one extra to catch columns whose fill extends back into this bin
+        int colEnd = acc.lowerBound(colBegin, xEnd, binHi);
         if (colEnd < xEnd) ++colEnd;
 
-        // Process each source column in this range
         for (int xi = colBegin; xi < colEnd; ++xi)
         {
-            int ci = xi - ctxBegin; // context index
-            double xVal = src.xAt(xi);
+            int ci = xi - ctxBegin;
+            double xVal = acc.xAt(xi);
 
-            // Compute X fill range (same logic as before)
             bool gapLeft = (ci > 0) && gapBetween[ci - 1];
             bool gapRight = (ci < ctxCount - 1) && gapBetween[ci];
 
             double leftDist = (!gapLeft && ci > 0)
-                ? xVal - src.xAt(ctxBegin + ci - 1) : std::numeric_limits<double>::max();
+                ? xVal - acc.xAt(ctxBegin + ci - 1) : std::numeric_limits<double>::max();
             double rightDist = (!gapRight && ci < ctxCount - 1)
-                ? src.xAt(ctxBegin + ci + 1) - xVal : std::numeric_limits<double>::max();
+                ? acc.xAt(ctxBegin + ci + 1) - xVal : std::numeric_limits<double>::max();
 
             if (leftDist == std::numeric_limits<double>::max() && rightDist < std::numeric_limits<double>::max())
                 leftDist = rightDist;
@@ -242,11 +251,9 @@ QCPColorMapData* resample(
             double fillLo = xVal - xHalfSpacing;
             double fillHi = xVal + xHalfSpacing;
 
-            // Check this source column's fill actually overlaps this output bin
             if (fillHi < binLo || fillLo > binHi)
                 continue;
 
-            // Find the range of output X bins this source column fills
             int xBinLo = findBin(fillLo, xAxis);
             int xBinHi = findBinFloor(fillHi, xAxis);
 
@@ -255,10 +262,10 @@ QCPColorMapData* resample(
 
             for (int yj = 0; yj < ys; ++yj)
             {
-                double yVal = src.yAt(xi, yj);
+                double yVal = acc.yAt(xi, yj);
                 if (std::isnan(yVal))
                     continue;
-                double zVal = src.zAt(xi, yj);
+                double zVal = acc.zAt(xi, yj);
                 if (std::isnan(zVal))
                     continue;
 
@@ -275,18 +282,93 @@ QCPColorMapData* resample(
             }
         }
 
-        // Advance cursor for next bin (bins are monotonic)
         srcCursor = colBegin;
     }
 
+    // Write directly to output array (layout: valueIndex * keySize + keyIndex)
     for (int i = 0; i < nx; ++i)
     {
         for (int j = 0; j < ny; ++j)
         {
-            int idx = i * ny + j;
-            data->setCell(i, j, counts[idx] > 0 ? accum[idx] / counts[idx]
-                                                 : std::nan(""));
+            int srcIdx = i * ny + j;
+            int dstIdx = j * nx + i; // QCPColorMapData layout: mData[valueIndex * mKeySize + keyIndex]
+            outData[dstIdx] = counts[srcIdx] > 0 ? accum[srcIdx] / counts[srcIdx]
+                                                  : std::nan("");
         }
+    }
+}
+
+} // anonymous namespace
+
+QCPColorMapData* resample(
+    const QCPAbstractDataSource2D& src,
+    int xBegin, int xEnd,
+    const QCPRange& xRange, const QCPRange& yRange,
+    int targetWidth, int targetHeight,
+    bool yLogScale,
+    double gapThreshold,
+    ResampleCache* cache)
+{
+    PROFILE_HERE_N("resample");
+    int srcCount = xEnd - xBegin;
+    if (srcCount < 2 || targetWidth < 1 || targetHeight < 1)
+        return nullptr;
+    if (xRange.lower >= xRange.upper || yRange.lower >= yRange.upper)
+        return nullptr;
+
+    int nx = targetWidth;
+    int ny = targetHeight;
+
+    auto xAxis = generateRange(xRange.lower, xRange.upper, nx, false);
+
+    // Reuse cached Y axis when Y parameters haven't changed (avoids pow10 on X-only pans)
+    std::vector<double> yAxis;
+    if (cache && cache->ny == ny && cache->yLog == yLogScale
+        && cache->yLower == yRange.lower && cache->yUpper == yRange.upper)
+    {
+        yAxis = cache->yAxis;
+    }
+    else
+    {
+        yAxis = generateRange(yRange.lower, yRange.upper, ny, yLogScale);
+        if (cache)
+        {
+            cache->yAxis = yAxis;
+            cache->yLower = yRange.lower;
+            cache->yUpper = yRange.upper;
+            cache->ny = ny;
+            cache->yLog = yLogScale;
+        }
+    }
+
+    int ys = src.ySize();
+    bool variableY = src.yIs2D();
+
+    auto* data = new QCPColorMapData(nx, ny, {xAxis.front(), xAxis.back()},
+                                              {yAxis.front(), yAxis.back()});
+
+    int ctxBegin = std::max(0, xBegin - 1);
+    int ctxEnd = std::min(src.xSize(), xEnd + 1);
+
+    auto xEdges = generateBinEdges(xAxis);
+
+    const double* rawX = src.rawX();
+    const double* rawY = src.rawY();
+    const double* rawZ = src.rawZ();
+
+    if (rawX && rawY && rawZ)
+    {
+        RawAccessor acc{rawX, rawY, rawZ, ys, variableY};
+        resampleImpl(acc, xBegin, xEnd, ctxBegin, ctxEnd,
+                     xAxis, yAxis, xEdges, nx, ny, ys,
+                     yLogScale, variableY, gapThreshold, data->rawData());
+    }
+    else
+    {
+        VirtualAccessor acc{src, ys, variableY};
+        resampleImpl(acc, xBegin, xEnd, ctxBegin, ctxEnd,
+                     xAxis, yAxis, xEdges, nx, ny, ys,
+                     yLogScale, variableY, gapThreshold, data->rawData());
     }
 
     data->recalculateDataBounds();
