@@ -177,7 +177,7 @@ void QCPMultiGraph::syncComponentCount()
         for (int i = oldCount; i < newCount; ++i) {
             auto& c = mComponents[i];
             QColor color = sDefaultColors[i % sDefaultColors.size()];
-            c.pen = QPen(color, 1.0);
+            c.pen = QPen(color, 0);
             c.selectedPen = defaultSelectedPen(c.pen);
             c.name = QString("Component %1").arg(i);
         }

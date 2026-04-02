@@ -5,6 +5,30 @@
 #include "../painting/painter.h"
 #include "../painting/plottable-rhi-layer.h"
 
+#include <cmath>
+
+namespace {
+
+void drawPolylineSplitNaN(QCPPainter* painter, const QVector<QPointF>& pts)
+{
+    int segStart = 0;
+    for (int i = 0; i < pts.size(); ++i)
+    {
+        if (std::isnan(pts[i].x()) || std::isnan(pts[i].y()))
+        {
+            int segLen = i - segStart;
+            if (segLen >= 2)
+                painter->drawPolyline(pts.constData() + segStart, segLen);
+            segStart = i + 1;
+        }
+    }
+    int segLen = pts.size() - segStart;
+    if (segLen >= 2)
+        painter->drawPolyline(pts.constData() + segStart, segLen);
+}
+
+} // anonymous namespace
+
 namespace qcp {
 
 void drawPolylineWithGpuFallback(QCPPainter* painter,
@@ -38,19 +62,15 @@ void drawPolylineWithGpuFallback(QCPPainter* painter,
             }
         }
     }
-    // Software fallback
+    // Software fallback — split on NaN gap markers before drawing.
+    // QPainter::drawPolyline does not handle NaN as line breaks.
     painter->setPen(pen);
     painter->setBrush(Qt::NoBrush);
     if (!gpuOffset.isNull())
-    {
         painter->translate(gpuOffset);
-        painter->drawPolyline(pts.constData(), pts.size());
+    drawPolylineSplitNaN(painter, pts);
+    if (!gpuOffset.isNull())
         painter->translate(-gpuOffset);
-    }
-    else
-    {
-        painter->drawPolyline(pts.constData(), pts.size());
-    }
 }
 
 void drawPolylineCached(QCPPainter* painter,
