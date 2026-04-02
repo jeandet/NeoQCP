@@ -553,6 +553,7 @@ void TestDataSource2D::resampleLogYResolutionNotCoarse()
     //
     // Fix: use log-space fraction for log-scaled axes.
     mPlot->resize(800, 600);
+    mPlot->replot(QCustomPlot::rpImmediateRefresh); // force layout so axisRect has correct size
     auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
 
     const int nChannels = 32;
