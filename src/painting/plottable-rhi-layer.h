@@ -29,7 +29,7 @@ public:
     void addPlottable(std::span<const float> fillVerts,
                       std::span<const float> strokeVerts,
                       const QRect& clipRect, double dpr,
-                      int outputHeight, bool isYUpInNDC,
+                      int outputHeight, bool isYUpInFramebuffer,
                       float offsetX = 0, float offsetY = 0);
 
     // Offset-only update (no geometry change, no vertex re-upload)

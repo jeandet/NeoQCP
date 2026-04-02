@@ -36,13 +36,13 @@ inline QRhiGraphicsPipeline::TargetBlend premultipliedAlphaBlend()
     return blend;
 }
 
-inline QRect computeScissor(const QRect& clip, double dpr, int outputHeight, bool yUpInNDC)
+inline QRect computeScissor(const QRect& clip, double dpr, int outputHeight, bool yUpInFramebuffer)
 {
     int sx = static_cast<int>(clip.x() * dpr);
     int sy = static_cast<int>(clip.y() * dpr);
     int sw = static_cast<int>(clip.width() * dpr);
     int sh = static_cast<int>(clip.height() * dpr);
-    if (yUpInNDC)
+    if (yUpInFramebuffer)
         sy = outputHeight - sy - sh;
     return QRect(sx, sy, sw, sh);
 }

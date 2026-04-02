@@ -1009,7 +1009,7 @@ void QCPGraph::drawFill(QCPPainter* painter, QVector<QPointF>* lines) const
                 const double dpr = mParentPlot->bufferDevicePixelRatio();
                 const QSize outputSize = mParentPlot->rhiOutputSize();
                 const int outHeight = outputSize.height();
-                const bool yUp = rhi->isYUpInNDC();
+                const bool yUp = rhi->isYUpInFramebuffer();
 
                 for (QCPDataRange segment : segments)
                 {

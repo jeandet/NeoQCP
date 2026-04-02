@@ -147,7 +147,7 @@ bool QCPSpanRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampl
     return true;
 }
 
-void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInNDC)
+void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInFramebuffer)
 {
     PROFILE_HERE_N("QCPSpanRhiLayer::rebuildGeometry");
 
@@ -188,7 +188,7 @@ void QCPSpanRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInN
         // Compute scissor rect in physical pixels
         QRect scissor = qcp::rhi::computeScissor(
             QRect(ar->left(), ar->top(), ar->width(), ar->height()),
-            dpr, outputHeight, isYUpInNDC);
+            dpr, outputHeight, isYUpInFramebuffer);
 
         // Create per-group uniform buffer and SRB
         auto* ubo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBufferSize);
@@ -359,7 +359,7 @@ void QCPSpanRhiLayer::appendRSpanGeometry(QCPItemRSpan* rspan, [[maybe_unused]] 
 
 void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
                                         const QSize& outputSize, float dpr,
-                                        bool isYUpInNDC)
+                                        bool isYUpInNDC, bool isYUpInFramebuffer)
 {
     PROFILE_HERE_N("QCPSpanRhiLayer::uploadResources");
 
@@ -371,7 +371,7 @@ void QCPSpanRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
 
     if (mGeometryDirty)
     {
-        rebuildGeometry(dpr, outputSize.height(), isYUpInNDC);
+        rebuildGeometry(dpr, outputSize.height(), isYUpInFramebuffer);
         mGeometryDirty = false;
 
         if (!mStagingVertices.isEmpty())

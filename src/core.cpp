@@ -2668,7 +2668,7 @@ void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QS
     {
         mSpanRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mSpanRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
-                                        mRhi->isYUpInNDC());
+                                        mRhi->isYUpInNDC(), mRhi->isYUpInFramebuffer());
     }
 
     // Register all axes with the grid RHI layer
@@ -2691,7 +2691,7 @@ void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QS
     {
         mGridRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mGridRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
-                                        mRhi->isYUpInNDC());
+                                        mRhi->isYUpInNDC(), mRhi->isYUpInFramebuffer());
     }
 }
 
@@ -2767,7 +2767,7 @@ void QCustomPlot::executeRenderPass(QRhiCommandBuffer* cb, QRhiResourceUpdateBat
                             int sy = static_cast<int>(clipRect.y() * dpr);
                             int sw = static_cast<int>(clipRect.width() * dpr);
                             int sh = static_cast<int>(clipRect.height() * dpr);
-                            if (mRhi->isYUpInNDC())
+                            if (mRhi->isYUpInFramebuffer())
                                 sy = outputSize.height() - sy - sh;
                             cb->setScissor({sx, sy, sw, sh});
                         }
