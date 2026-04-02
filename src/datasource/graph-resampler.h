@@ -4,14 +4,31 @@
 #include "soa-datasource.h"
 #include "async-pipeline.h"
 #include "../Profiling.hpp"
+#include <QAtomicInt>
+#include <QSemaphore>
+#include <QThread>
+#include <QThreadPool>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <memory>
-#include <thread>
 #include <vector>
 
 namespace qcp::algo {
+
+inline QThreadPool& innerPool()
+{
+    static QThreadPool pool;
+    static bool init = [&] {
+        pool.setMaxThreadCount(
+            std::min(4, std::max(1, QThread::idealThreadCount() / 2)));
+        pool.setExpiryTimeout(-1);
+        return true;
+    }();
+    (void)init;
+    return pool;
+}
 
 struct BinResult {
     std::vector<double> keys;
@@ -140,7 +157,7 @@ inline BinResult binMinMaxParallel(
 {
     PROFILE_HERE_N("binMinMaxParallel");
     int threadCount = std::min(kMaxInnerThreads,
-        std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2));
+        std::max(1, QThread::idealThreadCount() / 2));
     if (threadCount <= 1 || (end - begin) < 1'000'000)
         return binMinMax(src, begin, end, keyRange, numBins);
 
@@ -175,8 +192,8 @@ inline BinResult binMinMaxParallel(
 
     // Partition bins evenly across threads, binary-search source for chunk boundaries
     int binsPerChunk = numBins / threadCount;
-    std::vector<std::thread> threads;
-    threads.reserve(threadCount - 1);
+    QAtomicInt remaining(threadCount - 1);
+    QSemaphore done;
 
     for (int t = 0; t < threadCount; ++t)
     {
@@ -192,13 +209,17 @@ inline BinResult binMinMaxParallel(
         srcEnd_ = std::clamp(srcEnd_, begin, end);
 
         if (t < threadCount - 1)
-            threads.emplace_back(worker, srcBegin_, srcEnd_, binBegin, binEnd);
+            innerPool().start([&, srcBegin_, srcEnd_, binBegin, binEnd] {
+                worker(srcBegin_, srcEnd_, binBegin, binEnd);
+                if (remaining.fetchAndSubRelaxed(1) == 1)
+                    done.release();
+            });
         else
             worker(srcBegin_, srcEnd_, binBegin, binEnd); // current thread does last chunk
     }
 
-    for (auto& t : threads)
-        t.join();
+    if (remaining.loadRelaxed() > 0)
+        done.acquire();
 
     return out;
 }
@@ -291,7 +312,7 @@ inline MultiColumnBinResult binMinMaxMultiParallel(
 {
     PROFILE_HERE_N("binMinMaxMultiParallel");
     int threadCount = std::min(kMaxInnerThreads,
-        std::max(1, static_cast<int>(std::thread::hardware_concurrency()) / 2));
+        std::max(1, QThread::idealThreadCount() / 2));
     if (threadCount <= 1 || (end - begin) < 1'000'000)
         return binMinMaxMulti(src, begin, end, keyRange, numBins);
 
@@ -348,8 +369,8 @@ inline MultiColumnBinResult binMinMaxMultiParallel(
     };
 
     int binsPerChunk = numBins / threadCount;
-    std::vector<std::thread> threads;
-    threads.reserve(threadCount - 1);
+    QAtomicInt remaining(threadCount - 1);
+    QSemaphore done;
 
     for (int t = 0; t < threadCount; ++t)
     {
@@ -364,13 +385,17 @@ inline MultiColumnBinResult binMinMaxMultiParallel(
         srcEnd_ = std::clamp(srcEnd_, begin, end);
 
         if (t < threadCount - 1)
-            threads.emplace_back(worker, srcBegin_, srcEnd_, binBegin, binEnd);
+            innerPool().start([&, srcBegin_, srcEnd_, binBegin, binEnd] {
+                worker(srcBegin_, srcEnd_, binBegin, binEnd);
+                if (remaining.fetchAndSubRelaxed(1) == 1)
+                    done.release();
+            });
         else
             worker(srcBegin_, srcEnd_, binBegin, binEnd);
     }
 
-    for (auto& t : threads)
-        t.join();
+    if (remaining.loadRelaxed() > 0)
+        done.acquire();
 
     return out;
 }

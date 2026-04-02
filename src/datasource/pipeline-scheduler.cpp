@@ -8,6 +8,7 @@ QCPPipelineScheduler::QCPPipelineScheduler(int maxThreads, QObject* parent)
     int threads = maxThreads > 0 ? maxThreads
                                  : std::max(1, QThread::idealThreadCount() / 2);
     mPool.setMaxThreadCount(threads);
+    mPool.setExpiryTimeout(-1);
 }
 
 QCPPipelineScheduler::~QCPPipelineScheduler()
