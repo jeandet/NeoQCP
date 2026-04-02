@@ -506,18 +506,19 @@ void QCPGridRhiLayer::renderGroups(QRhiCommandBuffer* cb, const QSize& outputSiz
     cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
 
     const QRhiCommandBuffer::VertexInput vbufBinding(mVertexBuffer, 0);
-    cb->setVertexInput(0, 1, &vbufBinding);
-
     for (const auto& group : mDrawGroups)
     {
         if (group.isGridLines != gridLines)
             continue;
+        // setShaderResources must precede setVertexInput — on Metal, QRhi offsets
+        // vertex buffer indices by the number of SRB buffer bindings.
+        cb->setShaderResources(group.srb);
+        cb->setVertexInput(0, 1, &vbufBinding);
         if (!group.scissorRect.isNull())
             cb->setScissor({group.scissorRect.x(), group.scissorRect.y(),
                             group.scissorRect.width(), group.scissorRect.height()});
         else
             cb->setScissor({0, 0, outputSize.width(), outputSize.height()});
-        cb->setShaderResources(group.srb);
         cb->draw(group.vertexCount, 1, group.vertexOffset, 0);
     }
 }

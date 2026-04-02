@@ -257,16 +257,17 @@ void QCPPlottableRhiLayer::render(QRhiCommandBuffer* cb,
     cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
 
     const QRhiCommandBuffer::VertexInput vbufBinding(mVertexBuffer, 0);
-    cb->setVertexInput(0, 1, &vbufBinding);
-
     const int stride = ubufStride();
     for (int i = 0; i < mDrawEntries.size(); ++i)
     {
         const auto& entry = mDrawEntries[i];
 
-        // Bind per-draw uniform slot via dynamic offset
+        // Bind per-draw uniform slot via dynamic offset.
+        // setShaderResources must precede setVertexInput — on Metal, QRhi offsets
+        // vertex buffer indices by the number of SRB buffer bindings.
         const QPair<int, quint32> dynamicOffset(0, quint32(i * stride));
         cb->setShaderResources(mSrb, 1, &dynamicOffset);
+        cb->setVertexInput(0, 1, &vbufBinding);
 
         cb->setScissor({entry.scissorRect.x(), entry.scissorRect.y(),
                         entry.scissorRect.width(), entry.scissorRect.height()});

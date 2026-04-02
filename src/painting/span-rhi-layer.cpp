@@ -469,13 +469,14 @@ void QCPSpanRhiLayer::render(QRhiCommandBuffer* cb, const QSize& outputSize)
     cb->setViewport({0, 0, float(outputSize.width()), float(outputSize.height())});
 
     const QRhiCommandBuffer::VertexInput vbufBinding(mVertexBuffer, 0);
-    cb->setVertexInput(0, 1, &vbufBinding);
-
     for (const auto& group : mDrawGroups)
     {
+        // setShaderResources must precede setVertexInput — on Metal, QRhi offsets
+        // vertex buffer indices by the number of SRB buffer bindings.
+        cb->setShaderResources(group.srb);
+        cb->setVertexInput(0, 1, &vbufBinding);
         cb->setScissor({group.scissorRect.x(), group.scissorRect.y(),
                         group.scissorRect.width(), group.scissorRect.height()});
-        cb->setShaderResources(group.srb);
         cb->draw(group.vertexCount, 1, group.vertexOffset, 0);
     }
 }
