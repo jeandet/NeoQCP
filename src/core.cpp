@@ -428,6 +428,15 @@ QCustomPlot::QCustomPlot(QWidget* parent)
         , mReplotTimeAverage(0)
 {
     setAttribute(Qt::WA_NoMousePropagation);
+    // Allow forcing a specific RHI backend via environment variable.
+    // NEOQCP_RHI_BACKEND=opengl|metal|vulkan|d3d11|d3d12
+    if (const QByteArray backend = qgetenv("NEOQCP_RHI_BACKEND").toLower(); !backend.isEmpty()) {
+        if (backend == "opengl")       setApi(Api::OpenGL);
+        else if (backend == "vulkan")  setApi(Api::Vulkan);
+        else if (backend == "metal")   setApi(Api::Metal);
+        else if (backend == "d3d11")   setApi(Api::Direct3D11);
+        else if (backend == "d3d12")   setApi(Api::Direct3D12);
+    }
     // HiDPI displays (DPR >= 2) already provide sub-pixel smoothness, so MSAA=1 saves
     // bandwidth. Non-HiDPI gets 4x MSAA for proper antialiasing of GPU-rendered lines.
     // Users can override via setSampleCount() after construction.
