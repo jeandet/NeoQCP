@@ -39,11 +39,11 @@ public:
     bool ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampleCount);
     void uploadResources(QRhiResourceUpdateBatch* updates,
                           const QSize& outputSize, float dpr,
-                          bool isYUpInNDC, bool isYUpInFramebuffer);
+                          bool isYUpInNDC);
     void render(QRhiCommandBuffer* cb, const QSize& outputSize);
 
 private:
-    void rebuildGeometry(float dpr, int outputHeight, bool isYUpInFramebuffer);
+    void rebuildGeometry(float dpr, int outputHeight);
     void appendVSpanGeometry(QCPItemVSpan* vspan, QCPAxisRect* ar);
     void appendHSpanGeometry(QCPItemHSpan* hspan, QCPAxisRect* ar);
     void appendRSpanGeometry(QCPItemRSpan* rspan, QCPAxisRect* ar);

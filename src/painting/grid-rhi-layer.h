@@ -34,7 +34,7 @@ public:
     bool ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampleCount);
     void uploadResources(QRhiResourceUpdateBatch* updates,
                          const QSize& outputSize, float dpr,
-                         bool isYUpInNDC, bool isYUpInFramebuffer);
+                         bool isYUpInNDC);
     void renderGridLines(QRhiCommandBuffer* cb, const QSize& outputSize);
     void renderTickMarks(QRhiCommandBuffer* cb, const QSize& outputSize);
 
@@ -42,7 +42,7 @@ public:
     void unregisterAxis(QCPAxis* axis);
 
 private:
-    void rebuildGeometry(float dpr, int outputHeight, bool isYUpInFramebuffer);
+    void rebuildGeometry(float dpr, int outputHeight);
     void renderGroups(QRhiCommandBuffer* cb, const QSize& outputSize, bool gridLines);
     void cleanupDrawGroups();
 

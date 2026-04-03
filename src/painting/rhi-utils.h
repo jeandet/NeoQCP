@@ -36,14 +36,15 @@ inline QRhiGraphicsPipeline::TargetBlend premultipliedAlphaBlend()
     return blend;
 }
 
-inline QRect computeScissor(const QRect& clip, double dpr, int outputHeight, bool yUpInFramebuffer)
+// QRhiScissor always uses bottom-left origin (OpenGL convention).
+// D3D11/Vulkan/Metal backends convert to top-left internally.
+inline QRect computeScissor(const QRect& clip, double dpr, int outputHeight)
 {
     int sx = static_cast<int>(clip.x() * dpr);
     int sy = static_cast<int>(clip.y() * dpr);
     int sw = static_cast<int>(clip.width() * dpr);
     int sh = static_cast<int>(clip.height() * dpr);
-    if (yUpInFramebuffer)
-        sy = outputHeight - sy - sh;
+    sy = outputHeight - sy - sh;
     return QRect(sx, sy, sw, sh);
 }
 

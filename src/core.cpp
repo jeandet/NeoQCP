@@ -2668,7 +2668,7 @@ void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QS
     {
         mSpanRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mSpanRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
-                                        mRhi->isYUpInNDC(), mRhi->isYUpInFramebuffer());
+                                        mRhi->isYUpInNDC());
     }
 
     // Register all axes with the grid RHI layer
@@ -2691,7 +2691,7 @@ void QCustomPlot::uploadLayerTextures(QRhiResourceUpdateBatch* updates, const QS
     {
         mGridRhiLayer->ensurePipeline(renderTarget()->renderPassDescriptor(), sampleCount());
         mGridRhiLayer->uploadResources(updates, outputSize, mBufferDevicePixelRatio,
-                                        mRhi->isYUpInNDC(), mRhi->isYUpInFramebuffer());
+                                        mRhi->isYUpInNDC());
     }
 }
 

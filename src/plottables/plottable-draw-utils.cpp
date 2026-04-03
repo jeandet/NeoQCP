@@ -55,7 +55,7 @@ void drawPolylineWithGpuFallback(QCPPainter* painter,
             {
                 const QSize outputSize = parentPlot->rhiOutputSize();
                 prl->addPlottable({}, strokeVerts, clipRect, dpr,
-                                   outputSize.height(), rhi->isYUpInFramebuffer(),
+                                   outputSize.height(),
                                    static_cast<float>(gpuOffset.x()),
                                    static_cast<float>(gpuOffset.y()));
                 return;
@@ -108,7 +108,7 @@ void drawPolylineCached(QCPPainter* painter,
 
             const QSize outputSize = parentPlot->rhiOutputSize();
             prl->addPlottable({}, cache.vertices, clipRect, dpr,
-                               outputSize.height(), rhi->isYUpInFramebuffer(),
+                               outputSize.height(),
                                static_cast<float>(gpuOffset.x()),
                                static_cast<float>(gpuOffset.y()));
             return;

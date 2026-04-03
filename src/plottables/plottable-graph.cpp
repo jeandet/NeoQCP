@@ -1009,8 +1009,6 @@ void QCPGraph::drawFill(QCPPainter* painter, QVector<QPointF>* lines) const
                 const double dpr = mParentPlot->bufferDevicePixelRatio();
                 const QSize outputSize = mParentPlot->rhiOutputSize();
                 const int outHeight = outputSize.height();
-                const bool yUp = rhi->isYUpInFramebuffer();
-
                 for (QCPDataRange segment : segments)
                 {
                     auto fillVerts = QCPLineExtruder::tessellateFillPolygon(
@@ -1018,7 +1016,7 @@ void QCPGraph::drawFill(QCPPainter* painter, QVector<QPointF>* lines) const
                     if (!fillVerts.isEmpty())
                     {
                         prl->addPlottable(fillVerts, {}, clipRect(), dpr,
-                                           outHeight, yUp);
+                                           outHeight);
                     }
                 }
                 return;

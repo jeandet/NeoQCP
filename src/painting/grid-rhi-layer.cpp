@@ -135,7 +135,7 @@ bool QCPGridRhiLayer::ensurePipeline(QRhiRenderPassDescriptor* rpDesc, int sampl
     return true;
 }
 
-void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInFramebuffer)
+void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight)
 {
     PROFILE_HERE_N("QCPGridRhiLayer::rebuildGeometry");
 
@@ -214,8 +214,7 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInF
         int sy = int(ar->top() * dpr);
         int sw = int(ar->width() * dpr);
         int sh = int(ar->height() * dpr);
-        if (isYUpInFramebuffer)
-            sy = outputHeight - sy - sh;
+        sy = outputHeight - sy - sh;
 
         auto* ubo = mRhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBufferSize);
         ubo->create();
@@ -330,7 +329,7 @@ void QCPGridRhiLayer::rebuildGeometry(float dpr, int outputHeight, bool isYUpInF
 
 void QCPGridRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
                                        const QSize& outputSize, float dpr,
-                                       bool isYUpInNDC, bool isYUpInFramebuffer)
+                                       bool isYUpInNDC)
 {
     PROFILE_HERE_N("QCPGridRhiLayer::uploadResources");
 
@@ -388,7 +387,7 @@ void QCPGridRhiLayer::uploadResources(QRhiResourceUpdateBatch* updates,
 
     if (mGeometryDirty)
     {
-        rebuildGeometry(dpr, outputSize.height(), isYUpInFramebuffer);
+        rebuildGeometry(dpr, outputSize.height());
         mGeometryDirty = false;
 
         mCachedTicks.clear();

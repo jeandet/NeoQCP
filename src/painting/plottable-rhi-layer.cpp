@@ -67,12 +67,12 @@ void
 QCPPlottableRhiLayer::addPlottable(std::span<const float> fillVerts,
                                     std::span<const float> strokeVerts,
                                     const QRect& clipRect, double dpr,
-                                    int outputHeight, bool isYUpInFramebuffer,
+                                    int outputHeight,
                                     float offsetX, float offsetY)
 {
     PROFILE_HERE_N("QCPPlottableRhiLayer::addPlottable");
     DrawEntry entry;
-    entry.scissorRect = qcp::rhi::computeScissor(clipRect, dpr, outputHeight, isYUpInFramebuffer);
+    entry.scissorRect = qcp::rhi::computeScissor(clipRect, dpr, outputHeight);
     entry.offsetX = offsetX;
     entry.offsetY = offsetY;
 

@@ -146,10 +146,8 @@ void QCPColormapRenderer::draw(QCPPainter* painter, QCPAxis* keyAxis, QCPAxis* v
             QCustomPlot* plot = mOwner->parentPlot();
             QRect clipRect = axisRect->rect();
             double dpr = plot->bufferDevicePixelRatio();
-            auto* rhi = plot->rhi();
-            bool yUp = rhi && rhi->isYUpInFramebuffer();
             int outH = static_cast<int>(plot->height() * dpr);
-            crl->setScissorRect(qcp::rhi::computeScissor(clipRect, dpr, outH, yUp));
+            crl->setScissorRect(qcp::rhi::computeScissor(clipRect, dpr, outH));
             return;
         }
     }
