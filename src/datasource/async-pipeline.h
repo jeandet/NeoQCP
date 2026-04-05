@@ -185,7 +185,8 @@ protected:
     void applyResult(uint64_t, std::any result) override
     {
         if (auto* ptr = std::any_cast<std::shared_ptr<Out>>(&result))
-            mResult = std::move(*ptr);
+            if (*ptr)
+                mResult = std::move(*ptr);
     }
 
 private:

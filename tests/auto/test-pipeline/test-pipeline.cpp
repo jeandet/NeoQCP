@@ -1786,3 +1786,53 @@ void TestPipeline::multiGraphFastPanNeverBlank()
         QVERIFY(mg->hasRenderedRange());
     }
 }
+
+void TestPipeline::colormap2ResultSurvivesNullViewport()
+{
+    // Reproducer: when a viewport-dependent transform returns nullptr (no data
+    // overlap), applyResult must not overwrite the previous valid result.
+    // This caused colormaps to go permanently blank after panning through gaps.
+    auto scheduler = std::make_unique<QCPPipelineScheduler>();
+    using Pipeline = QCPAsyncPipeline<QCPAbstractDataSource, QCPAbstractDataSource>;
+    Pipeline pipeline(scheduler.get());
+
+    // Transform that returns nullptr when viewport key range starts above 50
+    pipeline.setTransform(TransformKind::ViewportDependent,
+        [](const QCPAbstractDataSource& src, const ViewportParams& vp, std::any&)
+            -> std::shared_ptr<QCPAbstractDataSource> {
+            if (vp.keyRange.lower > 50)
+                return nullptr;
+            int n = src.size();
+            std::vector<double> k(n), v(n);
+            for (int i = 0; i < n; ++i) { k[i] = src.keyAt(i); v[i] = src.valueAt(i); }
+            return std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+                std::move(k), std::move(v));
+        });
+
+    auto source = std::make_shared<QCPSoADataSource<std::vector<double>, std::vector<double>>>(
+        std::vector<double>{1, 2, 3}, std::vector<double>{4, 5, 6});
+    pipeline.setSource(source);
+
+    // First result with valid viewport
+    ViewportParams validVp;
+    validVp.keyRange = {0, 10};
+    validVp.plotWidthPx = 400;
+    validVp.plotHeightPx = 300;
+    pipeline.onViewportChanged(validVp);
+
+    QSignalSpy spy(&pipeline, &Pipeline::finished);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 2000);
+    QVERIFY2(pipeline.result() != nullptr, "Valid viewport must produce a result");
+
+    // Viewport with no data overlap — transform returns nullptr
+    spy.clear();
+    ViewportParams invalidVp;
+    invalidVp.keyRange = {100, 200};
+    invalidVp.plotWidthPx = 400;
+    invalidVp.plotHeightPx = 300;
+    pipeline.onViewportChanged(invalidVp);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 2000);
+
+    QVERIFY2(pipeline.result() != nullptr,
+             "Null transform result must not erase previous valid pipeline result");
+}

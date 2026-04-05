@@ -123,6 +123,7 @@ private slots:
     void graph2TranslationResetsOnFreshData();
     void multiGraphTranslationOffsetWhenBusy();
     void colormap2TranslationOffsetWhenBusy();
+    void colormap2ResultSurvivesNullViewport();
     void histogram2dTranslationOffsetWhenBusy();
     void translatedGeometryClippedToAxisRect();
     void multipleGraph2IndependentOffsets();
