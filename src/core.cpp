@@ -2880,7 +2880,10 @@ void QCustomPlot::releaseResources()
     // Release paint buffer GPU resources while the RHI is still valid
     qDeleteAll(mPlottableRhiLayers);
     mPlottableRhiLayers.clear();
-    // Colormap RHI layers are owned by QCPColorMap2 instances — just clear tracking
+    // Colormap RHI layers are owned by plottable renderers — release them so
+    // ensureRhiLayer() recreates with the new QRhi on next draw().
+    for (auto* plottable : std::as_const(mPlottables))
+        plottable->releaseGpuResources();
     mColormapRhiLayers.clear();
     delete mSpanRhiLayer;
     mSpanRhiLayer = nullptr;

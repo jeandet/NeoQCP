@@ -163,6 +163,7 @@ public:
     virtual QCPPlottableInterface1D* interface1D() { return nullptr; }
 
     virtual QPointF stallPixelOffset() const { return {}; }
+    virtual void releaseGpuResources() {}
 
     // Returns false when draw() would bail out early (e.g. async pipeline
     // hasn't delivered data yet).  Used by setupPaintBuffers to preserve

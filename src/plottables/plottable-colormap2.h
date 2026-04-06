@@ -88,6 +88,7 @@ protected:
     void drawLegendIcon(QCPPainter* painter, const QRectF& rect) const override;
     bool pipelineBusy() const override { return mPipeline.isBusy(); }
     bool canProduceContent() const override;
+    void releaseGpuResources() override { mRenderer.releaseRhiLayer(); }
 
 private:
     std::shared_ptr<QCPAbstractDataSource2D> mDataSource;
