@@ -19,6 +19,7 @@ void QCPDataLocator::setPlottable(QCPAbstractPlottable* plottable)
     mValue = 0;
     mData = std::numeric_limits<double>::quiet_NaN();
     mDataIndex = -1;
+    mComponentValues.clear();
 }
 
 bool QCPDataLocator::locate(const QPointF& pixelPos)
@@ -217,6 +218,194 @@ bool QCPDataLocator::locateMultiGraph(const QPointF& pixelPos)
     mKey = map["key"].toDouble();
     mValue = map["value"].toDouble();
     mDataIndex = map["dataIndex"].toInt();
+    mHitPlottable = mPlottable;
+    mValid = true;
+    return true;
+}
+
+bool QCPDataLocator::locateAtKey(QCPAbstractPlottable* plottable, double key, double value)
+{
+    mValid = false;
+    mKey = 0;
+    mValue = 0;
+    mData = std::numeric_limits<double>::quiet_NaN();
+    mDataIndex = -1;
+    mComponentValues.clear();
+    mPlottable = plottable;
+    mHitPlottable = nullptr;
+
+    if (!mPlottable)
+        return false;
+
+    if (qobject_cast<QCPGraph2*>(mPlottable))
+        return locateGraph2AtKey(key);
+    if (qobject_cast<QCPGraph*>(mPlottable))
+        return locateGraphAtKey(key);
+    if (qobject_cast<QCPMultiGraph*>(mPlottable))
+        return locateMultiGraphAtKey(key);
+    if (!std::isnan(value))
+    {
+        if (qobject_cast<QCPColorMap2*>(mPlottable))
+            return locateColorMap2AtKey(key, value);
+        if (qobject_cast<QCPColorMap*>(mPlottable))
+            return locateColorMapAtKey(key, value);
+        if (qobject_cast<QCPHistogram2D*>(mPlottable))
+            return locateHistogram2DAtKey(key, value);
+    }
+
+    return false;
+}
+
+bool QCPDataLocator::locateGraphAtKey(double key)
+{
+    auto* graph = qobject_cast<QCPGraph*>(mPlottable);
+    auto* data = graph->data().data();
+    if (!data || data->isEmpty())
+        return false;
+
+    auto it = data->findBegin(key, false);
+    if (it == data->constEnd())
+    {
+        --it; // use last point
+    }
+    else if (it != data->constBegin())
+    {
+        auto prev = it;
+        --prev;
+        if (std::abs(prev->key - key) < std::abs(it->key - key))
+            it = prev;
+    }
+
+    mKey = it->key;
+    mValue = it->value;
+    mDataIndex = static_cast<int>(it - data->constBegin());
+    mHitPlottable = mPlottable;
+    mValid = true;
+    return true;
+}
+
+bool QCPDataLocator::locateGraph2AtKey(double key)
+{
+    auto* g2 = qobject_cast<QCPGraph2*>(mPlottable);
+    auto* src = g2->dataSource();
+    if (!src || src->size() == 0)
+        return false;
+
+    int idx = src->findEnd(key, false);
+    int lo = std::max(0, idx - 1);
+    int hi = std::min(idx, src->size() - 1);
+
+    int nearest = lo;
+    if (lo != hi && std::abs(src->keyAt(hi) - key) < std::abs(src->keyAt(lo) - key))
+        nearest = hi;
+
+    mKey = src->keyAt(nearest);
+    mValue = src->valueAt(nearest);
+    mDataIndex = nearest;
+    mHitPlottable = mPlottable;
+    mValid = true;
+    return true;
+}
+
+bool QCPDataLocator::locateMultiGraphAtKey(double key)
+{
+    auto* mg = qobject_cast<QCPMultiGraph*>(mPlottable);
+    auto* src = mg->dataSource();
+    if (!src || src->size() == 0)
+        return false;
+
+    int idx = src->findEnd(key, false);
+    int lo = std::max(0, idx - 1);
+    int hi = std::min(idx, src->size() - 1);
+
+    int nearest = lo;
+    if (lo != hi && std::abs(src->keyAt(hi) - key) < std::abs(src->keyAt(lo) - key))
+        nearest = hi;
+
+    mKey = src->keyAt(nearest);
+    mValue = src->valueAt(0, nearest);
+    mDataIndex = nearest;
+
+    int cols = src->columnCount();
+    mComponentValues.resize(cols);
+    for (int c = 0; c < cols; ++c)
+        mComponentValues[c] = src->valueAt(c, nearest);
+
+    mHitPlottable = mPlottable;
+    mValid = true;
+    return true;
+}
+
+bool QCPDataLocator::locateColorMap2AtKey(double key, double value)
+{
+    auto* cm2 = qobject_cast<QCPColorMap2*>(mPlottable);
+    auto* src = cm2->dataSource();
+    if (!src || src->xSize() == 0 || src->ySize() == 0)
+        return false;
+
+    int xi = std::clamp(src->findXBegin(key), 0, src->xSize() - 1);
+    if (xi + 1 < src->xSize()
+        && std::abs(src->xAt(xi + 1) - key) < std::abs(src->xAt(xi) - key))
+        ++xi;
+
+    int yj = 0;
+    double bestDy = std::numeric_limits<double>::max();
+    for (int j = 0; j < src->ySize(); ++j)
+    {
+        double dy = std::abs(src->yAt(xi, j) - value);
+        if (dy < bestDy) { bestDy = dy; yj = j; }
+    }
+
+    mKey = key;
+    mValue = value;
+    mData = src->zAt(xi, yj);
+    mDataIndex = xi * src->ySize() + yj;
+    mHitPlottable = mPlottable;
+    mValid = true;
+    return true;
+}
+
+bool QCPDataLocator::locateColorMapAtKey(double key, double value)
+{
+    auto* cm = qobject_cast<QCPColorMap*>(mPlottable);
+    auto* mapData = cm->data();
+    if (!mapData || mapData->isEmpty())
+        return false;
+
+    int keyIndex, valueIndex;
+    mapData->coordToCell(key, value, &keyIndex, &valueIndex);
+
+    if (keyIndex < 0 || keyIndex >= mapData->keySize()
+        || valueIndex < 0 || valueIndex >= mapData->valueSize())
+        return false;
+
+    mKey = key;
+    mValue = value;
+    mData = mapData->cell(keyIndex, valueIndex);
+    mDataIndex = keyIndex * mapData->valueSize() + valueIndex;
+    mHitPlottable = mPlottable;
+    mValid = true;
+    return true;
+}
+
+bool QCPDataLocator::locateHistogram2DAtKey(double key, double value)
+{
+    auto* hist = qobject_cast<QCPHistogram2D*>(mPlottable);
+    auto* mapData = hist->pipeline().result();
+    if (!mapData || mapData->isEmpty())
+        return false;
+
+    int keyIndex, valueIndex;
+    mapData->coordToCell(key, value, &keyIndex, &valueIndex);
+
+    if (keyIndex < 0 || keyIndex >= mapData->keySize()
+        || valueIndex < 0 || valueIndex >= mapData->valueSize())
+        return false;
+
+    mKey = key;
+    mValue = value;
+    mData = mapData->cell(keyIndex, valueIndex);
+    mDataIndex = keyIndex * mapData->valueSize() + valueIndex;
     mHitPlottable = mPlottable;
     mValid = true;
     return true;

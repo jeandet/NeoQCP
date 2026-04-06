@@ -194,7 +194,12 @@ void QCPMultiGraph::updateBaseSelection()
             combined.addDataRange(c.selection.dataRange(i), false);
     }
     combined.simplify();
-    mSelection = combined;
+    if (mSelection != combined)
+    {
+        mSelection = combined;
+        emit selectionChanged(selected());
+        emit selectionChanged(mSelection);
+    }
 }
 
 // --- Component API ---
@@ -379,6 +384,23 @@ double QCPMultiGraph::selectTest(const QPointF& pos, bool onlySelectable, QVaria
                 minDistComponent = c;
                 minKey = k;
                 minValue = v;
+            }
+        }
+    }
+
+    // Also check distance to line segments between lo and hi for each component
+    if (mLineStyle != lsNone && lo < hi) {
+        for (int c = 0; c < nComponents; ++c) {
+            if (!mComponents[c].visible) continue;
+            QPointF pLo = coordsToPixels(ds->keyAt(lo), ds->valueAt(c, lo));
+            QPointF pHi = coordsToPixels(ds->keyAt(hi), ds->valueAt(c, hi));
+            double lineDistSqr = QCPVector2D(pos).distanceSquaredToLine(pLo, pHi);
+            if (lineDistSqr < minDistSqr) {
+                minDistSqr = lineDistSqr;
+                minDistComponent = c;
+                minDistIndex = lo;
+                minKey = ds->keyAt(lo);
+                minValue = ds->valueAt(c, lo);
             }
         }
     }

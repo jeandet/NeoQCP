@@ -13,6 +13,7 @@ public:
     bool expanded() const { return mExpanded; }
     void setExpanded(bool expanded);
     int selectedComponent() const { return mSelectedComponent; }
+    void setSelectedComponent(int index) { mSelectedComponent = index; }
 
     QSize minimumOuterSizeHint() const override;
     double selectTest(const QPointF& pos, bool onlySelectable, QVariant* details = nullptr) const override;

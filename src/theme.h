@@ -15,6 +15,11 @@ class QCP_LIB_DECL QCPTheme : public QObject
     Q_PROPERTY(QColor selection READ selection WRITE setSelection NOTIFY changed)
     Q_PROPERTY(QColor legendBackground READ legendBackground WRITE setLegendBackground NOTIFY changed)
     Q_PROPERTY(QColor legendBorder READ legendBorder WRITE setLegendBorder NOTIFY changed)
+    Q_PROPERTY(QColor tooltipBackground READ tooltipBackground WRITE setTooltipBackground NOTIFY changed)
+    Q_PROPERTY(QColor tooltipBorder READ tooltipBorder WRITE setTooltipBorder NOTIFY changed)
+    Q_PROPERTY(QColor tooltipText READ tooltipText WRITE setTooltipText NOTIFY changed)
+    Q_PROPERTY(qreal tooltipCornerRadius READ tooltipCornerRadius WRITE setTooltipCornerRadius NOTIFY changed)
+    Q_PROPERTY(QColor crosshairColor READ crosshairColor WRITE setCrosshairColor NOTIFY changed)
     Q_PROPERTY(QString busyIndicatorSymbol READ busyIndicatorSymbol WRITE setBusyIndicatorSymbol NOTIFY changed)
     Q_PROPERTY(qreal busyFadeAlpha READ busyFadeAlpha WRITE setBusyFadeAlpha NOTIFY changed)
     Q_PROPERTY(int busyShowDelayMs READ busyShowDelayMs WRITE setBusyShowDelayMs NOTIFY changed)
@@ -30,6 +35,11 @@ public:
     [[nodiscard]] QColor selection() const { return mSelection; }
     [[nodiscard]] QColor legendBackground() const { return mLegendBackground; }
     [[nodiscard]] QColor legendBorder() const { return mLegendBorder; }
+    [[nodiscard]] QColor tooltipBackground() const { return mTooltipBackground; }
+    [[nodiscard]] QColor tooltipBorder() const { return mTooltipBorder; }
+    [[nodiscard]] QColor tooltipText() const { return mTooltipText; }
+    [[nodiscard]] qreal tooltipCornerRadius() const { return mTooltipCornerRadius; }
+    [[nodiscard]] QColor crosshairColor() const { return mCrosshairColor; }
     [[nodiscard]] QString busyIndicatorSymbol() const { return mBusyIndicatorSymbol; }
     [[nodiscard]] qreal busyFadeAlpha() const { return mBusyFadeAlpha; }
     [[nodiscard]] int busyShowDelayMs() const { return mBusyShowDelayMs; }
@@ -42,6 +52,11 @@ public:
     void setSelection(const QColor& color);
     void setLegendBackground(const QColor& color);
     void setLegendBorder(const QColor& color);
+    void setTooltipBackground(const QColor& color);
+    void setTooltipBorder(const QColor& color);
+    void setTooltipText(const QColor& color);
+    void setTooltipCornerRadius(qreal radius);
+    void setCrosshairColor(const QColor& color);
     void setBusyIndicatorSymbol(const QString& symbol);
     void setBusyFadeAlpha(qreal alpha);
     void setBusyShowDelayMs(int ms);
@@ -61,6 +76,11 @@ private:
     QColor mSelection;
     QColor mLegendBackground;
     QColor mLegendBorder;
+    QColor mTooltipBackground { 0xee, 0xf2, 0xf7, 220 };
+    QColor mTooltipBorder { 0, 0, 0, 150 };
+    QColor mTooltipText { Qt::black };
+    qreal mTooltipCornerRadius = 4;
+    QColor mCrosshairColor { 128, 128, 128, 180 };
     QString mBusyIndicatorSymbol = QStringLiteral("⟳");
     qreal mBusyFadeAlpha = 0.3;
     int mBusyShowDelayMs = 500;

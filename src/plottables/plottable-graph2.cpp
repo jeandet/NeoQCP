@@ -268,6 +268,16 @@ double QCPGraph2::selectTest(const QPointF& pos, bool onlySelectable, QVariant* 
         }
     }
 
+    // Also check distance to the line segment between lo and hi
+    if (mLineStyle != lsNone && lo < hi)
+    {
+        QPointF pLo = coordsToPixels(ds->keyAt(lo), ds->valueAt(lo));
+        QPointF pHi = coordsToPixels(ds->keyAt(hi), ds->valueAt(hi));
+        double lineDistSqr = QCPVector2D(pos).distanceSquaredToLine(pLo, pHi);
+        if (lineDistSqr < minDistSqr)
+            minDistSqr = lineDistSqr;
+    }
+
     QCPDataSelection selectionResult;
     if (minDistIndex >= 0)
         selectionResult.addDataRange(QCPDataRange(minDistIndex, minDistIndex + 1), false);
@@ -434,18 +444,21 @@ void QCPGraph2::draw(QCPPainter* painter)
     if (lines.isEmpty())
         return;
 
+    const QPen drawPen = selected() && mSelectionDecorator
+        ? mSelectionDecorator->pen() : mPen;
+
     // Draw lines
-    if (mLineStyle != lsNone && mPen.style() != Qt::NoPen && mPen.color().alpha() != 0)
+    if (mLineStyle != lsNone && drawPen.style() != Qt::NoPen && drawPen.color().alpha() != 0)
     {
         auto drawPoly = [&](const QVector<QPointF>& pts) {
             applyDefaultAntialiasingHint(painter);
             if (!isExportMode) {
                 qcp::drawPolylineCached(painter, mParentPlot, mLayer, pts,
-                                         mPen, gpuOffset, clipRect(),
+                                         drawPen, gpuOffset, clipRect(),
                                          needFreshLines, mExtrusionCache);
             } else {
                 qcp::drawPolylineWithGpuFallback(painter, mParentPlot, mLayer, pts,
-                                                  mPen, gpuOffset, clipRect());
+                                                  drawPen, gpuOffset, clipRect());
             }
         };
 
@@ -472,7 +485,7 @@ void QCPGraph2::draw(QCPPainter* painter)
             {
                 auto impulse = qcp::toImpulseLines(lines, keyIsVertical, mValueAxis->coordToPixel(0));
                 applyDefaultAntialiasingHint(painter);
-                QPen impulsePen = mPen;
+                QPen impulsePen = drawPen;
                 impulsePen.setCapStyle(Qt::FlatCap);
                 painter->setPen(impulsePen);
                 painter->drawLines(impulse);
@@ -485,7 +498,7 @@ void QCPGraph2::draw(QCPPainter* painter)
     if (!mScatterStyle.isNone())
     {
         applyScattersAntialiasingHint(painter);
-        mScatterStyle.applyTo(painter, mPen);
+        mScatterStyle.applyTo(painter, drawPen);
         const int skip = mScatterSkip + 1;
         for (int i = 0; i < lines.size(); i += skip)
             mScatterStyle.drawShape(painter, lines[i].x(), lines[i].y());

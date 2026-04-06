@@ -19,6 +19,11 @@ public:
     void setHtml(const QString& html);
     void clearHtml();
 
+    double cornerRadius() const { return mCornerRadius; }
+    void setCornerRadius(double radius) { mCornerRadius = radius; }
+
+    QSizeF contentSize() const { return mBoundingRect.size().grownBy(mPadding); }
+
     virtual double selectTest(const QPointF& pos, bool onlySelectable,
                               QVariant* details = nullptr) const override;
 
@@ -31,6 +36,7 @@ private:
     QTextDocument mDoc;
     QRectF mBoundingRect;
     bool mUseHtml = false;
+    double mCornerRadius = 0;
 
     QRectF computeDrawRect(const QPointF& pos) const;
 };

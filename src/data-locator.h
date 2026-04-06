@@ -2,6 +2,7 @@
 #define QCP_DATA_LOCATOR_H
 
 #include "global.h"
+#include <QVector>
 #include <limits>
 
 class QCPAbstractPlottable;
@@ -13,12 +14,15 @@ public:
 
     void setPlottable(QCPAbstractPlottable* plottable);
     bool locate(const QPointF& pixelPos);
+    bool locateAtKey(QCPAbstractPlottable* plottable, double key,
+                     double value = std::numeric_limits<double>::quiet_NaN());
 
     bool isValid() const { return mValid; }
     double key() const { return mKey; }
     double value() const { return mValue; }
     double data() const { return mData; }
     int dataIndex() const { return mDataIndex; }
+    const QVector<double>& componentValues() const { return mComponentValues; }
     QCPAbstractPlottable* plottable() const { return mPlottable; }
     QCPAbstractPlottable* hitPlottable() const { return mHitPlottable; }
 
@@ -30,6 +34,7 @@ private:
     double mValue = 0;
     double mData = std::numeric_limits<double>::quiet_NaN();
     int mDataIndex = -1;
+    QVector<double> mComponentValues;
 
     bool locateGraph(const QPointF& pixelPos);
     bool locateGraph2(const QPointF& pixelPos);
@@ -38,6 +43,13 @@ private:
     bool locateColorMap2(const QPointF& pixelPos);
     bool locateHistogram2D(const QPointF& pixelPos);
     bool locateMultiGraph(const QPointF& pixelPos);
+
+    bool locateGraphAtKey(double key);
+    bool locateGraph2AtKey(double key);
+    bool locateMultiGraphAtKey(double key);
+    bool locateColorMap2AtKey(double key, double value);
+    bool locateColorMapAtKey(double key, double value);
+    bool locateHistogram2DAtKey(double key, double value);
 };
 
 #endif // QCP_DATA_LOCATOR_H

@@ -47,6 +47,31 @@ void QCPTheme::setLegendBorder(const QColor& color)
     if (mLegendBorder != color) { mLegendBorder = color; emit changed(); }
 }
 
+void QCPTheme::setTooltipBackground(const QColor& color)
+{
+    if (mTooltipBackground != color) { mTooltipBackground = color; emit changed(); }
+}
+
+void QCPTheme::setTooltipBorder(const QColor& color)
+{
+    if (mTooltipBorder != color) { mTooltipBorder = color; emit changed(); }
+}
+
+void QCPTheme::setTooltipText(const QColor& color)
+{
+    if (mTooltipText != color) { mTooltipText = color; emit changed(); }
+}
+
+void QCPTheme::setTooltipCornerRadius(qreal radius)
+{
+    if (!qFuzzyCompare(1.0 + mTooltipCornerRadius, 1.0 + radius)) { mTooltipCornerRadius = radius; emit changed(); }
+}
+
+void QCPTheme::setCrosshairColor(const QColor& color)
+{
+    if (mCrosshairColor != color) { mCrosshairColor = color; emit changed(); }
+}
+
 void QCPTheme::setBusyIndicatorSymbol(const QString& symbol)
 {
     if (mBusyIndicatorSymbol != symbol) { mBusyIndicatorSymbol = symbol; emit changed(); }
@@ -84,6 +109,10 @@ QCPTheme* QCPTheme::dark(QObject* parent)
     theme->setSelection(QColor("#4a9eff"));
     theme->setLegendBackground(QColor("#2a2a2a"));
     theme->setLegendBorder(QColor("#555555"));
+    theme->setTooltipBackground(QColor(40, 44, 52, 220));
+    theme->setTooltipBorder(QColor(200, 200, 200, 150));
+    theme->setTooltipText(QColor("#e0e0e0"));
+    theme->setCrosshairColor(QColor(200, 200, 200, 180));
     theme->blockSignals(false);
     return theme;
 }

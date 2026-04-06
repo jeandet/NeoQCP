@@ -83,7 +83,10 @@ void QCPItemRichText::draw(QCPPainter* painter)
         {
             painter->setPen(mainPen());
             painter->setBrush(mainBrush());
-            painter->drawRect(textBoxRect);
+            if (mCornerRadius > 0)
+                painter->drawRoundedRect(textBoxRect, mCornerRadius, mCornerRadius);
+            else
+                painter->drawRect(textBoxRect);
         }
 
         painter->translate(drawPos + QPointF(mPadding.left(), mPadding.top()));
