@@ -272,6 +272,50 @@ void TestColorMap::QCPColorMapRhiLayer_setImageSkipsRedundantUpload()
   delete ubo;
 }
 
+void TestColorMap::QCPColorMap2_hidesStaleQuadWhenPannedPastData()
+{
+  // Regression: once panning moves the axes far enough that the last
+  // resampled image no longer overlaps them at all, and no fresher result
+  // has arrived yet to replace it (e.g. a slow out-of-process data source
+  // still fetching the newly-panned-into range), draw() must not leave the
+  // previous GPU quad on screen. It should hide it -- not freeze it in
+  // place while the axes keep moving underneath it.
+  mPlot->show();
+  if (!QTest::qWaitForWindowExposed(mPlot))
+    QSKIP("window not exposed in this environment");
+  QCoreApplication::processEvents();
+  if (!mPlot->rhi())
+    QSKIP("no QRhi available in this environment");
+
+  mPlot->resize(400, 300);
+  mPlot->xAxis->setRange(0, 4);
+  mPlot->yAxis->setRange(0, 4);
+
+  auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+  std::vector<double> x = {0, 1, 2, 3, 4};
+  std::vector<double> y = {0, 1, 2, 3, 4};
+  std::vector<double> z(25, 1.0);
+  cm->setData(x, y, z);
+  mPlot->replot();
+  QTRY_VERIFY_WITH_TIMEOUT(!cm->pipeline().isBusy(), 2000);
+  QTest::qWait(50); // flush the trailing queued replot from the pipeline settling
+  mPlot->replot();
+  QCoreApplication::processEvents();
+
+  QVERIFY2(cm->rhiLayer() && cm->rhiLayer()->hasContent(),
+           "sanity: a real resample should have produced GPU quad content");
+
+  // Pan to a same-size range (pure pan, not a zoom) sharing no overlap with
+  // the data at all, then replot immediately -- before any fresh (empty,
+  // out-of-data) resample has a chance to land. This is the window a slow
+  // remote data source leaves stale content sitting in during production.
+  mPlot->xAxis->setRange(1000, 1004);
+  mPlot->replot();
+
+  QVERIFY2(!cm->rhiLayer()->hasContent(),
+           "stale, non-overlapping GPU quad content must be hidden, not left frozen on screen");
+}
+
 void TestColorMap::cleanup()
 {
   delete mPlot;

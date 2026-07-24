@@ -309,8 +309,11 @@ void QCPColorMap2::draw(QCPPainter* painter)
     // stale image would position it via the CURRENT axes using its OLD
     // key/value range, which can land entirely outside the axis rect (a
     // blank-looking plot) and would also corrupt the stallPixelOffset()
-    // baseline below. Keep the last relevant frame until a resample for a
-    // viewport that actually overlaps the current one lands.
+    // baseline below. The colormap's GPU quad (QCPColormapRhiLayer) only
+    // ever updates from the mRenderer.draw() call below, so skipping it
+    // without also hiding the quad would freeze the LAST relevant frame on
+    // screen indefinitely -- it does not fade or reposition on its own as
+    // the axes keep moving. Hide it instead: no data belongs there anymore.
     if (mHasRenderedRange)
     {
         const QCPRange dataKeyRange = resampledData->keyRange();
@@ -319,7 +322,10 @@ void QCPColorMap2::draw(QCPPainter* painter)
         { return a.lower <= b.upper && b.lower <= a.upper; };
         if (!overlaps(dataKeyRange, mKeyAxis->range())
             || !overlaps(dataValueRange, mValueAxis->range()))
+        {
+            mRenderer.clearRhiContent();
             return;
+        }
     }
 
     bool imageWasInvalidated = mRenderer.mapImageInvalidated();

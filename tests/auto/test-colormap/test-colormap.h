@@ -17,6 +17,7 @@ private slots:
   void QCPColorMap2_selectTestMissReturnsNegativeOne();
   void QCPColorMap2_contourSettersScheduleReplot();
   void QCPColorMapRhiLayer_setImageSkipsRedundantUpload();
+  void QCPColorMap2_hidesStaleQuadWhenPannedPastData();
 
 private:
   QCustomPlot *mPlot;

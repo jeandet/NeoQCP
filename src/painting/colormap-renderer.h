@@ -52,6 +52,12 @@ public:
     void setContourLines(QVector<float> uvVertices, const QColor& color);
     void clearContour();
 
+    // Hides whatever this colormap's GPU quad last showed. For when a caller
+    // (QCPColorMap2::draw()) decides the rendered content no longer belongs
+    // anywhere near the current axes, so it must not be left on screen.
+    // No-op if RHI rendering was never engaged.
+    void clearRhiContent();
+
 private:
     const QImage& flippedMapImage(Qt::Orientations flips);
 

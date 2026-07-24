@@ -11,6 +11,7 @@
 
 class QCPColorScale;
 class QCPColorMapData;
+class QCPColormapRhiLayer;
 
 class QCP_LIB_DECL QCPColorMap2 : public QCPAbstractPlottable
 {
@@ -68,6 +69,10 @@ public:
 
     QCPColormapPipeline& pipeline() { return mPipeline; }
     const QCPColormapPipeline& pipeline() const { return mPipeline; }
+
+    // Exposed for tests: the GPU quad layer backing this colormap when RHI
+    // rendering is active (lazily created; null if RHI was never engaged).
+    [[nodiscard]] QCPColormapRhiLayer* rhiLayer() { return mRenderer.ensureRhiLayer(); }
 
     // Pure-pan pixel offset of the last-rendered image vs the current axes, so
     // the compositor can translate the existing texture during a pan instead of

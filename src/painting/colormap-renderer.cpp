@@ -162,6 +162,12 @@ void QCPColormapRenderer::clearContour()
         mRhiLayer->clearContourLines();
 }
 
+void QCPColormapRenderer::clearRhiContent()
+{
+    if (mRhiLayer)
+        mRhiLayer->clear();
+}
+
 QCPColormapRhiLayer* QCPColormapRenderer::ensureRhiLayer()
 {
     QCustomPlot* plot = mOwner->parentPlot();
