@@ -131,6 +131,18 @@ void QCPColorMap2::setDataSource(std::unique_ptr<QCPAbstractDataSource2D> source
 void QCPColorMap2::setDataSource(std::shared_ptr<QCPAbstractDataSource2D> source)
 {
     mDataSource = std::move(source);
+    // onViewportChanged() early-returns while mDataSource is null, so it never
+    // updates the pipeline's cached viewport (mLastViewport) for any axis
+    // change that happens before the first data arrives -- normal for a slow
+    // producer (e.g. a remote channel with multi-second round trips), where
+    // several pans can elapse with no data source yet. mPipeline.setSource()
+    // below resamples against THAT stale (possibly still zero-initialized:
+    // plotWidthPx=plotHeightPx=0) viewport, not the axes' actual current
+    // state -- producing a degenerate ~1px resample (or nullptr, when the
+    // zero-width default key/value range no longer intersects the data) that
+    // nothing ever corrects once the user stops panning. Establish a real,
+    // current viewport here, before the pipeline ever resamples this source.
+    onViewportChanged();
     mPipeline.setSource(mDataSource);
 }
 

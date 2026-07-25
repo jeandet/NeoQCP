@@ -33,6 +33,9 @@ private slots:
     // QCPColorMap2 pipeline integration
     void colormap2PipelineDefault();
     void colormap2PipelineResample();
+    void colormap2FirstDataAfterManyPansWithNoSourceResamplesCorrectly();
+    void colormap2DescendingYAxisResamplesNonEmpty();
+    void colormap2DescendingYAxisLogScaleResamplesNonEmpty();
 
     // End-to-end
     void graph2DataFromExternalThread();

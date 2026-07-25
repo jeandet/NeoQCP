@@ -176,15 +176,27 @@ void resampleRange(
             }
             else if (yLogScale && yVal > 0)
             {
+                // Boundaries are the geometric means with each neighbour; assign
+                // the smaller to yLo and the larger to yHi so a descending y
+                // (e.g. a spectrogram frequency axis stored top-of-band-first)
+                // doesn't invert the range. yAxis (the output grid) is always
+                // ascending, so an inverted [yLo, yHi] yields lo > hi below and
+                // the accumulation loop skips every cell -> empty colormap.
                 double prev = (yj > 0) ? acc.yAt(col, yj - 1) : 0;
                 double next = (yj < ys - 1) ? acc.yAt(col, yj + 1) : 0;
-                yLo = (yj > 0 && prev > 0) ? std::sqrt(prev * yVal) : yVal;
-                yHi = (yj < ys - 1 && next > 0) ? std::sqrt(yVal * next) : yVal;
+                double gmPrev = (yj > 0 && prev > 0) ? std::sqrt(prev * yVal) : yVal;
+                double gmNext = (yj < ys - 1 && next > 0) ? std::sqrt(yVal * next) : yVal;
+                yLo = std::min(gmPrev, gmNext);
+                yHi = std::max(gmPrev, gmNext);
             }
             else
             {
-                double halfBelow = (yj > 0) ? (yVal - acc.yAt(col, yj - 1)) * 0.5 : 0;
-                double halfAbove = (yj < ys - 1) ? (acc.yAt(col, yj + 1) - yVal) * 0.5 : 0;
+                // std::abs so a descending y stays a positive half-spacing:
+                // without it both halves go negative for a top-of-band-first
+                // frequency axis, yLo > yHi, and the target-bin range inverts
+                // (ranges.lo > ranges.hi) so nothing is rasterized.
+                double halfBelow = (yj > 0) ? std::abs(yVal - acc.yAt(col, yj - 1)) * 0.5 : 0;
+                double halfAbove = (yj < ys - 1) ? std::abs(acc.yAt(col, yj + 1) - yVal) * 0.5 : 0;
                 if (yj == 0) halfBelow = halfAbove;
                 if (yj == ys - 1) halfAbove = halfBelow;
                 double halfSpacing = std::min(halfBelow, halfAbove);

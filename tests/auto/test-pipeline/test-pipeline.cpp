@@ -461,6 +461,141 @@ void TestPipeline::colormap2PipelineResample()
     mPlot->replot(QCustomPlot::rpImmediateRefresh);
 }
 
+void TestPipeline::colormap2FirstDataAfterManyPansWithNoSourceResamplesCorrectly()
+{
+    // Reproducer for a slow out-of-process producer (e.g. a remote channel
+    // with multi-second round trips): many axis pans can elapse before the
+    // very first data ever arrives. QCPColorMap2::onViewportChanged()
+    // early-returns while mDataSource is null, so none of those pans ever
+    // update the pipeline's cached viewport (mLastViewport) -- it stays at
+    // its zero-initialized default (plotWidthPx = plotHeightPx = 0). When
+    // setDataSource() finally installs the first real data, the pipeline's
+    // setSource()-triggered resample used to run against that stale
+    // zero-sized viewport instead of the axes' real, current state --
+    // producing a degenerate ~1px resample (or nullptr, once the zero-width
+    // default key/value range no longer intersects the data) that nothing
+    // ever corrected once the user stopped panning.
+    if (!showAndHasRhi(mPlot)) QSKIP("No QRhi available — pipeline needs viewport from draw()");
+
+    auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+
+    // Many pans with NO data source yet -- each is a wasted onViewportChanged().
+    for (int i = 0; i < 8; ++i)
+    {
+        mPlot->xAxis->setRange(i * 10.0, i * 10.0 + 5.0);
+        QCoreApplication::processEvents();
+    }
+
+    // Settle on the final, real window -- matching the data about to arrive.
+    mPlot->xAxis->setRange(70.0, 75.0);
+    mPlot->yAxis->setRange(0.0, 1.0);
+    QCoreApplication::processEvents();
+
+    // First-ever data, now that the axes are settled far from their
+    // construction-time default.
+    std::vector<double> x = {70.0, 71.0, 72.0, 73.0, 74.0, 75.0};
+    std::vector<double> y = {0.0, 1.0};
+    std::vector<double> z(12, 1.0);
+    cm->setData(std::move(x), std::move(y), std::move(z));
+
+    QSignalSpy spy(&cm->pipeline(), &QCPColormapPipeline::finished);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 2000);
+
+    auto* result = cm->pipeline().result();
+    QVERIFY2(result != nullptr,
+             "first data after many pre-data pans must still resample, not silently stay null");
+    QVERIFY2(result->keySize() > 1,
+             "resample must use the axes' real current width, not a degenerate ~1px fallback");
+    QVERIFY2(result->valueSize() > 1,
+             "resample must use the axes' real current height, not a degenerate ~1px fallback");
+}
+
+void TestPipeline::colormap2DescendingYAxisResamplesNonEmpty()
+{
+    // Reproducer for e-Callisto (and any spectrogram whose frequency axis is
+    // stored top-of-band-first): the source y is DESCENDING, e.g.
+    // {116.75 .. 45}. The resampler's per-cell y-extent used to be computed
+    // as halfBelow = (y[j]-y[j-1])*0.5 / halfAbove = (y[j+1]-y[j])*0.5,
+    // silently assuming y is ascending. For a descending y both go negative,
+    // so yLo > yHi, every target-bin range comes out inverted
+    // (ranges.lo > ranges.hi), and the accumulation loop
+    // `for (yb = lo; yb <= hi; ++yb)` never runs -- zero cells accumulate and
+    // the whole colormap resamples to all-NaN (empty), with the odd single-bin
+    // sliver where rounding collapses lo == hi. That is the "thin bars, ~0px,
+    // don't always show" symptom.
+    if (!showAndHasRhi(mPlot)) QSKIP("No QRhi available — pipeline needs viewport from draw()");
+
+    auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+    mPlot->xAxis->setRange(0.0, 5.0);
+    mPlot->yAxis->setRange(1.0, 5.0);
+    QCoreApplication::processEvents();
+
+    // 6 time samples x 5 DESCENDING frequency channels, all-finite z.
+    std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector<double> y = {5.0, 4.0, 3.0, 2.0, 1.0};
+    std::vector<double> z(x.size() * y.size(), 1.0);
+    cm->setData(std::move(x), std::move(y), std::move(z));
+
+    QSignalSpy spy(&cm->pipeline(), &QCPColormapPipeline::finished);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 2000);
+
+    auto* result = cm->pipeline().result();
+    QVERIFY2(result != nullptr, "descending-y colormap must still produce a resample result");
+
+    int finite = 0;
+    for (int i = 0; i < result->keySize(); ++i)
+        for (int j = 0; j < result->valueSize(); ++j)
+            if (!std::isnan(result->cell(i, j)))
+                ++finite;
+
+    QVERIFY2(finite > 0,
+             "descending-y source must accumulate cells: an all-NaN grid means the "
+             "y-bin ranges came out inverted and nothing was rasterized (empty colormap)");
+    // Every cell is fed z == 1.0, so a correct rasterization fills the whole
+    // data extent, not just a stray sliver.
+    QVERIFY2(finite >= result->keySize(),
+             "a fully-populated descending-y spectrogram must fill more than a single sliver");
+}
+
+void TestPipeline::colormap2DescendingYAxisLogScaleResamplesNonEmpty()
+{
+    // Same descending-y bug as above but through the log-scale branch of
+    // computeYBinRanges (a log frequency axis is the common way to view a
+    // spectrogram). There the boundaries were yLo = sqrt(prev*yVal),
+    // yHi = sqrt(yVal*next) -- for a descending y, prev > yVal > next, so
+    // yLo > yHi and the range inverts the same way. Fixed by taking
+    // min/max of the two geometric means.
+    if (!showAndHasRhi(mPlot)) QSKIP("No QRhi available — pipeline needs viewport from draw()");
+
+    auto* cm = new QCPColorMap2(mPlot->xAxis, mPlot->yAxis);
+    mPlot->yAxis->setScaleType(QCPAxis::stLogarithmic);
+    mPlot->xAxis->setRange(0.0, 5.0);
+    mPlot->yAxis->setRange(1.0, 5.0);
+    QCoreApplication::processEvents();
+
+    std::vector<double> x = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector<double> y = {5.0, 4.0, 3.0, 2.0, 1.0};
+    std::vector<double> z(x.size() * y.size(), 1.0);
+    cm->setData(std::move(x), std::move(y), std::move(z));
+
+    QSignalSpy spy(&cm->pipeline(), &QCPColormapPipeline::finished);
+    QTRY_VERIFY_WITH_TIMEOUT(spy.count() >= 1, 2000);
+
+    auto* result = cm->pipeline().result();
+    QVERIFY2(result != nullptr, "descending-y log-scale colormap must still produce a result");
+
+    int finite = 0;
+    for (int i = 0; i < result->keySize(); ++i)
+        for (int j = 0; j < result->valueSize(); ++j)
+            if (!std::isnan(result->cell(i, j)))
+                ++finite;
+
+    mPlot->yAxis->setScaleType(QCPAxis::stLinear);
+
+    QVERIFY2(finite > 0,
+             "descending-y source on a log value axis must still accumulate cells");
+}
+
 void TestPipeline::graph2DataFromExternalThread()
 {
     auto* graph = new QCPGraph2(mPlot->xAxis, mPlot->yAxis);
