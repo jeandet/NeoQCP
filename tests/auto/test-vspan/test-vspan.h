@@ -22,6 +22,7 @@ private slots:
     void dirtyTrackingReplots();
     void multiAxisRectSpans();
     void spanRhiLayerNullWithoutRhi();
+    void edgesHonourTheirPositionType();
 
 private:
     QCustomPlot* mPlot = nullptr;

@@ -242,8 +242,17 @@ void QCPSpanRhiLayer::appendVSpanGeometry(QCPItemVSpan* vspan, QCPAxisRect* ar)
 
     // Convert data coords to pixels on the CPU in double precision to avoid
     // float32 catastrophic cancellation with large values (e.g. Unix timestamps).
-    float pixX0 = float(keyAxis->coordToPixel(vspan->lowerEdge->coords().x()));
-    float pixX1 = float(keyAxis->coordToPixel(vspan->upperEdge->coords().x()));
+    // Non-plot-coords edges (absolute / axis-rect pixels) carry no data value to
+    // convert, so they resolve through the position itself; plot coords keep going
+    // through this axis rect's own key axis, per the note above.
+    const auto edgePixel = [keyAxis](const QCPItemPosition* edge)
+    {
+        return edge->typeX() == QCPItemPosition::ptPlotCoords
+            ? keyAxis->coordToPixel(edge->coords().x())
+            : edge->pixelPosition().x();
+    };
+    float pixX0 = float(edgePixel(vspan->lowerEdge));
+    float pixX1 = float(edgePixel(vspan->upperEdge));
     float pixTop = float(ar->top());
     float pixBot = float(ar->top() + ar->height());
 

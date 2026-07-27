@@ -345,7 +345,9 @@ void QCPItemPosition::setTypeX(QCPItemPosition::PositionType type)
         bool retainPixelPosition = true;
         if ((mPositionTypeX == ptPlotCoords || type == ptPlotCoords) && (!mKeyAxis || !mValueAxis))
             retainPixelPosition = false;
-        if ((mPositionTypeX == ptAxisRectRatio || type == ptAxisRectRatio) && (!mAxisRect))
+        if ((mPositionTypeX == ptAxisRectRatio || type == ptAxisRectRatio
+             || mPositionTypeX == ptAxisRectAbsolute || type == ptAxisRectAbsolute)
+            && (!mAxisRect))
             retainPixelPosition = false;
 
         QPointF pixel;
@@ -376,7 +378,9 @@ void QCPItemPosition::setTypeY(QCPItemPosition::PositionType type)
         bool retainPixelPosition = true;
         if ((mPositionTypeY == ptPlotCoords || type == ptPlotCoords) && (!mKeyAxis || !mValueAxis))
             retainPixelPosition = false;
-        if ((mPositionTypeY == ptAxisRectRatio || type == ptAxisRectRatio) && (!mAxisRect))
+        if ((mPositionTypeY == ptAxisRectRatio || type == ptAxisRectRatio
+             || mPositionTypeY == ptAxisRectAbsolute || type == ptAxisRectAbsolute)
+            && (!mAxisRect))
             retainPixelPosition = false;
 
         QPointF pixel;
@@ -634,6 +638,22 @@ QPointF QCPItemPosition::pixelPosition() const
                          << "Item position type x is ptAxisRectRatio, but no axis rect was defined";
             break;
         }
+        case ptAxisRectAbsolute:
+        {
+            if (mAxisRect)
+            {
+                result.rx() = mKey;
+                if (mParentAnchorX)
+                    result.rx() += mParentAnchorX->pixelPosition().x();
+                else
+                    result.rx() += mAxisRect.data()->left();
+            }
+            else
+                qDebug()
+                    << Q_FUNC_INFO
+                    << "Item position type x is ptAxisRectAbsolute, but no axis rect was defined";
+            break;
+        }
         case ptPlotCoords:
         {
             if (mKeyAxis && mKeyAxis.data()->orientation() == Qt::Horizontal)
@@ -681,6 +701,22 @@ QPointF QCPItemPosition::pixelPosition() const
                          << "Item position type y is ptAxisRectRatio, but no axis rect was defined";
             break;
         }
+        case ptAxisRectAbsolute:
+        {
+            if (mAxisRect)
+            {
+                result.ry() = mValue;
+                if (mParentAnchorY)
+                    result.ry() += mParentAnchorY->pixelPosition().y();
+                else
+                    result.ry() += mAxisRect.data()->top();
+            }
+            else
+                qDebug()
+                    << Q_FUNC_INFO
+                    << "Item position type y is ptAxisRectAbsolute, but no axis rect was defined";
+            break;
+        }
         case ptPlotCoords:
         {
             if (mKeyAxis && mKeyAxis.data()->orientation() == Qt::Vertical)
@@ -715,9 +751,9 @@ void QCPItemPosition::setAxes(QCPAxis* keyAxis, QCPAxis* valueAxis)
 }
 
 /*!
-  When \ref setType is \ref ptAxisRectRatio, this function may be used to specify the axis rect the
-  coordinates set with \ref setCoords relate to. By default this is set to the main axis rect of
-  the QCustomPlot.
+  When \ref setType is \ref ptAxisRectRatio or \ref ptAxisRectAbsolute, this function may be used
+  to specify the axis rect the coordinates set with \ref setCoords relate to. By default this is
+  set to the main axis rect of the QCustomPlot.
 */
 void QCPItemPosition::setAxisRect(QCPAxisRect* axisRect)
 {
@@ -771,6 +807,21 @@ void QCPItemPosition::setPixelPosition(const QPointF& pixelPosition)
                          << "Item position type x is ptAxisRectRatio, but no axis rect was defined";
             break;
         }
+        case ptAxisRectAbsolute:
+        {
+            if (mAxisRect)
+            {
+                if (mParentAnchorX)
+                    x -= mParentAnchorX->pixelPosition().x();
+                else
+                    x -= mAxisRect.data()->left();
+            }
+            else
+                qDebug()
+                    << Q_FUNC_INFO
+                    << "Item position type x is ptAxisRectAbsolute, but no axis rect was defined";
+            break;
+        }
         case ptPlotCoords:
         {
             if (mKeyAxis && mKeyAxis.data()->orientation() == Qt::Horizontal)
@@ -814,6 +865,21 @@ void QCPItemPosition::setPixelPosition(const QPointF& pixelPosition)
             else
                 qDebug() << Q_FUNC_INFO
                          << "Item position type y is ptAxisRectRatio, but no axis rect was defined";
+            break;
+        }
+        case ptAxisRectAbsolute:
+        {
+            if (mAxisRect)
+            {
+                if (mParentAnchorY)
+                    y -= mParentAnchorY->pixelPosition().y();
+                else
+                    y -= mAxisRect.data()->top();
+            }
+            else
+                qDebug()
+                    << Q_FUNC_INFO
+                    << "Item position type y is ptAxisRectAbsolute, but no axis rect was defined";
             break;
         }
         case ptPlotCoords:

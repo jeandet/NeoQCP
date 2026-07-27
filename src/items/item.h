@@ -110,6 +110,12 @@ public:
         ,
         ptPlotCoords ///< Dynamic positioning at a plot coordinate defined by two axes (see \ref
                      ///< setAxes).
+        ,
+        ptAxisRectAbsolute ///< Static positioning in pixels, starting from the top left corner of
+                           ///< the axis rect (see \ref setAxisRect). Unlike \ref ptAbsolute, which
+                           ///< is measured from the widget origin and therefore lands inside the
+                           ///< axis/label margins for small coordinates, this keeps the offset
+                           ///< relative to the plotting area and follows it across resizes.
     };
     Q_ENUMS(PositionType)
 

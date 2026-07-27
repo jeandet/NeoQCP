@@ -186,3 +186,23 @@ void TestVSpan::spanRhiLayerNullWithoutRhi()
     // spanRhiLayer() returns nullptr, spans use QPainter fallback
     QVERIFY(mPlot->spanRhiLayer() == nullptr);
 }
+
+void TestVSpan::edgesHonourTheirPositionType()
+{
+    // The edges are QCPItemPositions, so a non-plot-coords type must be honoured
+    // rather than the coords being force-fed to QCPAxis::coordToPixel().
+    mPlot->replot();
+    QCPItemVSpan* span = new QCPItemVSpan(mPlot);
+    span->lowerEdge->setTypeX(QCPItemPosition::ptAxisRectAbsolute);
+    span->upperEdge->setTypeX(QCPItemPosition::ptAxisRectAbsolute);
+    span->setRange(QCPRange(100, 200));
+
+    const QRect axRect = mPlot->axisRect()->rect();
+    const double midY = axRect.center().y();
+
+    QCOMPARE(span->center->pixelPosition().x(), axRect.left() + 150.0);
+    // Inside the span (filled by the default brush).
+    QVERIFY(span->selectTest(QPointF(axRect.left() + 150.0, midY), false) >= 0);
+    // Outside it -- and where a coordToPixel() misreading would have put it.
+    QVERIFY(span->selectTest(QPointF(axRect.left() + 300.0, midY), false) < 0);
+}
