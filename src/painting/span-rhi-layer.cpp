@@ -289,8 +289,15 @@ void QCPSpanRhiLayer::appendHSpanGeometry(QCPItemHSpan* hspan, QCPAxisRect* ar)
     if (!valAxis)
         return;
 
-    float pixY0 = float(valAxis->coordToPixel(hspan->lowerEdge->coords().y()));
-    float pixY1 = float(valAxis->coordToPixel(hspan->upperEdge->coords().y()));
+    // Non-plot-coords edges carry no data value to convert; see appendVSpanGeometry.
+    const auto edgePixel = [valAxis](const QCPItemPosition* edge)
+    {
+        return edge->typeY() == QCPItemPosition::ptPlotCoords
+            ? valAxis->coordToPixel(edge->coords().y())
+            : edge->pixelPosition().y();
+    };
+    float pixY0 = float(edgePixel(hspan->lowerEdge));
+    float pixY1 = float(edgePixel(hspan->upperEdge));
     float pixLeft = float(ar->left());
     float pixRight = float(ar->left() + ar->width());
 
@@ -330,10 +337,23 @@ void QCPSpanRhiLayer::appendRSpanGeometry(QCPItemRSpan* rspan, [[maybe_unused]] 
     if (!keyAxis || !valAxis)
         return;
 
-    float pixLeft = float(keyAxis->coordToPixel(rspan->leftEdge->coords().x()));
-    float pixRight = float(keyAxis->coordToPixel(rspan->rightEdge->coords().x()));
-    float pixTop = float(valAxis->coordToPixel(rspan->topEdge->coords().y()));
-    float pixBot = float(valAxis->coordToPixel(rspan->bottomEdge->coords().y()));
+    // Non-plot-coords edges carry no data value to convert; see appendVSpanGeometry.
+    const auto edgeX = [keyAxis](const QCPItemPosition* edge)
+    {
+        return edge->typeX() == QCPItemPosition::ptPlotCoords
+            ? keyAxis->coordToPixel(edge->coords().x())
+            : edge->pixelPosition().x();
+    };
+    const auto edgeY = [valAxis](const QCPItemPosition* edge)
+    {
+        return edge->typeY() == QCPItemPosition::ptPlotCoords
+            ? valAxis->coordToPixel(edge->coords().y())
+            : edge->pixelPosition().y();
+    };
+    float pixLeft = float(edgeX(rspan->leftEdge));
+    float pixRight = float(edgeX(rspan->rightEdge));
+    float pixTop = float(edgeY(rspan->topEdge));
+    float pixBot = float(edgeY(rspan->bottomEdge));
 
     const QBrush& fillBrush = rspan->selected() ? rspan->selectedBrush() : rspan->brush();
     auto fillColor = qcp::rhi::premultipliedColor(fillBrush.color());

@@ -159,3 +159,21 @@ void TestHSpan::dirtyTrackingReplots()
     mPlot->replot();
     QVERIFY(true);
 }
+
+void TestHSpan::edgesHonourTheirPositionType()
+{
+    // The edges are QCPItemPositions, so a non-plot-coords type must be honoured
+    // rather than the coords being force-fed to QCPAxis::coordToPixel().
+    mPlot->replot();
+    QCPItemHSpan* span = new QCPItemHSpan(mPlot);
+    span->lowerEdge->setTypeY(QCPItemPosition::ptAxisRectAbsolute);
+    span->upperEdge->setTypeY(QCPItemPosition::ptAxisRectAbsolute);
+    span->setRange(QCPRange(100, 200));
+
+    const QRect axRect = mPlot->axisRect()->rect();
+    const double midX = axRect.center().x();
+
+    QCOMPARE(span->center->pixelPosition().y(), axRect.top() + 150.0);
+    QVERIFY(span->selectTest(QPointF(midX, axRect.top() + 150.0), false) >= 0);
+    QVERIFY(span->selectTest(QPointF(midX, axRect.top() + 300.0), false) < 0);
+}

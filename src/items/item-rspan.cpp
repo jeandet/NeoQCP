@@ -84,10 +84,13 @@ double QCPItemRSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
     if (!keyAxis || !valAxis)
         return -1;
 
-    const double leftPx = keyAxis->coordToPixel(leftEdge->coords().x());
-    const double rightPx = keyAxis->coordToPixel(rightEdge->coords().x());
-    const double topPx = valAxis->coordToPixel(topEdge->coords().y());
-    const double bottomPx = valAxis->coordToPixel(bottomEdge->coords().y());
+    // Resolve through the positions so their type (plot coords, absolute pixels,
+    // axis-rect pixels, ...) is honoured; coordToPixel() would reinterpret
+    // already-pixel coords as data values.
+    const double leftPx = leftEdge->pixelPosition().x();
+    const double rightPx = rightEdge->pixelPosition().x();
+    const double topPx = topEdge->pixelPosition().y();
+    const double bottomPx = bottomEdge->pixelPosition().y();
 
     const double pxLeft = qMin(leftPx, rightPx);
     const double pxRight = qMax(leftPx, rightPx);
@@ -153,10 +156,10 @@ void QCPItemRSpan::draw(QCPPainter* painter)
     if (!keyAxis || !valAxis)
         return;
 
-    const double leftPx = keyAxis->coordToPixel(leftEdge->coords().x());
-    const double rightPx = keyAxis->coordToPixel(rightEdge->coords().x());
-    const double topPx = valAxis->coordToPixel(topEdge->coords().y());
-    const double bottomPx = valAxis->coordToPixel(bottomEdge->coords().y());
+    const double leftPx = leftEdge->pixelPosition().x();
+    const double rightPx = rightEdge->pixelPosition().x();
+    const double topPx = topEdge->pixelPosition().y();
+    const double bottomPx = bottomEdge->pixelPosition().y();
 
     const double pxLeft = qMin(leftPx, rightPx);
     const double pxRight = qMax(leftPx, rightPx);
@@ -187,10 +190,10 @@ QPointF QCPItemRSpan::anchorPixelPosition(int anchorId) const
     if (!keyAxis || !valAxis)
         return {};
 
-    const double leftPx = keyAxis->coordToPixel(leftEdge->coords().x());
-    const double rightPx = keyAxis->coordToPixel(rightEdge->coords().x());
-    const double topPx = valAxis->coordToPixel(topEdge->coords().y());
-    const double bottomPx = valAxis->coordToPixel(bottomEdge->coords().y());
+    const double leftPx = leftEdge->pixelPosition().x();
+    const double rightPx = rightEdge->pixelPosition().x();
+    const double topPx = topEdge->pixelPosition().y();
+    const double bottomPx = bottomEdge->pixelPosition().y();
 
     switch (anchorId)
     {

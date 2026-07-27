@@ -152,3 +152,24 @@ void TestRSpan::drawOnLogAxis()
     mPlot->replot();
     QVERIFY(true);
 }
+
+void TestRSpan::edgesHonourTheirPositionType()
+{
+    // The edges are QCPItemPositions, so a non-plot-coords type must be honoured
+    // rather than the coords being force-fed to QCPAxis::coordToPixel().
+    mPlot->replot();
+    QCPItemRSpan* span = new QCPItemRSpan(mPlot);
+    span->leftEdge->setTypeX(QCPItemPosition::ptAxisRectAbsolute);
+    span->rightEdge->setTypeX(QCPItemPosition::ptAxisRectAbsolute);
+    span->topEdge->setTypeY(QCPItemPosition::ptAxisRectAbsolute);
+    span->bottomEdge->setTypeY(QCPItemPosition::ptAxisRectAbsolute);
+    span->setKeyRange(QCPRange(100, 200));
+    span->setValueRange(QCPRange(50, 150));
+
+    const QRect axRect = mPlot->axisRect()->rect();
+
+    QCOMPARE(span->center->pixelPosition().x(), axRect.left() + 150.0);
+    QCOMPARE(span->center->pixelPosition().y(), axRect.top() + 100.0);
+    QVERIFY(span->selectTest(QPointF(axRect.left() + 150.0, axRect.top() + 100.0), false) >= 0);
+    QVERIFY(span->selectTest(QPointF(axRect.left() + 400.0, axRect.top() + 100.0), false) < 0);
+}

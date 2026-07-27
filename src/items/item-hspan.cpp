@@ -52,12 +52,11 @@ double QCPItemHSpan::selectTest(const QPointF& pos, bool onlySelectable, QVarian
     if (onlySelectable && !mSelectable)
         return -1;
 
-    auto* valAxis = lowerEdge->valueAxis();
-    if (!valAxis)
-        return -1;
-
-    const double lowerPx = valAxis->coordToPixel(lowerEdge->coords().y());
-    const double upperPx = valAxis->coordToPixel(upperEdge->coords().y());
+    // Resolve through the positions so their type (plot coords, absolute pixels,
+    // axis-rect pixels, ...) is honoured; coordToPixel() would reinterpret
+    // already-pixel coords as data values.
+    const double lowerPx = lowerEdge->pixelPosition().y();
+    const double upperPx = upperEdge->pixelPosition().y();
     const QRectF axisRect = clipRect();
     const double top = qMin(lowerPx, upperPx);
     const double bottom = qMax(lowerPx, upperPx);
@@ -97,12 +96,8 @@ void QCPItemHSpan::draw(QCPPainter* painter)
     if (tryRhiDraw(painter))
         return;
 
-    auto* valAxis = lowerEdge->valueAxis();
-    if (!valAxis)
-        return;
-
-    const double lowerPx = valAxis->coordToPixel(lowerEdge->coords().y());
-    const double upperPx = valAxis->coordToPixel(upperEdge->coords().y());
+    const double lowerPx = lowerEdge->pixelPosition().y();
+    const double upperPx = upperEdge->pixelPosition().y();
     const QRectF axRect = clipRect();
 
     const double top = qMin(lowerPx, upperPx);
@@ -125,11 +120,8 @@ QPointF QCPItemHSpan::anchorPixelPosition(int anchorId) const
 {
     if (anchorId == aiCenter)
     {
-        auto* valAxis = lowerEdge->valueAxis();
-        if (!valAxis)
-            return {};
-        const double midY = (valAxis->coordToPixel(lowerEdge->coords().y())
-                             + valAxis->coordToPixel(upperEdge->coords().y())) * 0.5;
+        const double midY
+            = (lowerEdge->pixelPosition().y() + upperEdge->pixelPosition().y()) * 0.5;
         const QRectF axRect = clipRect();
         return QPointF((axRect.left() + axRect.right()) * 0.5, midY);
     }

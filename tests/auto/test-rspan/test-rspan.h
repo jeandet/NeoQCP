@@ -16,6 +16,7 @@ private slots:
     void exportFallbackRendersSpan();
     void dirtyTrackingReplots();
     void drawOnLogAxis();
+    void edgesHonourTheirPositionType();
 
 private:
     QCustomPlot* mPlot = nullptr;
