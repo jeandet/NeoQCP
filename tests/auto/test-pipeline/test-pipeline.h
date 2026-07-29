@@ -118,6 +118,10 @@ private slots:
     void layerTranslationClippedToAxisRect();
     void bufferedMainLayerRendersSameAsLogical();
     void existingGraph2TranslationUnaffected();
+    void hiddenElementDoesNotBlockTranslation();
+    void visibleElementStillBlocksTranslation();
+    void colormapQuadOffsetTranslatesRect();
+    void colormapQuadFollowsPanWhileTranslating();
 
     // GPU translation offset
     void viewportOffsetLinearHorizontal();

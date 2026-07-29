@@ -382,6 +382,12 @@ bool QCPLayer::canTranslateInsteadOfRepaint() const
 
     for (auto* child : mChildren)
     {
+        // Invisible children paint nothing, so they cannot be lost by the
+        // translate-and-scissor path — same rule QCPLayer::draw() applies.
+        // Every plot carries a hidden QCPColorScale until a colormap needs it;
+        // without this, that alone vetoed the fast pan path for every graph.
+        if (!child->realVisibility())
+            continue;
         if (qobject_cast<QCPAbstractItem*>(child))
             return false;
         // QCPLayout subclasses (QCPLayoutGrid, QCPLayoutInset) are pure containers

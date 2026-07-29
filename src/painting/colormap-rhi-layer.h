@@ -18,6 +18,20 @@ public:
 
     void setImage(const QImage& image);
     void setQuadRect(const QRectF& pixelRect);
+    [[nodiscard]] QRectF quadRect() const { return mQuadPixelRect; }
+
+    // Pan compensation. On frames where this layer skips its repaint (the
+    // translate fast path), QCPColorMap2::draw() never runs, so setQuadRect() is
+    // never called and mQuadPixelRect still holds the PREVIOUS range's pixel
+    // rect. The compositor shifts the quad by this offset instead — the colormap
+    // counterpart of QCPPlottableRhiLayer/QCPScatterRhiLayer::setAllOffsets().
+    // Without it the image stays put while the axes move.
+    void setPixelOffset(float offsetX, float offsetY);
+    [[nodiscard]] QPointF pixelOffset() const { return { mOffsetX, mOffsetY }; }
+    [[nodiscard]] QRectF effectiveQuadRect() const
+    {
+        return mQuadPixelRect.translated(mOffsetX, mOffsetY);
+    }
     void setScissorRect(const QRect& scissor);
     void setLayer(QCPLayer* layer) { mLayer = layer; }
     QCPLayer* layer() const { return mLayer; }
@@ -55,6 +69,8 @@ private:
     // CPU staging — colormap
     QImage mStagingImage;
     QRectF mQuadPixelRect;
+    float mOffsetX = 0;
+    float mOffsetY = 0;
     QRect mScissorRect;
     bool mTextureDirty = false;
     bool mGeometryDirty = false;

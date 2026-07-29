@@ -2186,6 +2186,27 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
             it.value()->clear();
         }
     }
+    // Colormap quads are positioned in pixel coordinates by QCPColorMap2::draw().
+    // When the layer skips its repaint, draw() never runs, so the quad must be
+    // shifted by the same offset the compositor applies to the layer texture —
+    // otherwise the image stays at the previous range's position while the axes,
+    // grid and line graphs move (colormaps visibly lagging behind on a pan).
+    for (auto* crl : mColormapRhiLayers)
+    {
+        QCPLayer* layer = crl->layer();
+        if (!layer)
+            continue;
+        if (layer->canSkipRepaintForTranslation())
+        {
+            const QPointF offset = layer->pixelOffset();
+            crl->setPixelOffset(static_cast<float>(offset.x()),
+                                static_cast<float>(offset.y()));
+        }
+        else
+        {
+            crl->setPixelOffset(0.0f, 0.0f);
+        }
+    }
     for (auto& layer : mLayers)
     {
         if (QSharedPointer<QCPAbstractPaintBuffer> pb = layer->mPaintBuffer.toStrongRef();

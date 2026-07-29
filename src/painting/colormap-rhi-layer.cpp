@@ -76,6 +76,16 @@ void QCPColormapRhiLayer::setQuadRect(const QRectF& pixelRect)
     mContourUboDirty = true;
 }
 
+void QCPColormapRhiLayer::setPixelOffset(float offsetX, float offsetY)
+{
+    if (mOffsetX == offsetX && mOffsetY == offsetY)
+        return;
+    mOffsetX = offsetX;
+    mOffsetY = offsetY;
+    mGeometryDirty = true;
+    mContourUboDirty = true;
+}
+
 void QCPColormapRhiLayer::setScissorRect(const QRect& scissor)
 {
     mScissorRect = scissor;
@@ -265,8 +275,9 @@ void QCPColormapRhiLayer::updateQuadGeometry(QRhiResourceUpdateBatch* updates,
                 yFlip * ((py * dpr / h) * 2.0f - 1.0f)};
     };
 
-    auto [x0, y0] = toNDC(mQuadPixelRect.left(), mQuadPixelRect.top());
-    auto [x1, y1] = toNDC(mQuadPixelRect.right(), mQuadPixelRect.bottom());
+    const QRectF quad = effectiveQuadRect();
+    auto [x0, y0] = toNDC(quad.left(), quad.top());
+    auto [x1, y1] = toNDC(quad.right(), quad.bottom());
 
     // Store NDC bounds for contour line UBO
     mNdcX0 = x0; mNdcY0 = y0;
