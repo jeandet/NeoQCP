@@ -370,6 +370,64 @@ void TestMultiGraph::legendHeaderShowsNameWhileEmpty()
     QCOMPARE(item->headerName(), QStringLiteral("b_gse"));
 }
 
+// Width the collapsed row needs left of its text, mirroring the layout in
+// QCPGroupLegendItem::draw(): the component-icon column and the gap after it.
+static int collapsedChromeWidth(const QCPAbstractLegendItem* item)
+{
+    constexpr int iconWidth = 20;
+    constexpr int iconTextGap = 6;
+    return item->margins().left() + item->margins().right() + iconWidth + iconTextGap;
+}
+
+void TestMultiGraph::legendCollapsedFitsExpanderMarker()
+{
+    // The collapsed row is drawn as "<marker> <name>", so the size hint must
+    // reserve room for the marker too. It didn't, and QCPGroupLegendItem::draw
+    // clips (it does not elide): a group named "H_hi" rendered as "▸ H_".
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    mg->setData(std::vector<double> { 1.0, 2.0 },
+                std::vector<std::vector<double>> { { 10.0, 20.0 } });
+    mg->setName("H_hi");
+    mg->addToLegend();
+    auto* item = qobject_cast<QCPGroupLegendItem*>(mPlot->legend->item(0));
+    QVERIFY(item);
+    QVERIFY(!item->expanded());
+
+    const QFontMetrics fm(mPlot->legend->font());
+    const int needed = collapsedChromeWidth(item)
+        + fm.horizontalAdvance(QString::fromUtf8("▸ H_hi"));
+    QVERIFY2(item->minimumOuterSizeHint().width() >= needed,
+             qPrintable(QStringLiteral("collapsed hint %1 < needed %2")
+                            .arg(item->minimumOuterSizeHint().width())
+                            .arg(needed)));
+}
+
+void TestMultiGraph::legendCollapsedFitsBusyIndicator()
+{
+    // Same row also carries the busy symbol while fetching, which is the only
+    // activity cue a graph has before its first data arrives — it must not be
+    // pushed out of the drawn text rect by the marker.
+    auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);
+    mg->setName("b_gse");
+    mg->setBusyShowDelayMs(10);
+    mg->addToLegend();
+    mg->setBusy(true);
+    QTest::qWait(50);
+    QVERIFY(mg->visuallyBusy());
+
+    auto* item = qobject_cast<QCPGroupLegendItem*>(mPlot->legend->item(0));
+    QVERIFY(item);
+
+    const QFontMetrics fm(mPlot->legend->font());
+    const QString drawn = QString::fromUtf8("▸ ") + mg->effectiveBusyIndicatorSymbol()
+        + QStringLiteral(" b_gse");
+    const int needed = collapsedChromeWidth(item) + fm.horizontalAdvance(drawn);
+    QVERIFY2(item->minimumOuterSizeHint().width() >= needed,
+             qPrintable(QStringLiteral("collapsed busy hint %1 < needed %2")
+                            .arg(item->minimumOuterSizeHint().width())
+                            .arg(needed)));
+}
+
 void TestMultiGraph::removeFromLegendWorks()
 {
     auto* mg = new QCPMultiGraph(mPlot->xAxis, mPlot->yAxis);

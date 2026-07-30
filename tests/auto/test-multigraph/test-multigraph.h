@@ -43,6 +43,8 @@ private slots:
     void legendGroupSelectsAll();
     void legendHeaderDoesNotLeakClassNameWhenEmpty();
     void legendHeaderShowsNameWhileEmpty();
+    void legendCollapsedFitsExpanderMarker();
+    void legendCollapsedFitsBusyIndicator();
 
     // Line cache
     void cacheExtendsBeyondVisibleRange();

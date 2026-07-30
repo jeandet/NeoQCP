@@ -21,6 +21,11 @@ public:
     // The title shown for the group (collapsed header / expanded header row).
     QString headerName() const;
 
+    // Full text of the header row: expander marker, optional busy symbol, then
+    // headerName(). draw() and minimumOuterSizeHint() must build it the same
+    // way or the row is laid out too narrow and drawText clips it.
+    QString headerRowText(bool includeBusySymbol) const;
+
 signals:
     void componentClicked(int componentIndex);
 

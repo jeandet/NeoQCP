@@ -37,6 +37,19 @@ QString QCPGroupLegendItem::headerName() const
     return first + QString::fromUtf8(" \u2026 ") + mMultiGraph->component(n - 1).name;
 }
 
+QString QCPGroupLegendItem::headerRowText(bool includeBusySymbol) const
+{
+    // ▾ when expanded (collapse toward the edge), ▸ when collapsed.
+    QString text = QString::fromUtf8(mExpanded ? "▾ " : "▸ ");
+    if (includeBusySymbol && mMultiGraph && mMultiGraph->visuallyBusy())
+    {
+        const QString symbol = mMultiGraph->effectiveBusyIndicatorSymbol();
+        if (!symbol.isEmpty())
+            text += symbol + QStringLiteral(" ");
+    }
+    return text + headerName();
+}
+
 double QCPGroupLegendItem::selectTest(const QPointF& pos, bool onlySelectable, QVariant* details) const
 {
     if (!mParentPlot || !mSelectable || !mParentLegend->selectableParts().testFlag(QCPLegend::spItems))
@@ -132,28 +145,12 @@ void QCPGroupLegendItem::draw(QCPPainter* painter)
         painter->setPen(QPen(textColor));
         QRectF textRect(inRect.left() + padding + iconWidth + 6, inRect.top(),
                         inRect.width() - padding - iconWidth - 6, rh);
-        QString collapsedText = QString::fromUtf8("\u25B8 ");
-        if (showBusy)
-        {
-            const QString prefix = mMultiGraph->effectiveBusyIndicatorSymbol();
-            if (!prefix.isEmpty())
-                collapsedText += prefix + QStringLiteral(" ");
-        }
-        collapsedText += headerName();
-        painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, collapsedText);
+        painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, headerRowText(showBusy));
     } else {
         painter->setPen(QPen(textColor));
         QRectF headerRect(inRect.left() + padding, inRect.top(),
                           inRect.width() - padding, rh);
-        QString headerText = QString::fromUtf8("\u25BE ");
-        if (showBusy)
-        {
-            const QString prefix = mMultiGraph->effectiveBusyIndicatorSymbol();
-            if (!prefix.isEmpty())
-                headerText += prefix + QStringLiteral(" ");
-        }
-        headerText += headerName();
-        painter->drawText(headerRect, Qt::AlignLeft | Qt::AlignVCenter, headerText);
+        painter->drawText(headerRect, Qt::AlignLeft | Qt::AlignVCenter, headerRowText(showBusy));
 
         for (int i = 0; i < mMultiGraph->componentCount(); ++i) {
             const auto& comp = mMultiGraph->component(i);
@@ -202,18 +199,13 @@ QSize QCPGroupLegendItem::minimumOuterSizeHint() const
     int iconWidth = 20;
     int indent = 16;
 
-    auto busyPrefix = [&]() -> QString {
-        if (!mMultiGraph->visuallyBusy()) return {};
-        const QString sym = mMultiGraph->effectiveBusyIndicatorSymbol();
-        return sym.isEmpty() ? QString() : sym + QStringLiteral(" ");
-    };
+    const int headerWidth = fm.horizontalAdvance(headerRowText(true));
 
     if (!mExpanded) {
-        QString displayHeader = busyPrefix() + headerName();
-        int textWidth = fm.horizontalAdvance(displayHeader);
-        return QSize(padding + iconWidth + 6 + textWidth, rh + mMargins.top() + mMargins.bottom());
+        return QSize(padding + iconWidth + 6 + headerWidth,
+                     rh + mMargins.top() + mMargins.bottom());
     } else {
-        int maxTextWidth = fm.horizontalAdvance(QString::fromUtf8("\u25BE ") + busyPrefix() + headerName());
+        int maxTextWidth = headerWidth;
         for (int i = 0; i < mMultiGraph->componentCount(); ++i) {
             int w = indent + iconWidth + 6 + fm.horizontalAdvance(mMultiGraph->component(i).name);
             if (w > maxTextWidth) maxTextWidth = w;
